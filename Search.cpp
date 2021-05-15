@@ -26,6 +26,8 @@ bool compareMoves(Move a, Move b) {
 
 
 int nrpos = 0;
+
+// minimax algorithm with alpha-beta pruning
 int Search(int depth, int alpha, int beta) {
     if(depth == 0) {
         nrpos++;
