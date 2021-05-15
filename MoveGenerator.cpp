@@ -2,11 +2,15 @@
 
 using namespace std;
 
+typedef unsigned long long U64;
+
 struct Move {
     int from, to, capture;
     bool ep, castle;
     int prom;
 };
+
+U64 bits[64];
 
 const string startingPos = "rnbqkbnr/ppppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 vector<int> piecesDirs[8];
@@ -45,9 +49,14 @@ string square(int x) {
 }
 
 void Init() {
+    for(int i = 0; i < 64; i++)
+        bits[i] = (1LL << i);
+
     piecesDirs[Bishop] = {NorthEast, NorthWest, SouthEast, SouthWest};
     piecesDirs[Rook] = {East, West, North, South};
     piecesDirs[King] = piecesDirs[Queen] = {NorthEast, NorthWest, SouthEast, SouthWest, East, West, North, South};
+
+
 
     for(int i = 0; i < 64; i++) {
         int File = i%8, Rank = i/8;
@@ -113,6 +122,10 @@ bool isInBoard(int sq, int dir) {
 class Board {
 public:
     int squares[64], turn;
+    U64 pawns, knights, bishops, rooks, queens, kings;
+    U64 blackPieces, whitePieces;
+
+    int whiteKingSquare, blackKingSquare;
     int ep; /// en passant square
     bool castleWK, castleWQ, castleBK, castleBQ; /// castling rights
     /// add pieces array to lookup all the pieces faster
@@ -139,7 +152,24 @@ public:
                 } else {
                     int color = ((symbol >= 'A' && symbol <= 'Z') ? White : Black);
                     int type = pieceSymbols[tolower(symbol)];
-                    this->squares[Rank*8 + File] = color | type;
+
+                    int currBit = bits[Rank*8 + File];
+
+                    if(color == White) this->whitePieces |= currBit;
+                    if(color == Black) this->blackPieces |= currBit;
+
+                    if(type == Pawn) this->pawns |= currBit;
+                    if(type == Knight) this->knights |= currBit;
+                    if(type == Bishop) this->bishops |= currBit;
+                    if(type == Rook) this->rooks |= currBit;
+                    if(type == Queen) this->queens |= currBit;
+                    if(type == King) {
+                        this->kings |= currBit;
+                        if(color == White) this->whiteKingSquare = Rank*8 + File;
+                        if(color == Black) this->blackKingSquare = Rank*8 + File;
+                    }
+
+                    this->squares[Rank*8 + File] = (color | type);
                     File++;
                 }
             }
@@ -166,8 +196,10 @@ public:
         }
     }
 
-    vector<Move> GeneratePseudoLegalMoves(int color) {
-        int otherColor = (color == White ? Black : White);
+    vector<Move> GeneratePseudoLegalMoves() {
+        int color = this->turn;
+        int otherColor = (color ^ (Black | White));
+
         vector<Move> moves;
         for(int i = 0; i < 64; i++) {
             if(this->squares[i] == Empty || this->squares[i] & color == 0) continue;
@@ -266,24 +298,49 @@ public:
         return moves;
     }
 
-    vector<Move> GenerateLegalMoves(int color) {
-        int otherColor = (color == White ? Black : White);
+    bool isInCheck() {
+        int color = this->turn;
+        int otherColor = (color ^ (Black | White));
 
-        int kingSquare, otherKingSquare;
-        for(int i = 0; i < 64; i++) {
-            if(this->squares[i] == (King | color))
-                kingSquare = i;
-            if(this->squares[i] == (King | otherColor))
-                otherKingSquare = i;
+        int kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
+
+        for(auto sq: knightTargetSquares[kingSquare])
+            if(this->squares[sq] == (otherColor | Knight))
+                return true;
+
+        vector<int> pawnDirs;
+        if(color == White) pawnDirs = {NorthWest, NorthEast};
+        if(color == Black) pawnDirs = {SouthWest, SouthEast};
+
+        for(int dir: pawnDirs)
+            if(isInBoard(kingSquare, dir) && this->squares[kingSquare+dir] == (Pawn | otherColor))
+                return true;
+
+        vector<int> slidingPieces = {Bishop, Rook, Queen};
+        for(int piece: slidingPieces) {
+            for(int dir: piecesDirs[piece]) {
+                for(int i = kingSquare; ; i += dir) {
+                    if(this->squares[i] == (otherColor | piece)) return true;
+                    if((i != kingSquare && this->squares[i] != Empty) || !isInBoard(i, dir)) break;
+                }
+            }
         }
 
-        vector<Move> potentialMoves = this->GeneratePseudoLegalMoves(color);
+        return false;
+    }
 
-        /// remove the king before calculating opponent moves in order to find squares behind the king attacked by sliding pieces
+    vector<Move> GenerateLegalMoves() {
+        int color = this->turn;
+        int otherColor = (color ^ (Black | White));
+
+        int kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
+        int otherKingSquare = (otherColor == White ? this->whiteKingSquare : this->blackKingSquare);
+
+        vector<Move> potentialMoves = this->GeneratePseudoLegalMoves();
+
+        /// remove the king before calculating attacked squares by opponent's sliding pieces
         this->squares[kingSquare] = Empty;
-//        vector<Move> opponentMoves = this->GeneratePseudoLegalMoves(otherColor);
 
-        /// squares attacked by opponent's pieces (how many pieces attack each square)
         vector<int> attackedSquares(64, 0), checkingPieces;
 
         ///attacked squares for sliding pieces
@@ -474,10 +531,14 @@ public:
 
         /// remove both castling rights if the king moves
         if(piece == King) {
-            if(color == White)
+            if(color == White) {
                 this->castleWK = this->castleWQ = false;
-            else
+                this->whiteKingSquare = m.to;
+            }
+            if(color == Black) {
                 this->castleBK = this->castleBQ = false;
+                this->blackKingSquare = m.to;
+            }
         }
 
         /// remove the respective castling right if a rook moves or gets captured
@@ -515,15 +576,21 @@ public:
     }
 
     /// basically the inverse of makeMove but we need to memorize the castling right and ep square before the move
-    void unmakeMove(Move m, int ep, int castlingRights[4]) {
+    void unmakeMove(Move m, int ep, bool castlingRights[4]) {
+        int color = (this->squares[m.to] & (Black | White));
+        int otherColor = (color ^ (Black | White));
+        int piece = (this->squares[m.to] ^ color);
+
         this->ep = ep;
         this->castleWK = castlingRights[0];
         this->castleWQ = castlingRights[1];
         this->castleBK = castlingRights[2];
         this->castleBQ = castlingRights[3];
 
-        int color = (this->squares[m.to] & (Black | White));
-        int otherColor = (color == White ? Black : White);
+        if(piece == King) {
+            if(color == White) this->whiteKingSquare = m.from;
+            if(color == Black) this->blackKingSquare = m.from;
+        }
 
         if(m.prom) this->squares[m.to] = (Pawn | color);
 
@@ -554,16 +621,29 @@ public:
 
 Board board;
 
+bool putsKingInCheck(Move a) {
+    bool check = false;
+
+    int ep = board.ep;
+    bool castleRights[4] = {board.castleWK, board.castleWQ,
+                                board.castleBK, board.castleBQ};
+    board.makeMove(a);
+    if(board.isInCheck()) check = true;
+    board.unmakeMove(a, ep, castleRights);
+
+    return check;
+}
+
 int mxDepth = 5;
 int moveGenTest(int depth) {
     if(depth == 0) return 1;
 
-    vector<Move> moves = board.GenerateLegalMoves(board.turn);
+    vector<Move> moves = board.GenerateLegalMoves();
     int numPos = 0;
 
     for(Move m: moves) {
         int ep = board.ep;
-        int castleRights[4] = {board.castleWK, board.castleWQ,
+        bool castleRights[4] = {board.castleWK, board.castleWQ,
                             board.castleBK, board.castleBQ};
         board.makeMove(m);
         int mv = moveGenTest(depth-1);
@@ -575,12 +655,4 @@ int moveGenTest(int depth) {
         board.unmakeMove(m, ep, castleRights);
     }
     return numPos;
-}
-
-
-int main() {
-    Init();
-    string pos = "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10 ";
-    board.LoadFenPos(pos);
-//    cout << moveGenTest(mxDepth);
 }
