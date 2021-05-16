@@ -1,7 +1,8 @@
 #include <bits/stdc++.h>
 
-#include "MoveGenerator.cpp"
-#include "Evaluate.cpp"
+#include "Evaluate.h"
+#include "Board.h"
+#include "Search.h"
 
 using namespace std;
 
@@ -81,10 +82,13 @@ int Search(int depth, int alpha, int beta) {
     }
 }
 
+ofstream fout("output.txt");
+
 int main() {
     Init();
-    string pos = "r1bq1rk1/1p2ppbp/p1np1np1/8/2BNP3/2N1B3/PPP2PPP/R2Q1RK1 w - - 0 1";
+    initTables();
+    string pos = "r2q1rk1/4p1bp/p1ppp1p1/8/3NP3/4Q3/PPP2PPP/R4RK1 b - - 0 1";
     board.LoadFenPos(pos);
-    cout << Search(6, -1000000, 1000000) << '\n';
-    cout << "Positions evaluated: " << nrpos << '\n';
+    fout << Search(6, -1000000, 1000000) << '\n';
+    fout << "Positions evaluated: " << nrpos << '\n';
 }
