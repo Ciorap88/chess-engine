@@ -35,6 +35,7 @@ public:
 
     U64 pawns, knights, bishops, rooks, queens, kings;
     U64 blackPieces, whitePieces;
+    U64 zobristHash;
 
     int ep;
     bool castleWK, castleWQ, castleBK, castleBQ;
@@ -43,6 +44,7 @@ public:
 
 
     void LoadFenPos(string fen);
+    string getFenFromCurrPos();
 
     bool isInCheck();
 
@@ -53,11 +55,15 @@ public:
     void unmakeMove(Move m, int ep, bool castlingRights[4]);
 };
 
+extern Board board;
+
+void generateZobristHashNumbers();
+
 bool putsKingInCheck(Move a);
 int moveGenTest(int depth);
 void Init();
-string square(int x);
 
-extern Board board;
+string square(int x);
+string moveToString(Move m);
 
 #endif

@@ -25,11 +25,20 @@ bool compareMoves(Move a, Move b) {
     return (moveScore(a) > moveScore(b));
 }
 
+map<pair<unsigned long long, int>, pair<Move, int> > transpositionTable;
 
 // negamax algorithm with alpha-beta pruning
 int Search(int depth, int alpha, int beta) {
     if(depth == 0) {
         return Evaluate();
+    }
+
+    pair<unsigned long long, int> key = {board.zobristHash, depth};
+    Move bestMove;
+
+    // we already searched this node, so we return the result from the table
+    if(transpositionTable.find(key) != transpositionTable.end()) {
+        return transpositionTable[key].second;
     }
 
     vector<Move> moves = board.GenerateLegalMoves();
@@ -51,12 +60,19 @@ int Search(int depth, int alpha, int beta) {
                                 board.castleBK, board.castleBQ};
 
         board.makeMove(m);
-        bestEval = max(bestEval, -Search(depth-1, -beta, -alpha));
+
+        int eval = -Search(depth-1, -beta, -alpha);
+
+        if(eval > bestEval) bestMove = m;
+        bestEval = max(bestEval, eval);
+
         board.unmakeMove(m, ep, castleRights);
 
         alpha = max(alpha, bestEval);
         if(alpha >= beta) break;
     }
 
+
+    transpositionTable[key] = {bestMove, bestEval * (board.turn == White ? 1 : -1)};
     return bestEval;
 }

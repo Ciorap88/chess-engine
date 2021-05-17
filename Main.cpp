@@ -10,6 +10,7 @@ ofstream fout("output.txt");
 int main() {
     Init();
     initTables();
+    generateZobristHashNumbers();
 
     std::string s, pos;
     while(fin >> s) {
@@ -18,5 +19,6 @@ int main() {
     board.LoadFenPos(pos);
 
     int perspective = (board.turn == White ? 1 : -1);
-    fout << perspective * Search(6, -1000000, 1000000) << '\n';
+
+    fout << perspective * Search(8, -1000000, 1000000) << '\n';
 }
