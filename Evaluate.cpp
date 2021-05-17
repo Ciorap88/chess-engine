@@ -213,5 +213,7 @@ int Evaluate() {
 
     if(mgWeight > 24) mgWeight = 24;
 
-    return (mgEval*mgWeight + egEval*(24-mgWeight))/24;
+    int perspective = (board.turn == White ? 1 : -1);
+
+    return perspective * (mgEval*mgWeight + egEval*(24-mgWeight))/24;
 }
