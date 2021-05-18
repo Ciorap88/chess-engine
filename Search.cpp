@@ -25,20 +25,49 @@ bool compareMoves(Move a, Move b) {
     return (moveScore(a) > moveScore(b));
 }
 
-map<pair<unsigned long long, int>, pair<Move, int> > transpositionTable;
+unordered_map<unsigned long long, pair<Move, pair<int, int> > > transpositionTable;
+
+// only searching for captures at the end of a regular search in order to ensure the engine won't miss any tactics
+int quiesce(int alpha, int beta) {
+    int standPat = Evaluate();
+    if(standPat >= beta)
+        return beta;
+    alpha = max(alpha, standPat);
+
+    vector<Move> moves = board.GenerateLegalMoves();
+
+    for(Move m : moves)  {
+        if(!m.capture) continue;
+
+        int ep = board.ep;
+        bool castleRights[4] = {board.castleWK, board.castleWQ,
+                                board.castleBK, board.castleBQ};
+        board.makeMove(m);
+        int eval = -quiesce(-beta, -alpha);
+        board.unmakeMove(m, ep, castleRights);
+
+        if(eval >= beta)
+            return beta;
+        alpha = max(alpha, eval);
+    }
+    return alpha;
+}
+
 
 // negamax algorithm with alpha-beta pruning
 int Search(int depth, int alpha, int beta) {
     if(depth == 0) {
-        return Evaluate();
+        return quiesce(alpha, beta);
     }
 
-    pair<unsigned long long, int> key = {board.zobristHash, depth};
     Move bestMove;
 
-    // we already searched this node, so we return the result from the table
-    if(transpositionTable.find(key) != transpositionTable.end()) {
-        return transpositionTable[key].second;
+    // we already searched this node with a better depth, so we return the result from the table
+    if(transpositionTable.find(board.zobristHash) != transpositionTable.end()) {
+        int oldDepth = transpositionTable[board.zobristHash].second.first;
+        if(oldDepth >= depth) {
+            return transpositionTable[board.zobristHash].second.second;
+        }
     }
 
     vector<Move> moves = board.GenerateLegalMoves();
@@ -60,19 +89,18 @@ int Search(int depth, int alpha, int beta) {
                                 board.castleBK, board.castleBQ};
 
         board.makeMove(m);
-
         int eval = -Search(depth-1, -beta, -alpha);
-
-        if(eval > bestEval) bestMove = m;
-        bestEval = max(bestEval, eval);
-
         board.unmakeMove(m, ep, castleRights);
 
-        alpha = max(alpha, bestEval);
-        if(alpha >= beta) break;
+        if(eval >= beta)
+            return eval; // fail-soft beta-cutoff
+        if(eval > bestEval) {
+            bestMove = m;
+            bestEval = eval;
+            alpha = max(alpha, eval);
+        }
     }
 
-
-    transpositionTable[key] = {bestMove, bestEval * (board.turn == White ? 1 : -1)};
+    transpositionTable[board.zobristHash] = {bestMove, {depth, bestEval * (board.turn == White ? 1 : -1)}};
     return bestEval;
 }

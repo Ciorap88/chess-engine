@@ -98,19 +98,18 @@ int direction(int from, int to) {
 }
 
 vector<unsigned long long> zobristNumbers;
+
+unsigned long long randomULL() {
+    static U64 next = 1;
+
+    next = next * 1103515245 + 12345;
+    return next;
+}
+
 void generateZobristHashNumbers() {
-    /* Seed */
-    random_device rd;
-
-    /* Random number generator */
-    default_random_engine generator(rd());
-
-    /* Distribution on which to apply the generator */
-    uniform_int_distribution<unsigned long long> distribution(0,0xFFFFFFFFFFFFFFFF);
-
-    for (int i = 0; i < 781; i++) {
-        zobristNumbers.push_back(distribution(generator));
-    }
+    for(int i = 0; i < 781; i++) {
+        zobristNumbers.push_back(randomULL());
+  }
 }
 
 int pieceSquareIndex(int piece, int color, int square) {
