@@ -137,7 +137,7 @@ int Evaluate() {
     }
 
     // middle game king value
-    if(mgWeight <= 10) {
+    if(mgWeight > 10) {
         evalWhite += mgKingTable[flip(board.whiteKingSquare)];
         evalBlack += mgKingTable[board.blackKingSquare];
 

@@ -7,12 +7,9 @@
 ifstream fin("pos.txt");
 ofstream fout("output.txt");
 
-extern unordered_map<unsigned long long, pair<Move, pair<int, int> > > transpositionTable;
-
 int main() {
     Init();
     initTables();
-    generateZobristHashNumbers();
 
     std::string s, pos;
     while(fin >> s) {
@@ -20,23 +17,33 @@ int main() {
     }
     board.LoadFenPos(pos);
 
-    int perspective = (board.turn == White ? 1 : -1);
+    while(true) {
+        auto result = Search();
 
-//    time_t start, end;
-//    time(&start);
-//    ios_base::sync_with_stdio(false);
+        if(result.first.from == -1) {
+            cout << "Game over\n";
+            break;
+        }
 
-    fout << perspective * Search(4, -1000000, 1000000) << '\n';
+        cout << moveToString(result.first) << ' '<< result.second << '\n';
+        board.makeMove(result.first);
 
-//    for(int i = 1; i <= 4; i++) {
-//        Move m = transpositionTable[board.zobristHash].first;
-//        fout << moveToString(m) << ' ';
-//        board.makeMove(m);
-//    }
+        vector<Move> moves = board.GenerateLegalMoves();
 
-//    time(&end);
-//    double time_taken = double(end - start);
-//    fout << "Time taken by program is : " << fixed
-//         << time_taken << setprecision(5);
-//    fout << " sec " << endl;
+        bool good;
+        do {
+            cout << "Your Move: ";
+            string m;
+            cin >> m;
+            good = false;
+            moves = board.GenerateLegalMoves();
+            for(Move mv: moves) {
+                if(moveToString(mv) == m) {
+                    board.makeMove(mv);
+                    good = true;
+                    break;
+                }
+            }
+        } while(good == false);
+    }
 }

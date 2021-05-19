@@ -11,6 +11,6 @@
 extern std::vector<int> pieceValues;
 extern Board board;
 
-int Search(int depth, int alpha, int beta);
+pair<Move, int> Search();
 
 #endif

@@ -6,11 +6,14 @@
 
 using namespace std;
 
+const int inf = 1000000;
+const Move noMove = {-1,-1,0,0,0,0};
+
 // considers captures first, sorting them by the difference between the captured and capturing piece
 int moveScore(Move m) {
     int score = 0;
 
-    if(m.capture) score += 1000000;
+    if(m.capture) score += inf;
 
     int capturedPieceVal = pieceValues[m.capture ^ (Black & White)];
     int capturingPieceVal = pieceValues[board.squares[m.from] ^ (Black & White)];
@@ -27,6 +30,10 @@ bool compareMoves(Move a, Move b) {
 
 unordered_map<unsigned long long, pair<Move, pair<int, int> > > transpositionTable;
 
+time_t startTime, currTime;
+const double timePerMove = 30;
+const int maxDepth = 100;
+
 // only searching for captures at the end of a regular search in order to ensure the engine won't miss any tactics
 int quiesce(int alpha, int beta) {
     int standPat = Evaluate();
@@ -40,8 +47,8 @@ int quiesce(int alpha, int beta) {
         if(!m.capture) continue;
 
         int ep = board.ep;
-        bool castleRights[4] = {board.castleWK, board.castleWQ,
-                                board.castleBK, board.castleBQ};
+        int castleRights = board.castleRights;
+
         board.makeMove(m);
         int eval = -quiesce(-beta, -alpha);
         board.unmakeMove(m, ep, castleRights);
@@ -53,20 +60,20 @@ int quiesce(int alpha, int beta) {
     return alpha;
 }
 
-
 // negamax algorithm with alpha-beta pruning
-int Search(int depth, int alpha, int beta) {
-    if(depth == 0) {
+int AlphaBeta(int depth, int alpha, int beta) {
+    time(&currTime);
+    if(depth == 0 || (double)(currTime - startTime) > timePerMove) {
         return quiesce(alpha, beta);
     }
 
-    Move bestMove;
+    Move bestMove = noMove;
 
     // we already searched this node with a better depth, so we return the result from the table
     if(transpositionTable.find(board.zobristHash) != transpositionTable.end()) {
-        int oldDepth = transpositionTable[board.zobristHash].second.first;
+        int oldDepth = transpositionTable[board.zobristHash].second.second;
         if(oldDepth >= depth) {
-            return transpositionTable[board.zobristHash].second.second;
+            return transpositionTable[board.zobristHash].second.first;
         }
     }
 
@@ -75,32 +82,50 @@ int Search(int depth, int alpha, int beta) {
     // game is over
     if(moves.size() == 0) {
         if(board.isInCheck())
-            return (board.turn == White ? -1000000 : 1000000);
+            return -inf;
         return 0;
     }
 
     // sorting the moves by score in order to prune more branches by considering the potentially better moves first;
     sort(moves.begin(), moves.end(), compareMoves);
 
-    int bestEval = -1000000;
+    int bestEval = -inf;
     for(Move m: moves) {
         int ep = board.ep;
-        bool castleRights[4] = {board.castleWK, board.castleWQ,
-                                board.castleBK, board.castleBQ};
+        int castleRights = board.castleRights;
 
         board.makeMove(m);
-        int eval = -Search(depth-1, -beta, -alpha);
+        int eval = -AlphaBeta(depth-1, -beta, -alpha);
+
         board.unmakeMove(m, ep, castleRights);
 
         if(eval >= beta)
-            return eval; // fail-soft beta-cutoff
-        if(eval > bestEval) {
-            bestMove = m;
+            return eval;
+        if(eval >= bestEval) {
             bestEval = eval;
+            bestMove = m;
             alpha = max(alpha, eval);
         }
     }
 
-    transpositionTable[board.zobristHash] = {bestMove, {depth, bestEval * (board.turn == White ? 1 : -1)}};
+    transpositionTable[board.zobristHash] = {bestMove, {bestEval, depth}};
     return bestEval;
+}
+
+pair<Move, int> Search() {
+    int eval = AlphaBeta(1, -inf, inf);
+
+    time(&startTime);
+    ios_base::sync_with_stdio(false);
+
+    for(int depth = 2; depth <= maxDepth; depth++) {
+        eval = AlphaBeta(depth, -inf, inf);
+
+        time(&currTime);
+        if((double)(currTime - startTime) > timePerMove) {
+            cout << depth << '\n';
+            return {transpositionTable[board.zobristHash].first, eval};
+        }
+    }
+    return {transpositionTable[board.zobristHash].first, eval};
 }
