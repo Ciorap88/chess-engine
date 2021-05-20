@@ -9,6 +9,8 @@ using namespace std;
 const int inf = 1000000;
 const Move noMove = {-1,-1,0,0,0,0};
 
+const int mateEval = inf-1;
+
 // considers captures first, sorting them by the difference between the captured and capturing piece
 int moveScore(Move m) {
     int score = 0;
@@ -60,8 +62,19 @@ int quiesce(int alpha, int beta) {
     return alpha;
 }
 
+ofstream out ("res.txt");
+
 // negamax algorithm with alpha-beta pruning
 int AlphaBeta(int depth, int alpha, int beta) {
+    vector<Move> moves = board.GenerateLegalMoves();
+
+    // game is over
+    if(moves.size() == 0) {
+        if(board.isInCheck())
+            return -mateEval;
+        return 0;
+    }
+
     time(&currTime);
     if(depth == 0 || (double)(currTime - startTime) > timePerMove) {
         return quiesce(alpha, beta);
@@ -75,15 +88,6 @@ int AlphaBeta(int depth, int alpha, int beta) {
         if(oldDepth >= depth) {
             return transpositionTable[board.zobristHash].second.first;
         }
-    }
-
-    vector<Move> moves = board.GenerateLegalMoves();
-
-    // game is over
-    if(moves.size() == 0) {
-        if(board.isInCheck())
-            return -inf;
-        return 0;
     }
 
     // sorting the moves by score in order to prune more branches by considering the potentially better moves first;
@@ -101,10 +105,16 @@ int AlphaBeta(int depth, int alpha, int beta) {
 
         if(eval >= beta)
             return eval;
-        if(eval >= bestEval) {
+        if(eval > bestEval) {
             bestEval = eval;
             bestMove = m;
             alpha = max(alpha, eval);
+        }
+
+        // if we find a checkmate we should do it
+        if(eval == mateEval) {
+            transpositionTable[board.zobristHash] = {bestMove, {eval, maxDepth}};
+            return eval;
         }
     }
 
