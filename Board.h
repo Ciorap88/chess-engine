@@ -31,10 +31,11 @@ struct Move {
 class Board {
 public:
     int squares[64], turn;
-    int whiteKingSquare, blackKingSquare;
 
-    U64 pawns, knights, bishops, rooks, queens, kings;
-    U64 blackPieces, whitePieces;
+    int whiteKingSquare, blackKingSquare;
+    U64 pawnsBB, knightsBB, bishopsBB, rooksBB, queensBB;
+    U64 blackPiecesBB, whitePiecesBB;
+
     U64 zobristHash;
 
     int ep;
@@ -45,6 +46,9 @@ public:
     // TODO: add pieces array to lookup all the pieces faster
 
     void initZobristHashFromCurrPos();
+
+    void addPieceInBB(int piece, int color, int sq);
+    void deletePieceInBB(int piece, int color, int sq);
 
     void LoadFenPos(string fen);
     string getFenFromCurrPos();
@@ -59,7 +63,15 @@ public:
 };
 
 extern Board board;
+extern vector<int> knightTargetSquares[64], piecesDirs[8];
+extern U64 bits[64], filesBB[8], ranksBB[8], knightAttacksBB[64], kingAttacksBB[64];
 
+U64 pawnAttacks(U64 pawns, int color);
+U64 knightAttacks(U64 knights);
+
+bool isInBoard(int sq, int dir);
+int dist(int sq1, int sq2);
+int popcount(U64 bb);
 bool putsKingInCheck(Move a);
 int moveGenTest(int depth, bool show);
 void Init();

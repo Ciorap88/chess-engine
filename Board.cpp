@@ -5,6 +5,7 @@
 using namespace std;
 
 U64 bits[64];
+U64 filesBB[8], ranksBB[8], knightAttacksBB[64], kingAttacksBB[64];
 
 const string startingPos = "rnbqkbnr/ppppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 vector<int> piecesDirs[8];
@@ -42,6 +43,29 @@ string square(int x) {
     s += ('a'+x%8);
     s += ('1'+x/8);
     return s;
+}
+
+// general bitboard operations
+int popcount(U64 bb) {
+    int ans = 0;
+    for(int i = 0; i < 64; i++)
+        if(bb & bits[i]) ans++;
+    return ans;
+}
+
+U64 eastOne(U64 bb) {
+    return ((bb >> 1) & (~filesBB[0]));
+}
+
+U64 westOne(U64 bb) {
+    return ((bb << 1) & (~filesBB[7]));
+}
+
+U64 northOne(U64 bb) {
+    return ((bb << 8) & (~ranksBB[0]));
+}
+U64 southOne(U64 bb) {
+    return ((bb >> 8) & (~ranksBB[7]));
 }
 
 vector<unsigned long long> zobristNumbers;
@@ -82,21 +106,52 @@ void Init() {
     for(int i = 0; i < 64; i++) {
         int File = i%8, Rank = i/8;
 
+        filesBB[File] |= bits[i];
+        ranksBB[Rank] |= bits[i];
+
+        kingAttacksBB[i] = (eastOne(bits[i]) | westOne(bits[i]));
+        U64 king = (bits[i] | kingAttacksBB[i]);
+        kingAttacksBB[i] |= (northOne(king) | southOne(king));
+
         if(File > 1) {
-            if(Rank > 0) knightTargetSquares[i].push_back(i-10);
-            if(Rank < 7) knightTargetSquares[i].push_back(i+6);
+            if(Rank > 0) {
+                knightTargetSquares[i].push_back(i-10);
+                knightAttacksBB[i] |= bits[i-10];
+            }
+            if(Rank < 7) {
+                knightTargetSquares[i].push_back(i+6);
+                knightAttacksBB[i] |= bits[i+6];
+            }
         }
         if(File < 6) {
-            if(Rank > 0) knightTargetSquares[i].push_back(i-6);
-            if(Rank < 7) knightTargetSquares[i].push_back(i+10);
+            if(Rank > 0) {
+                knightTargetSquares[i].push_back(i-6);
+                knightAttacksBB[i] |= bits[i-6];
+            }
+            if(Rank < 7) {
+                knightTargetSquares[i].push_back(i+10);
+                knightAttacksBB[i] |= bits[i+10];
+            }
         }
         if(Rank > 1) {
-            if(File > 0) knightTargetSquares[i].push_back(i-17);
-            if(File < 7) knightTargetSquares[i].push_back(i-15);
+            if(File > 0) {
+                knightTargetSquares[i].push_back(i-17);
+                knightAttacksBB[i] |= bits[i-17];
+            }
+            if(File < 7) {
+                knightTargetSquares[i].push_back(i-15);
+                knightAttacksBB[i] |= bits[i-15];
+            }
         }
         if(Rank < 6) {
-            if(File > 0) knightTargetSquares[i].push_back(i+15);
-            if(File < 7) knightTargetSquares[i].push_back(i+17);
+            if(File > 0) {
+                knightTargetSquares[i].push_back(i+15);
+                knightAttacksBB[i] |= bits[i+15];
+            }
+            if(File < 7) {
+                knightTargetSquares[i].push_back(i+17);
+                knightAttacksBB[i] |= bits[i+17];
+            }
         }
     }
 }
@@ -124,6 +179,16 @@ int direction(int from, int to) {
     return 0;
 }
 
+// manhattan distance
+int dist(int sq1, int sq2) {
+    int Rank1 = sq1/8;
+    int Rank2 = sq2/8;
+    int File1 = sq1%8;
+    int File2 = sq2%8;
+
+    return abs(Rank1-Rank2) + abs(File1-File2);
+}
+
 bool isInBoard(int sq, int dir) {
     int File = sq%8;
     int Rank = sq/8;
@@ -139,6 +204,31 @@ bool isInBoard(int sq, int dir) {
     if(dir == SouthWest) return Rank > 0 && File > 0;
 
     return false;
+}
+
+// piece attack patterns
+U64 pawnAttacks (U64 pawns, int color) {
+    if(color == White) {
+        U64 north = northOne(pawns);
+        return (eastOne(north) | westOne(north));
+    }
+    U64 south = southOne(pawns);
+    return (eastOne(south) | westOne(south));
+}
+
+U64 knightAttacks(U64 knights) {
+    U64 east, west, attacks;
+
+    east = eastOne(knights);
+    west = westOne(knights);
+    attacks = (northOne(northOne(east | west)) | southOne(southOne(east | west)));
+
+    east = eastOne(east);
+    west = westOne(west);
+
+    attacks |= (northOne(east | west) | southOne(east | west));
+
+    return attacks;
 }
 
 string Board::getFenFromCurrPos() {
@@ -233,16 +323,8 @@ void Board::LoadFenPos(string fen) {
 
                 int currBit = bits[Rank*8 + File];
 
-                if(color == White) this->whitePieces |= currBit;
-                if(color == Black) this->blackPieces |= currBit;
-
-                if(type == Pawn) this->pawns |= currBit;
-                if(type == Knight) this->knights |= currBit;
-                if(type == Bishop) this->bishops |= currBit;
-                if(type == Rook) this->rooks |= currBit;
-                if(type == Queen) this->queens |= currBit;
+                this->addPieceInBB(type, color, Rank*8 + File);
                 if(type == King) {
-                    this->kings |= currBit;
                     if(color == White) this->whiteKingSquare = Rank*8 + File;
                     if(color == Black) this->blackKingSquare = Rank*8 + File;
                 }
@@ -611,6 +693,30 @@ vector<Move> Board::GenerateLegalMoves() {
     return moves;
 }
 
+void Board::deletePieceInBB(int piece, int color, int sq) {
+
+    if(color == White) this->whitePiecesBB ^= bits[sq];
+    else this->blackPiecesBB ^= bits[sq];
+
+    if(piece == Pawn) this->pawnsBB ^= bits[sq];
+    if(piece == Knight) this->knightsBB ^= bits[sq];
+    if(piece == Bishop) this->bishopsBB ^= bits[sq];
+    if(piece == Rook) this->rooksBB ^= bits[sq];
+    if(piece == Queen) this->queensBB ^= bits[sq];
+}
+
+void Board::addPieceInBB(int piece, int color, int sq) {
+
+    if(color == White) this->whitePiecesBB |= bits[sq];
+    else this->blackPiecesBB |= bits[sq];
+
+    if(piece == Pawn) this->pawnsBB |= bits[sq];
+    if(piece == Knight) this->knightsBB |= bits[sq];
+    if(piece == Bishop) this->bishopsBB |= bits[sq];
+    if(piece == Rook) this->rooksBB |= bits[sq];
+    if(piece == Queen) this->queensBB |= bits[sq];
+}
+
 void Board::makeMove(Move m) {
     int color = (this->squares[m.from] & (Black | White));
     int piece = (this->squares[m.from] ^ color);
@@ -618,6 +724,13 @@ void Board::makeMove(Move m) {
     int otherColor = (color ^ (Black | White));
     int otherPiece = (m.capture ^ otherColor);
 
+    // update bitboards
+    this->deletePieceInBB(piece, color, m.from);
+    if(!m.ep && m.capture) this->deletePieceInBB(otherPiece, otherColor, m.to);
+    if(!m.prom) this->addPieceInBB(piece, color, m.to);
+
+
+    // update zobrist hash
     this->zobristHash ^= zobristNumbers[zPieceSquareIndex(piece, color, m.from)];
     if(!m.prom) this->zobristHash ^= zobristNumbers[zPieceSquareIndex(piece, color, m.to)];
     if(m.capture && !m.ep) this->zobristHash ^= zobristNumbers[zPieceSquareIndex(otherPiece, otherColor, m.to)];
@@ -628,6 +741,7 @@ void Board::makeMove(Move m) {
 
     // promote pawn
     if(m.prom) {
+        this->addPieceInBB(m.prom, color, m.to);
         this->squares[m.to] = (m.prom | color);
         this->zobristHash ^= zobristNumbers[zPieceSquareIndex(m.prom, color, m.to)];
     }
@@ -674,21 +788,29 @@ void Board::makeMove(Move m) {
         if(m.to == 2) {
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 0)];
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 3)];
+            this->addPieceInBB(Rook, color, 3);
+            this->deletePieceInBB(Rook, color, 0);
 
             swap(this->squares[0], this->squares[3]);
         } else if(m.to == 6) {
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 5)];
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 7)];
+            this->addPieceInBB(Rook, color, 5);
+            this->deletePieceInBB(Rook, color, 7);
 
             swap(this->squares[7], this->squares[5]);
         } else if(m.to == 62) {
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 61)];
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 63)];
+            this->addPieceInBB(Rook, color, 61);
+            this->deletePieceInBB(Rook, color, 63);
 
             swap(this->squares[61], this->squares[63]);
         } else {
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 56)];
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 59)];
+            this->addPieceInBB(Rook, color, 59);
+            this->deletePieceInBB(Rook, color, 56);
 
             swap(this->squares[56], this->squares[59]);
         }
@@ -696,6 +818,8 @@ void Board::makeMove(Move m) {
     // remove the captured pawn if en passant
     if(m.ep) {
         int capturedPawnSquare = m.to+(color == White ? South : North);
+
+        this->deletePieceInBB(Pawn, otherColor, capturedPawnSquare);
         this->squares[capturedPawnSquare] = Empty;
 
         this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Pawn, otherColor, capturedPawnSquare)];
@@ -739,10 +863,15 @@ void Board::unmakeMove(Move m, int ep, int castleRights) {
         if(color == Black) this->blackKingSquare = m.from;
     }
 
+    this->deletePieceInBB(piece, color, m.to);
+
     if(m.prom) {
         this->squares[m.to] = (Pawn | color);
         this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Pawn, color, m.from)];
     }
+
+    this->addPieceInBB((this->squares[m.to] ^ color), color, m.from);
+    if(!m.ep) this->addPieceInBB(otherPiece, otherColor, m.to);
 
     this->zobristHash ^= zobristNumbers[zPieceSquareIndex(piece, color, m.to)];
     if(m.capture && !m.ep) this->zobristHash ^= zobristNumbers[zPieceSquareIndex(otherPiece, otherColor, m.to)];
@@ -756,21 +885,29 @@ void Board::unmakeMove(Move m, int ep, int castleRights) {
         if(m.to == 2) {
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 0)];
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 3)];
+            this->deletePieceInBB(Rook, color, 3);
+            this->addPieceInBB(Rook, color, 0);
 
             swap(this->squares[0], this->squares[3]);
         } else if(m.to == 6) {
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 5)];
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 7)];
+            this->deletePieceInBB(Rook, color, 5);
+            this->addPieceInBB(Rook, color, 7);
 
             swap(this->squares[7], this->squares[5]);
         } else if(m.to == 62) {
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 61)];
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 63)];
+            this->deletePieceInBB(Rook, color, 61);
+            this->addPieceInBB(Rook, color, 63);
 
             swap(this->squares[61], this->squares[63]);
         } else {
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 56)];
             this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 59)];
+            this->deletePieceInBB(Rook, color, 59);
+            this->addPieceInBB(Rook, color, 56);
 
             swap(this->squares[56], this->squares[59]);
         }
@@ -779,6 +916,7 @@ void Board::unmakeMove(Move m, int ep, int castleRights) {
     if(m.ep) {
         int capturedPawnSquare = m.to+(color == White ? South : North);
 
+        this->addPieceInBB(Pawn, otherColor, capturedPawnSquare);
         this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Pawn, otherColor, capturedPawnSquare)];
 
         this->squares[capturedPawnSquare] = (otherColor | Pawn);

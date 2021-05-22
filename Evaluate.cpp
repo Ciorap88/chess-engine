@@ -7,147 +7,199 @@ using namespace std;
 
 vector<int> pieceValues = {0,100,300,310,500,900,0};
 
-const int pawnTable[64] = {
-     0,  0,  0,  0,  0,  0,  0,  0,
-    50, 50, 50, 50, 50, 50, 50, 50,
-    10, 10, 20, 30, 30, 20, 10, 10,
-     5,  5, 10, 25, 25, 10,  5,  5,
-     0,  0,  0, 20, 20,  0,  0,  0,
-     5, -5,-10,  0,  0,-10, -5,  5,
-     5, 10, 10,-20,-20, 10, 10,  5,
-     0,  0,  0,  0,  0,  0,  0,  0,
-};
-
-const int knightTable[64] = {
-    -50,-40,-30,-30,-30,-30,-40,-50,
-    -40,-20,  0,  0,  0,  0,-20,-40,
-    -30,  0, 10, 15, 15, 10,  0,-30,
-    -30,  5, 15, 20, 20, 15,  5,-30,
-    -30,  0, 15, 20, 20, 15,  0,-30,
-    -30,  5, 10, 15, 15, 10,  5,-30,
-    -40,-20,  0,  5,  5,  0,-20,-40,
-    -50,-40,-30,-30,-30,-30,-40,-50,
-};
-
-const int bishopTable[64] = {
-    -20,-10,-10,-10,-10,-10,-10,-20,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -10,  0,  5, 10, 10,  5,  0,-10,
-    -10,  5,  5, 10, 10,  5,  5,-10,
-    -10,  0, 10, 10, 10, 10,  0,-10,
-    -10, 10, 10, 10, 10, 10, 10,-10,
-    -10,  5,  0,  0,  0,  0,  5,-10,
-    -20,-10,-10,-10,-10,-10,-10,-20,
-};
-
-const int rookTable[64] = {
-      0,  0,  0,  0,  0,  0,  0,  0,
-      5, 10, 10, 10, 10, 10, 10,  5,
-     -5,  0,  0,  0,  0,  0,  0, -5,
-     -5,  0,  0,  0,  0,  0,  0, -5,
-     -5,  0,  0,  0,  0,  0,  0, -5,
-     -5,  0,  0,  0,  0,  0,  0, -5,
-     -5,  0,  0,  0,  0,  0,  0, -5,
-      0,  0,  0,  5,  5,  0,  0,  0
-};
-
-const int queenTable[64] = {
-    -20,-10,-10, -5, -5,-10,-10,-20,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -10,  0,  5,  5,  5,  5,  0,-10,
-     -5,  0,  5,  5,  5,  5,  0, -5,
-      0,  0,  5,  5,  5,  5,  0, -5,
-    -10,  5,  5,  5,  5,  5,  0,-10,
-    -10,  0,  5,  0,  0,  0,  0,-10,
-    -20,-10,-10, -5, -5,-10,-10,-20
-};
-
-const int mgKingTable[64] = {
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -20,-30,-30,-40,-40,-30,-30,-20,
-    -10,-20,-20,-20,-20,-20,-20,-10,
-     20, 20,  0,  0,  0,  0, 20, 20,
-     20, 30, 10,  0,  0, 10, 30, 20
-};
-
-const int egKingTable[64] = {
-    -50,-40,-30,-20,-20,-30,-40,-50,
-    -30,-20,-10,  0,  0,-10,-20,-30,
-    -30,-10, 20, 30, 30, 20,-10,-30,
-    -30,-10, 30, 40, 40, 30,-10,-30,
-    -30,-10, 30, 40, 40, 30,-10,-30,
-    -30,-10, 20, 30, 30, 20,-10,-30,
-    -30,-30,  0,  0,  0,  0,-30,-30,
-    -50,-30,-30,-30,-30,-30,-30,-50
-};
-
 const int weight[7] = {0,0,1,1,2,4,0};
 
-// full tables for black pieces (need to flip squares for white)
-int table[7][64];
-
-int flip(int square) {
-    int Rank = square/8;
-    square -= 8*Rank;
-
-    Rank = 7-Rank;
-    square += 8*Rank;
-
-    return square;
-}
-
-void initTables() {
-    for(int piece = Pawn; piece < King; piece++)
-        for(int i = 0; i < 64; i++)
-            table[piece][i] = pieceValues[piece];
-
-
-    for(int i = 0; i < 64; i++) {
-        table[Pawn][i] += pawnTable[i];
-        table[Knight][i] += knightTable[i];
-        table[Bishop][i] += bishopTable[i];
-        table[Rook][i] += rookTable[i];
-        table[Queen][i] += queenTable[i];
-    }
-}
-
 int Evaluate() {
-    int evalWhite = 0, evalBlack = 0;
-    int mgWeight = 0;
+    return 0;
+}
 
-    for(int i = 0; i < 64; i++) {
-        if(board.squares[i] == Empty) continue;
+const int knightMobilityConstant = 10;
+const int knightPawnConstant = 2;
+const int trappedKnightPenalty = 100;
+const int knightDefendedByPawn = 15;
+const int knightCloseToEnemyKing = 50;
+const int blockingCKnight = 30;
 
-        int color = (board.squares[i] & (Black | White));
-        int piece = (board.squares[i] ^ color);
+int evalKnight(int sq, int color) {
+    U64 opponentPawnsBB = (board.pawnsBB & (color == White ? board.blackPiecesBB : board.whitePiecesBB));
+    U64 ourPawnsBB = (board.pawnsBB ^ opponentPawnsBB);
+    U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
 
-        if(piece == King) continue;
+    U64 ourPawnAttacksBB = pawnAttacks(ourPawnsBB, color);
+    U64 opponentPawnAttacksBB = pawnAttacks(opponentPawnsBB, (color ^ (White | Black)));
 
-        if(color == White) {
-            evalWhite += table[piece][flip(i)];
-        }
-        if(color == Black) {
-            evalBlack += table[piece][i];
-        }
+    int eval = pieceValues[Knight];
 
-        mgWeight += weight[piece];
+    // mobility bonus
+    U64 mob = (knightAttacksBB[sq] ^ (knightAttacksBB[sq] & (ourPiecesBB | opponentPawnAttacksBB)));
+    eval += knightMobilityConstant * (popcount(mob) - 4);
+
+    // decreasing value as pawns disappear
+    int numberOfPawns = popcount(board.pawnsBB);
+    eval += knightPawnConstant * numberOfPawns;
+
+    // penalty if trapped in the corner or it blocks the c2/c7 pawn from advancing
+    if(color == White) {
+        if(sq == 56 && (opponentPawnsBB & (bits[50] | bits[48])))
+           eval -= trappedKnightPenalty; // a8
+        if(sq == 48 && (opponentPawnsBB & (bits[40] | bits[42])) && (opponentPawnsBB & (bits[49] | bits[51])))
+            eval -= trappedKnightPenalty; // a7
+
+        if(sq == 63 && (opponentPawnsBB & (bits[53] | bits[55])))
+           eval -= trappedKnightPenalty; // h8
+        if(sq == 55 && (opponentPawnsBB & (bits[45] | bits[47])) && (opponentPawnsBB & (bits[52] | bits[54])))
+            eval -= trappedKnightPenalty; // h7
+
+        if(sq == 18 && (ourPawnsBB & bits[10]) && (ourPawnsBB & bits[27]) && !(ourPawnsBB & bits[28]))
+            eval -= blockingCKnight; // c3 knight blocking c2 pawn
+    }
+    if(color == Black) {
+        if(sq == 0 && (opponentPawnsBB & (bits[8] | bits[10])))
+           eval -= trappedKnightPenalty; // a1
+        if(sq == 8 && (opponentPawnsBB & (bits[16] | bits[18])) && (opponentPawnsBB & (bits[9] | bits[11])))
+            eval -= trappedKnightPenalty; // a2
+
+        if(sq == 7 && (opponentPawnsBB & (bits[13] | bits[15])))
+           eval -= trappedKnightPenalty; // h1
+        if(sq == 15 && (opponentPawnsBB & (bits[21] | bits[23])) && (opponentPawnsBB & (bits[12] | bits[14])))
+            eval -= trappedKnightPenalty; // h2
+        if(sq == 50 && (ourPawnsBB & bits[58]) && (ourPawnsBB & bits[43]) && !(ourPawnsBB & bits[44]))
+            eval -= blockingCKnight; // c6 knight blocking c7 pawn
     }
 
-    // middle game king value
-    if(mgWeight > 10) {
-        evalWhite += mgKingTable[flip(board.whiteKingSquare)];
-        evalBlack += mgKingTable[board.blackKingSquare];
+    // bonus if defended by pawns
+    if(ourPawnAttacksBB & bits[sq])
+        eval += knightDefendedByPawn;
 
-    // end game
-    } else {
-        evalWhite += egKingTable[flip(board.whiteKingSquare)];
-        evalBlack += egKingTable[board.blackKingSquare];
+    // bonus if it is close to the king
+    int enemyKingSquare = (color == White ? board.blackKingSquare : board.whiteKingSquare);
+    if(dist(sq, enemyKingSquare) <= 4) eval += knightCloseToEnemyKing;
+
+    return eval;
+}
+
+const int trappedBishopPenalty = 150;
+const int fianchettoBonus = 30;
+const int bishopMobilityConstant = 5;
+const int attackingBishopBonus = 5;
+
+int evalBishop(int sq, int color) {
+    U64 ourPawnsBB = (board.whitePiecesBB & board.pawnsBB);
+    U64 opponentPawnsBB = (board.blackPiecesBB & board.pawnsBB);
+    if(color == Black) swap(ourPawnsBB, opponentPawnsBB);
+
+    U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
+    U64 opponentPiecesBB = (color == Black ? board.whitePiecesBB : board.blackPiecesBB);
+
+    int opponentKingSquare = (color == White ? board.blackKingSquare : board.whiteKingSquare);
+
+
+    int eval = pieceValues[Bishop];
+
+    // trapped bishop penalty
+    if(color == White) {
+        if(sq == 55 && (opponentPawnsBB & bits[53]) && (opponentPawnsBB & bits[46]))
+            eval -= trappedBishopPenalty; // h7
+        if(sq == 48 && (opponentPawnsBB & bits[50]) && (opponentPawnsBB & bits[41]))
+            eval -= trappedBishopPenalty; // a7
+    }
+    if(color == Black) {
+        if(sq == 15 && (opponentPawnsBB & bits[13]) && (opponentPawnsBB & bits[22]))
+            eval -= trappedBishopPenalty; // h2
+        if(sq == 8 && (opponentPawnsBB & bits[10]) && (opponentPawnsBB & bits[17]))
+            eval -= trappedBishopPenalty; // a2
     }
 
-    int perspective = (board.turn == White ? 1 : -1);
+    // fianchetto bonus (bishop on long diagonal on the second rank)
+    if(color == White && (sq == 9 || sq == 14)) eval += fianchettoBonus;
+    if(color == Black && (sq ==  49|| sq == 54)) eval += fianchettoBonus;
 
-    return perspective * (evalWhite - evalBlack);
+    // mobility and squares attacked near the opponent king
+    int mobility = 0;
+    int attackedSquares = 0;
+    for(int dir: piecesDirs[Bishop]) {
+        if(!isInBoard(sq, dir)) continue;
+
+        int curSq = sq+dir;
+        while(true) {
+            if(!(bits[curSq] & ourPiecesBB)) mobility++;
+            if(opponentKingSquare == curSq || (kingAttacksBB[opponentKingSquare] & bits[curSq])) attackedSquares++;
+
+            if(!isInBoard(curSq, dir) || (bits[curSq] & (opponentPiecesBB | ourPiecesBB))) break;
+            curSq += dir;
+        }
+    }
+
+    eval += bishopMobilityConstant * (mobility-7);
+    eval += attackingBishopBonus * attackedSquares;
+
+    return eval;
+}
+
+const int rookOnOpenFile = 20;
+const int rookOnSeventh = 80;
+const int rookPawnConstant = 2;
+const int rooksDefendingEachOther = 5;
+const int attackingRookBonus = 10;
+const int rookMobilityConstant = 3;
+
+int evalRook(int sq, int color) {
+    U64 currFileBB = filesBB[sq%8];
+    U64 currRankBB = ranksBB[sq/8];
+
+    U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
+    U64 opponentPiecesBB = (color == Black ? board.whitePiecesBB : board.blackPiecesBB);
+    U64 ourPawnsBB = (board.whitePiecesBB & board.pawnsBB);
+    U64 opponentPawnsBB = (board.blackPiecesBB & board.pawnsBB);
+    if(color == Black) swap(ourPawnsBB, opponentPawnsBB);
+
+    int opponentKingSquare = (color == White ? board.blackKingSquare : board.whiteKingSquare);
+
+    // in this case seventh rank means the second rank in the opponent's half
+    int seventhRank = (color == White ? 6 : 1);
+    int eightRank = (color == White ? 7 : 0);
+
+    int eval = pieceValues[Rook];
+
+    // the rook becomes more valuable as there are less pawns on the board
+    int numberOfPawns = popcount(board.pawnsBB);
+    eval += rookPawnConstant * (16 - numberOfPawns);
+
+    // bonus for a rook on an open or semi open file
+    bool ourBlockingPawns = (currFileBB & ourPawnsBB);
+    bool opponentBlockingPawns = (currFileBB & opponentPawnsBB);
+
+    if(!ourBlockingPawns) {
+        if(opponentBlockingPawns) eval += rookOnOpenFile/2; // semi open file
+        else eval += rookOnOpenFile; // open file
+    }
+
+    // the rook on the seventh rank gets a huge bonus if there are pawns on that rank or if it restricts the king to the eighth rank
+    if(sq/8 ==  seventhRank && (opponentKingSquare/8 == eightRank || (opponentPawnsBB & ranksBB[seventhRank])))
+        eval += rookOnSeventh;
+
+    // small bonus if the rook is defended by another rook
+    if((board.rooksBB & ourPiecesBB & (currRankBB | currFileBB)) ^ bits[sq])
+        eval += rooksDefendingEachOther;
+
+    // mobility and squares attacked near the opponent king
+    int mobility = 0;
+    int attackedSquares = 0;
+    for(int dir: piecesDirs[Rook]) {
+        if(!isInBoard(sq, dir)) continue;
+
+        int curSq = sq+dir;
+        while(true) {
+            if(!(bits[curSq] & ourPiecesBB)) mobility++;
+            if(opponentKingSquare == curSq || (kingAttacksBB[opponentKingSquare] & bits[curSq])) attackedSquares++;
+
+            if(!isInBoard(curSq, dir) || (bits[curSq] & (opponentPiecesBB | ourPiecesBB))) break;
+            curSq += dir;
+        }
+    }
+
+    eval += rookMobilityConstant * (mobility-7);
+    eval += attackingRookBonus * attackedSquares;
+
+    return eval;
 }

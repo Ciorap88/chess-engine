@@ -11,7 +11,6 @@ extern unordered_map<unsigned long long, pair<Move, pair<int, int> > > transposi
 
 int main() {
     Init();
-    initTables();
 
     std::string s, pos;
     while(fin >> s) {
