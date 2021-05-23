@@ -38,33 +38,34 @@ int evalKnight(int sq, int color) {
     int numberOfPawns = popcount(board.pawnsBB);
     eval += knightPawnConstant * numberOfPawns;
 
-    // penalty if trapped in the corner or it blocks the c2/c7 pawn from advancing
+    // traps and blockages
     if(color == White) {
-        if(sq == 56 && (opponentPawnsBB & (bits[50] | bits[48])))
-           eval -= trappedKnightPenalty; // a8
-        if(sq == 48 && (opponentPawnsBB & (bits[40] | bits[42])) && (opponentPawnsBB & (bits[49] | bits[51])))
-            eval -= trappedKnightPenalty; // a7
+        if(sq == a8 && (opponentPawnsBB & (bits[a7] | bits[c7])))
+           eval -= trappedKnightPenalty;
+        if(sq == a7 && (opponentPawnsBB & (bits[a6] | bits[c6])) && (opponentPawnsBB & (bits[b7] | bits[d7])))
+            eval -= trappedKnightPenalty;
 
-        if(sq == 63 && (opponentPawnsBB & (bits[53] | bits[55])))
-           eval -= trappedKnightPenalty; // h8
-        if(sq == 55 && (opponentPawnsBB & (bits[45] | bits[47])) && (opponentPawnsBB & (bits[52] | bits[54])))
-            eval -= trappedKnightPenalty; // h7
+        if(sq == h8 && (opponentPawnsBB & (bits[h7] | bits[f7])))
+           eval -= trappedKnightPenalty;
+        if(sq == h7 && (opponentPawnsBB & (bits[f6] | bits[h6])) && (opponentPawnsBB & (bits[e7] | bits[g7])))
+            eval -= trappedKnightPenalty;
 
-        if(sq == 18 && (ourPawnsBB & bits[10]) && (ourPawnsBB & bits[27]) && !(ourPawnsBB & bits[28]))
-            eval -= blockingCKnight; // c3 knight blocking c2 pawn
+        if(sq == c3 && (ourPawnsBB & bits[c2]) && (ourPawnsBB & bits[d4]) && !(ourPawnsBB & bits[e4]))
+            eval -= blockingCKnight;
     }
     if(color == Black) {
-        if(sq == 0 && (opponentPawnsBB & (bits[8] | bits[10])))
-           eval -= trappedKnightPenalty; // a1
-        if(sq == 8 && (opponentPawnsBB & (bits[16] | bits[18])) && (opponentPawnsBB & (bits[9] | bits[11])))
-            eval -= trappedKnightPenalty; // a2
+        if(sq == a1 && (opponentPawnsBB & (bits[a2] | bits[c2])))
+           eval -= trappedKnightPenalty;
+        if(sq == a2 && (opponentPawnsBB & (bits[a3] | bits[c3])) && (opponentPawnsBB & (bits[b2] | bits[d2])))
+            eval -= trappedKnightPenalty;
 
-        if(sq == 7 && (opponentPawnsBB & (bits[13] | bits[15])))
-           eval -= trappedKnightPenalty; // h1
-        if(sq == 15 && (opponentPawnsBB & (bits[21] | bits[23])) && (opponentPawnsBB & (bits[12] | bits[14])))
-            eval -= trappedKnightPenalty; // h2
-        if(sq == 50 && (ourPawnsBB & bits[58]) && (ourPawnsBB & bits[43]) && !(ourPawnsBB & bits[44]))
-            eval -= blockingCKnight; // c6 knight blocking c7 pawn
+        if(sq == h1 && (opponentPawnsBB & (bits[h2] | bits[f2])))
+           eval -= trappedKnightPenalty;
+        if(sq == h2 && (opponentPawnsBB & (bits[f3] | bits[h3])) && (opponentPawnsBB & (bits[e2] | bits[g2])))
+            eval -= trappedKnightPenalty;
+
+        if(sq == c6 && (ourPawnsBB & bits[c7]) && (ourPawnsBB & bits[d5]) && !(ourPawnsBB & bits[e5]))
+            eval -= blockingCKnight;
     }
 
     // bonus if defended by pawns
@@ -96,23 +97,23 @@ int evalBishop(int sq, int color) {
 
     int eval = pieceValues[Bishop];
 
-    // trapped bishop penalty
+    // traps
     if(color == White) {
-        if(sq == 55 && (opponentPawnsBB & bits[53]) && (opponentPawnsBB & bits[46]))
-            eval -= trappedBishopPenalty; // h7
-        if(sq == 48 && (opponentPawnsBB & bits[50]) && (opponentPawnsBB & bits[41]))
-            eval -= trappedBishopPenalty; // a7
+        if(sq == a7 && (opponentPawnsBB & bits[b6]) && (opponentPawnsBB & bits[c7]))
+            eval -= trappedBishopPenalty;
+        if(sq == h7 && (opponentPawnsBB & bits[g6]) && (opponentPawnsBB & bits[f7]))
+            eval -= trappedBishopPenalty;
     }
     if(color == Black) {
-        if(sq == 15 && (opponentPawnsBB & bits[13]) && (opponentPawnsBB & bits[22]))
-            eval -= trappedBishopPenalty; // h2
-        if(sq == 8 && (opponentPawnsBB & bits[10]) && (opponentPawnsBB & bits[17]))
-            eval -= trappedBishopPenalty; // a2
+        if(sq == a2 && (opponentPawnsBB & bits[b3]) && (opponentPawnsBB & bits[c2]))
+            eval -= trappedBishopPenalty;
+        if(sq == h2 && (opponentPawnsBB & bits[g3]) && (opponentPawnsBB & bits[f2]))
+            eval -= trappedBishopPenalty;
     }
 
     // fianchetto bonus (bishop on long diagonal on the second rank)
-    if(color == White && (sq == 9 || sq == 14)) eval += fianchettoBonus;
-    if(color == Black && (sq ==  49|| sq == 54)) eval += fianchettoBonus;
+    if(color == White && (sq == b2 || sq == g2)) eval += fianchettoBonus;
+    if(color == Black && (sq ==  b7 || sq == g7)) eval += fianchettoBonus;
 
     // mobility and squares attacked near the opponent king
     int mobility = 0;

@@ -47,10 +47,12 @@ string square(int x) {
 
 // general bitboard operations
 int popcount(U64 bb) {
-    int ans = 0;
-    for(int i = 0; i < 64; i++)
-        if(bb & bits[i]) ans++;
-    return ans;
+   int ans = 0;
+   while (bb) {
+       ans++;
+       bb &= bb-1;
+   }
+   return ans;
 }
 
 U64 eastOne(U64 bb) {
@@ -436,17 +438,17 @@ vector<Move> Board::GeneratePseudoLegalMoves() {
     }
 
     // castles
-    if((this->castleRights & bits[0]) && this->squares[5] == Empty && this->squares[6] == Empty)
-        moves.push_back({4, 6, 0, 0, 1, 0});
+    if((this->castleRights & bits[0]) && this->squares[f1] == Empty && this->squares[g1] == Empty)
+        moves.push_back({e1, g1, 0, 0, 1, 0});
 
-    if((this->castleRights & bits[1]) && this->squares[1] == Empty && this->squares[2] == Empty && this->squares[3] == Empty)
-        moves.push_back({4, 2, 0, 0, 1, 0});
+    if((this->castleRights & bits[1]) && this->squares[b1] == Empty && this->squares[c1] == Empty && this->squares[d1] == Empty)
+        moves.push_back({e1, c1, 0, 0, 1, 0});
 
-    if((this->castleRights & bits[2]) && this->squares[61] == Empty && this->squares[62] == Empty)
-        moves.push_back({60, 62, 0, 0, 1, 0});
+    if((this->castleRights & bits[2]) && this->squares[f8] == Empty && this->squares[g8] == Empty)
+        moves.push_back({e8, g8, 0, 0, 1, 0});
 
-    if((this->castleRights & bits[3]) && this->squares[57] == Empty && this->squares[58] == Empty && this->squares[59] == Empty)
-        moves.push_back({60, 58, 0, 0, 1, 0});
+    if((this->castleRights & bits[3]) && this->squares[b8] == Empty && this->squares[c8] == Empty && this->squares[d8] == Empty)
+        moves.push_back({e8, c8, 0, 0, 1, 0});
 
     // en passant
     if(ep != -1) {
@@ -767,16 +769,16 @@ void Board::makeMove(Move m) {
     }
 
     // remove the respective castling right if a rook moves or gets captured
-    if((this->castleRights & bits[1]) && (m.from == 0 || m.to == 0))
+    if((this->castleRights & bits[1]) && (m.from == a1 || m.to == a1))
         this->castleRights ^= bits[1];
 
-    if((this->castleRights & bits[0]) && (m.from == 7 || m.to == 7))
+    if((this->castleRights & bits[0]) && (m.from == h1 || m.to == h1))
         this->castleRights ^= bits[0];
 
-    if((this->castleRights & bits[3]) && (m.from == 56 || m.to == 56))
+    if((this->castleRights & bits[3]) && (m.from == a8 || m.to == a8))
         this->castleRights ^= bits[3];
 
-    if((this->castleRights & bits[2]) && (m.from == 63 || m.to == 63))
+    if((this->castleRights & bits[2]) && (m.from == h8 || m.to == h8))
         this->castleRights ^= bits[2];
 
     // add the new castle rights
@@ -785,34 +787,34 @@ void Board::makeMove(Move m) {
 
     // move the rook if castle
     if(m.castle) {
-        if(m.to == 2) {
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 0)];
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 3)];
-            this->addPieceInBB(Rook, color, 3);
-            this->deletePieceInBB(Rook, color, 0);
+        if(m.to == c1) {
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, a1)];
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, d1)];
+            this->addPieceInBB(Rook, color, d1);
+            this->deletePieceInBB(Rook, color, a1);
 
-            swap(this->squares[0], this->squares[3]);
-        } else if(m.to == 6) {
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 5)];
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 7)];
-            this->addPieceInBB(Rook, color, 5);
-            this->deletePieceInBB(Rook, color, 7);
+            swap(this->squares[a1], this->squares[d1]);
+        } else if(m.to == g1) {
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, f1)];
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, h1)];
+            this->addPieceInBB(Rook, color, f1);
+            this->deletePieceInBB(Rook, color, h1);
 
-            swap(this->squares[7], this->squares[5]);
-        } else if(m.to == 62) {
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 61)];
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 63)];
-            this->addPieceInBB(Rook, color, 61);
-            this->deletePieceInBB(Rook, color, 63);
+            swap(this->squares[h1], this->squares[f1]);
+        } else if(m.to == g8) {
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, f8)];
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, h8)];
+            this->addPieceInBB(Rook, color, f8);
+            this->deletePieceInBB(Rook, color, h8);
 
-            swap(this->squares[61], this->squares[63]);
+            swap(this->squares[f8], this->squares[h8]);
         } else {
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 56)];
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 59)];
-            this->addPieceInBB(Rook, color, 59);
-            this->deletePieceInBB(Rook, color, 56);
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, a8)];
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, d8)];
+            this->addPieceInBB(Rook, color, d8);
+            this->deletePieceInBB(Rook, color, a8);
 
-            swap(this->squares[56], this->squares[59]);
+            swap(this->squares[a8], this->squares[d8]);
         }
     }
     // remove the captured pawn if en passant
@@ -882,34 +884,34 @@ void Board::unmakeMove(Move m, int ep, int castleRights) {
     this->squares[m.to] = m.capture;
 
     if(m.castle) {
-        if(m.to == 2) {
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 0)];
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 3)];
-            this->deletePieceInBB(Rook, color, 3);
-            this->addPieceInBB(Rook, color, 0);
+        if(m.to == c1) {
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, a1)];
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, d1)];
+            this->deletePieceInBB(Rook, color, d1);
+            this->addPieceInBB(Rook, color, a1);
 
-            swap(this->squares[0], this->squares[3]);
-        } else if(m.to == 6) {
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 5)];
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, 7)];
-            this->deletePieceInBB(Rook, color, 5);
-            this->addPieceInBB(Rook, color, 7);
+            swap(this->squares[a1], this->squares[d1]);
+        } else if(m.to == g1) {
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, h1)];
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, White, f1)];
+            this->deletePieceInBB(Rook, color, f1);
+            this->addPieceInBB(Rook, color, h1);
 
-            swap(this->squares[7], this->squares[5]);
-        } else if(m.to == 62) {
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 61)];
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 63)];
-            this->deletePieceInBB(Rook, color, 61);
-            this->addPieceInBB(Rook, color, 63);
+            swap(this->squares[f1], this->squares[h1]);
+        } else if(m.to == g8) {
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, f8)];
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, h8)];
+            this->deletePieceInBB(Rook, color, f8);
+            this->addPieceInBB(Rook, color, h8);
 
-            swap(this->squares[61], this->squares[63]);
+            swap(this->squares[f8], this->squares[h8]);
         } else {
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 56)];
-            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, 59)];
-            this->deletePieceInBB(Rook, color, 59);
-            this->addPieceInBB(Rook, color, 56);
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, a8)];
+            this->zobristHash ^= zobristNumbers[zPieceSquareIndex(Rook, Black, d8)];
+            this->deletePieceInBB(Rook, color, d8);
+            this->addPieceInBB(Rook, color, a8);
 
-            swap(this->squares[56], this->squares[59]);
+            swap(this->squares[a8], this->squares[d8]);
         }
     }
 
