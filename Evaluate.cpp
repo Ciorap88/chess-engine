@@ -9,6 +9,18 @@ vector<int> pieceValues = {0,100,300,310,500,900,0};
 
 const int weight[7] = {0,0,1,1,2,4,0};
 
+// flipped squares for piece suqare tables for black
+const int flipped[64] = {
+    56, 57, 58, 59, 60, 61, 62, 63,
+    48, 49, 50, 51, 52, 53, 54, 55,
+    40, 41, 42, 43, 44, 45, 46, 47,
+    32, 33, 34, 35, 36, 37, 38, 39,
+    24, 25, 26, 27, 28, 29, 30, 31,
+    16, 17, 18 ,19, 20, 21, 22, 23,
+    8, 9, 10, 11 , 12, 13, 14, 15,
+    0, 1, 2, 3, 4, 5, 6, 7
+};
+
 int Evaluate() {
     return 0;
 }
@@ -359,5 +371,75 @@ int blackKingShield() {
         else if(ourPawnsBB & bits[h6]) eval += shield2;
         else eval -= noShield;
     }
+    return eval;
+}
+
+const int doubledPawnsPenalty = 20;
+const int weakPawnPenalty = 15;
+const int passedPawnTable[64] = {
+    0, 0, 0, 0, 0, 0, 0, 0,
+    20, 20, 20, 20, 20, 20, 20, 20,
+    20, 20, 20, 20, 20, 20, 20, 20,
+    40, 40, 40, 40, 40, 40, 40, 40,
+    60, 60, 60, 60, 60, 60, 60, 60,
+    80, 80, 80, 80, 80, 80, 80, 80,
+    100, 100, 100, 100, 100, 100, 100, 100,
+    0, 0, 0, 0, 0, 0, 0, 0,
+};
+
+int evalPawn(int sq, int color) {
+    U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
+
+    U64 opponentPawnsBB = (board.pawnsBB & (color == White ? board.blackPiecesBB : board.whitePiecesBB));
+    U64 ourPawnsBB = (board.pawnsBB & (color == White ? board.whitePiecesBB : board.blackPiecesBB));
+
+    U64 opponentPawnAttacksBB = pawnAttacks(opponentPawnsBB, (color == White ? Black : White));
+    U64 ourPawnAttacksBB = pawnAttacks(ourPawnsBB, color);
+
+    bool weak = true, passed = true, opposed = false;
+
+    int eval = pieceValues[Pawn];
+    int dir = (color == White ? 8 : -8);
+
+    // check squares in front of the pawn to see if it is passed or opposed/doubled
+    int curSq = sq+dir;
+    while(curSq < 64 && curSq >= 0) {
+        if(board.pawnsBB & bits[curSq]) {
+            passed = false;
+            if(ourPiecesBB & bits[curSq]) eval -= doubledPawnsPenalty;
+            else opposed = true;
+        }
+        if(opponentPawnAttacksBB & bits[curSq]) passed = false;
+
+        curSq += dir;
+    }
+
+    // check squares behind the pawn to see if it can be protected by other pawns
+    curSq = sq;
+    while(curSq < 64 && curSq >= 0) {
+        if(ourPawnAttacksBB & curSq) {
+            weak = false;
+            break;
+        }
+        curSq -= dir;
+    }
+
+    // bonus for passed pawns, bigger bonus for protected passers
+    // the bonus is also bigger if the pawn is more advanced
+    if(passed) {
+        int bonus = passedPawnTable[(color == White ? sq : flipped[sq])];
+        if(ourPawnAttacksBB & bits[sq]) bonus = (bonus*4)/3;
+
+        eval += bonus;
+    }
+
+    // penalty for weak (backward or isolated) pawns and bigger penalty if they are on a semi open file
+    if(weak) {
+        int penalty = weakPawnPenalty;
+        if(!opposed) penalty = (penalty*4)/3;
+
+        eval -= penalty;
+    }
+
     return eval;
 }
