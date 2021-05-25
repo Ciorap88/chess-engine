@@ -8,9 +8,6 @@
 #include "Board.h"
 #include "Evaluate.h"
 
-extern std::vector<int> pieceValues;
-extern Board board;
-
 pair<Move, int> Search();
 
 #endif

@@ -5,11 +5,108 @@
 
 using namespace std;
 
-vector<int> pieceValues = {0,100,300,310,500,900,0};
+const int kingSafetyTable[100] = {
+    0, 0, 1, 2, 3, 5, 7, 9, 12, 15,
+    18, 22, 26, 30, 35, 39, 44, 50, 56, 62,
+    68,  75,  82,  85,  89,  97, 105, 113, 122, 131,
+    140, 150, 169, 180, 191, 202, 213, 225, 237, 248,
+    260, 272, 283, 295, 307, 319, 330, 342, 354, 366,
+    377, 389, 401, 412, 424, 436, 448, 459, 471, 483,
+    494, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+    500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+    500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+    500, 500, 500, 500, 500, 500, 500, 500, 500, 500
+};
 
-const int weight[7] = {0,0,1,1,2,4,0};
+const int mgKingTable[64] = {
+    40, 50, 30, 10, 10, 30, 50, 40,
+    30, 40, 20, 0, 0, 20, 40, 30,
+    10, 20, 0, -20, -20, 0, 20, 10,
+    0, 10, -10, -30, -30, -10, 10, 0,
+    -10, 0, -20, -40, -40, -20, 0, -10,
+    -20, -10, -30, -50, -50, -30, -10, -20,
+    -30, -20, -40, -60, -60, -40, -20, -30,
+    -40, -30, -50, -70, -70, -50, -30, -40
+};
 
-// flipped squares for piece suqare tables for black
+const int egKingTable[64] = {
+    -72, -48, -36, -24, -24, -36, -48, -72,
+    -48, -24, -12, 0, 0, -12, -24, -48,
+    -36, -12, 0, 12, 12, 0, -12, -36,
+    -24, 0, 12, 24, 24, 12, 0, -24,
+    -24, 0, 12, 24, 24, 12, 0, -24,
+    -36, -12, 0, 12, 12, 0, -12, -36,
+    -48, -24, -12, 0, 0, -12, -24, -48,
+    -72, -48, -36, -24, -24, -36, -48, -72
+};
+
+const int queenTable[64] = {
+    -5, -5, -5, -5, -5, -5, -5, -5,
+    0, 0, 1, 1, 1, 1, 0, 0,
+    0, 0, 1, 2, 2, 1, 0, 0,
+    0, 0, 2, 3, 3, 2, 0, 0,
+    0, 0, 2, 3, 3, 2, 0, 0,
+    0, 0, 1, 2, 2, 1, 0, 0,
+    0, 0, 1, 1, 1, 1, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0
+};
+
+const int rookTable[64] = {
+    0, 0, 0, 2, 2, 0, 0, 0
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    20, 20, 20, 20, 20, 20, 20, 20,
+    5, 5, 5, 5, 5, 5, 5, 5,
+};
+
+const int bishopTable[64] = {
+    -4, -4, -12, -4, -4, -12, -4, -4
+    -4, 2, 1, 1, 1, 1, 2, -4,
+    -4, 0, 2, 4, 4, 2, 0, -4,
+    -4, 0, 4, 6, 6, 4, 0, -4,
+    -4, 0, 4, 6, 6, 4, 0, -4,
+    -4, 1, 2, 4, 4, 2, 1, -4,
+    -4, 0, 0, 0, 0, 0, 0, -4,
+    -4, -4, -4, -4, -4, -4, -4, -4,
+};
+
+const int knightTable[64] = {
+    -8, -12, -8, -8, -8, -8, -12, -8
+    -8, 0, 0, 0, 0, 0, 0, -8,
+    -8, 0, 4, 4, 4, 4, 0, -8,
+    -8, 0, 4, 8, 8, 4, 0, -8,
+    -8, 0, 4, 8, 8, 4, 0, -8,
+    -8, 0, 4, 4, 4, 4, 0, -8,
+    -8, 0, 1, 2, 2, 1, 0, -8,
+    -8, -8, -8, -8, -8, -8, -8, -8,
+};
+
+const int pawnTable[64] = {
+    0, 0, 0, 0, 0, 0, 0, 0,
+    -6, -4, 1, -24, -24, 1, -4, -6,
+    -4, -4, 1, 5, 5, 1, -4, -4,
+    -6, -4, 5, 10, 10, 5, -4, -6,
+    -6, -4, 2, 8, 8, 2, -4, -6,
+    -6, -4, 1, 2, 2, 1, -4, -6,
+    -6, -4, 1, 1, 1, 1, -4, -6,
+    0, 0, 0, 0, 0, 0, 0, 0
+};
+
+const int passedPawnTable[64] = {
+    0, 0, 0, 0, 0, 0, 0, 0,
+    20, 20, 20, 20, 20, 20, 20, 20,
+    20, 20, 20, 20, 20, 20, 20, 20,
+    40, 40, 40, 40, 40, 40, 40, 40,
+    60, 60, 60, 60, 60, 60, 60, 60,
+    80, 80, 80, 80, 80, 80, 80, 80,
+    100, 100, 100, 100, 100, 100, 100, 100,
+    0, 0, 0, 0, 0, 0, 0, 0,
+};
+
+// flipped squares for piece square tables for black
 const int flipped[64] = {
     56, 57, 58, 59, 60, 61, 62, 63,
     48, 49, 50, 51, 52, 53, 54, 55,
@@ -21,16 +118,141 @@ const int flipped[64] = {
     0, 1, 2, 3, 4, 5, 6, 7
 };
 
-int Evaluate() {
-    return 0;
-}
 
-const int knightMobilityConstant = 10;
-const int knightPawnConstant = 2;
+const int mgWeight[7] = {0, 0, 1, 1, 2, 4, 0};
+int pieceValues[7] = {0, 100, 300, 310, 500, 900, 0};
+int pieceAttackWeight[6] = {0, 0, 2, 2, 3, 5};
+
+const int knightMobilityConstant = 3;
+const int knightPawnConstant = 3;
 const int trappedKnightPenalty = 100;
 const int knightDefendedByPawn = 15;
-const int knightCloseToEnemyKing = 50;
 const int blockingCKnight = 30;
+const int knightPairPenalty = 20;
+
+const int bishopPairBonus = 50;
+const int trappedBishopPenalty = 150;
+const int fianchettoBonus = 30;
+const int bishopMobilityConstant = 3;
+const int blockedBishopPenalty = 30;
+
+const int rookOnQueenFile = 10;
+const int rookOnOpenFile = 20;
+const int rookOnSeventh = 60;
+const int rookPawnConstant = 3;
+const int rooksDefendingEachOther = 5;
+const int rookMobilityConstant = 3;
+const int blockedRookPenalty = 30;
+
+const int earlyQueenDevelopment = 10;
+const int queenMobilityConstant = 3;
+
+const int shield1 = 10;
+const int shield2 = 5;
+const int noShield = 5;
+
+const int doubledPawnsPenalty = 20;
+const int weakPawnPenalty = 15;
+
+const int tempoBonus = 10;
+
+
+int gamePhase, whiteAttackersCnt, blackAttackersCnt, whiteAttackWeight, blackAttackWeight;
+int pawnCntWhite, pawnCntBlack, pieceMaterialWhite, pieceMaterialBlack;
+
+int evalPawn(int sq, int color);
+int evalKnight(int sq, int color);
+int evalBishop(int sq, int color);
+int evalRook(int sq, int color);
+int evalQueen(int sq, int color);
+int whiteKingShield(), blackKingShield();
+
+int Evaluate() {
+
+    // reset everything
+    gamePhase = 0;
+    whiteAttackersCnt = blackAttackersCnt = 0;
+    whiteAttackWeight = blackAttackWeight = 0;
+    pawnCntWhite = pawnCntBlack = 0;
+    pieceMaterialWhite = pieceMaterialBlack = 0;
+
+    // evaluate pieces independently
+    int res = 0;
+    for(int sq = 0; sq < 64; sq++) {
+        if(board.squares[sq] == Empty) continue;
+
+        int color = (board.squares[sq] & (Black | White));
+        int c = (color == White ? 1 : -1);
+
+        if(board.pawnsBB & bits[sq]) res += evalPawn(sq, color) * c;
+        if(board.knightsBB & bits[sq]) res += evalKnight(sq, color) * c;
+        if(board.bishopsBB & bits[sq]) res += evalBishop(sq, color) * c;
+        if(board.rooksBB & bits[sq]) res += evalRook(sq, color) * c;
+        if(board.queensBB & bits[sq]) res += evalQueen(sq, color) * c;
+    }
+
+    // evaluate kings based on the current game phase (king centralization becomes more important than safety as pieces disappear from the board)
+    int mgWeight = min(gamePhase, 24);
+    int egWeight = 24-mgWeight;
+
+    int mgKingScore = whiteKingShield() - blackKingShield();
+    int egKingScore = 0;
+
+    mgKingScore += mgKingTable[board.whiteKingSquare] - mgKingTable[flipped[board.blackKingSquare]];
+    egKingScore += egKingTable[board.whiteKingSquare] - egKingTable[flipped[board.blackKingSquare]];
+
+    res += (mgWeight * mgKingScore + egWeight * egKingScore) / 24;
+
+    // tempo bonus
+    if(board.turn == White) res += tempoBonus;
+    else res -= tempoBonus;
+
+    // evaluate attacks on the kings
+
+    // if only 1 or 2 attackers, we consider the king safe
+    if(whiteAttackersCnt <= 2) whiteAttackWeight = 0;
+    if(blackAttackersCnt <= 2) blackAttackWeight = 0;
+
+    res += kingSafetyTable[whiteAttackWeight] - kingSafetyTable[blackAttackWeight];
+
+    // add scores for bishop and knight pairs
+    if(popcount(board.whitePiecesBB & board.bishopsBB) >= 2) res += bishopPairBonus;
+    if(popcount(board.blackPiecesBB & board.bishopsBB) >= 2) res -= bishopPairBonus;
+
+    if(popcount(board.whitePiecesBB & board.knightsBB) >= 2) res -= knightPairPenalty;
+    if(popcount(board.blackPiecesBB & board.knightsBB) >= 2) res += knightPairPenalty;
+
+    // low material corrections (adjusting the score for well known draws)
+
+    int strongerSide = White, weakerSide = Black;
+    int strongerPawns = pawnCntWhite, weakerPawns = pawnCntBlack;
+    int strongerPieces = pieceMaterialWhite, weakerPieces = pieceMaterialBlack;
+    if(res < 0) {
+        swap(strongerSide, weakerSide);
+        swap(strongerPieces, weakerPieces);
+        swap(strongerPawns, weakerPawns);
+    }
+
+    if(strongerPawns == 0) {
+        // weaker side cannot be checkmated
+        if(strongerPieces < 400) return 0;
+        if(weakerPawns == 0 && weakerPieces == 2*pieceValues[Knight]) return 0;
+
+        // rook vs minor piece
+        if(strongerPieces == pieceValues[Rook] && (weakerPieces == pieceValues[Knight] || weakerPieces == pieceValues[Bishop]) )
+            res /= 2;
+
+        // rook and minor vs rook
+        if((strongerPieces == pieceValues[Rook] + pieceValues[Bishop] || strongerPieces == pieceValues[Rook] + pieceValues[Knight])
+           && weakerPieces == pieceValues[Rook])
+            res /= 2;
+    }
+
+    // return result from the perspective of the side to move
+    if(board.turn == Black) res *= -1;
+
+    return res;
+}
 
 int evalKnight(int sq, int color) {
     U64 opponentPawnsBB = (board.pawnsBB & (color == White ? board.blackPiecesBB : board.whitePiecesBB));
@@ -40,7 +262,13 @@ int evalKnight(int sq, int color) {
     U64 ourPawnAttacksBB = pawnAttacks(ourPawnsBB, color);
     U64 opponentPawnAttacksBB = pawnAttacks(opponentPawnsBB, (color ^ (White | Black)));
 
-    int eval = pieceValues[Knight];
+    gamePhase += mgWeight[Knight];
+    if(color == White) pieceMaterialWhite += pieceValues[Knight];
+    else pieceMaterialBlack += pieceValues[Knight];
+
+    // initial piece value and square value
+    int eval = pieceValues[Knight] + knightTable[(color == White ? sq : flipped[sq])];
+
 
     // mobility bonus
     U64 mob = (knightAttacksBB[sq] ^ (knightAttacksBB[sq] & (ourPiecesBB | opponentPawnAttacksBB)));
@@ -48,7 +276,7 @@ int evalKnight(int sq, int color) {
 
     // decreasing value as pawns disappear
     int numberOfPawns = popcount(board.pawnsBB);
-    eval += knightPawnConstant * numberOfPawns;
+    eval += knightPawnConstant * (numberOfPawns - 8);
 
     // traps and blockages
     if(color == White) {
@@ -84,18 +312,22 @@ int evalKnight(int sq, int color) {
     if(ourPawnAttacksBB & bits[sq])
         eval += knightDefendedByPawn;
 
-    // bonus if it is close to the king
-    int enemyKingSquare = (color == White ? board.blackKingSquare : board.whiteKingSquare);
-    if(dist(sq, enemyKingSquare) <= 4) eval += knightCloseToEnemyKing;
+    // attacks
+    U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
+
+    int attackedSquares = popcount(knightAttacksBB[sq] & sqNearKing);
+    if(attackedSquares) {
+        if(color == White) {
+            whiteAttackersCnt++;
+            whiteAttackWeight += pieceAttackWeight[Knight] * popcount(attackedSquares);
+        } else {
+            blackAttackersCnt++;
+            blackAttackWeight += pieceAttackWeight[Knight] * popcount(attackedSquares);
+        }
+    }
 
     return eval;
 }
-
-const int trappedBishopPenalty = 150;
-const int fianchettoBonus = 30;
-const int bishopMobilityConstant = 5;
-const int attackingBishopBonus = 5;
-const int blockedBishopPenalty = 30;
 
 int evalBishop(int sq, int color) {
     U64 ourPawnsBB = (board.whitePiecesBB & board.pawnsBB);
@@ -107,8 +339,12 @@ int evalBishop(int sq, int color) {
 
     int opponentKingSquare = (color == White ? board.blackKingSquare : board.whiteKingSquare);
 
+    gamePhase += mgWeight[Bishop];
+    if(color == White) pieceMaterialWhite += pieceValues[Bishop];
+    else pieceMaterialBlack += pieceValues[Bishop];
 
-    int eval = pieceValues[Bishop];
+    // initial piece value and square value
+    int eval = pieceValues[Bishop] + bishopTable[(color == White ? sq : flipped[sq])];
 
     // traps and blockages
     if(color == White) {
@@ -138,17 +374,19 @@ int evalBishop(int sq, int color) {
     if(color == White && (sq == b2 || sq == g2)) eval += fianchettoBonus;
     if(color == Black && (sq ==  b7 || sq == g7)) eval += fianchettoBonus;
 
-    // mobility and squares attacked near the opponent king
+    // mobility and attacks
     int mobility = 0;
     int attackedSquares = 0;
+
+    U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
+
     for(int dir: piecesDirs[Bishop]) {
         if(!isInBoard(sq, dir)) continue;
 
         int curSq = sq+dir;
         while(true) {
             if(!(bits[curSq] & ourPiecesBB)) mobility++;
-            if(opponentKingSquare == curSq || (kingAttacksBB[opponentKingSquare] & bits[curSq]))
-                attackedSquares++;
+            if(sqNearKing & bits[curSq]) attackedSquares++;
 
             if(!isInBoard(curSq, dir) || (bits[curSq] & (opponentPiecesBB | ourPiecesBB))) break;
             curSq += dir;
@@ -156,18 +394,18 @@ int evalBishop(int sq, int color) {
     }
 
     eval += bishopMobilityConstant * (mobility-7);
-    eval += attackingBishopBonus * attackedSquares;
+    if(attackedSquares) {
+        if(color == White) {
+            whiteAttackersCnt++;
+            whiteAttackWeight += pieceAttackWeight[Bishop] * attackedSquares;
+        } else {
+            blackAttackersCnt++;
+            blackAttackWeight += pieceAttackWeight[Bishop] * attackedSquares;
+        }
+    }
 
     return eval;
 }
-
-const int rookOnOpenFile = 20;
-const int rookOnSeventh = 80;
-const int rookPawnConstant = 2;
-const int rooksDefendingEachOther = 5;
-const int attackingRookBonus = 10;
-const int rookMobilityConstant = 3;
-const int blockedRookPenalty = 30;
 
 int evalRook(int sq, int color) {
     U64 currFileBB = filesBB[sq%8];
@@ -183,9 +421,14 @@ int evalRook(int sq, int color) {
 
     // in this case seventh rank means the second rank in the opponent's half
     int seventhRank = (color == White ? 6 : 1);
-    int eightRank = (color == White ? 7 : 0);
+    int eighthRank = (color == White ? 7 : 0);
 
-    int eval = pieceValues[Rook];
+    gamePhase += mgWeight[Rook];
+    if(color == White) pieceMaterialWhite += pieceValues[Rook];
+    else pieceMaterialBlack += pieceValues[Rook];
+
+    // initial piece value and square value
+    int eval = pieceValues[Rook] + rookTable[(color == White ? sq : flipped[sq])];
 
     // blocked by uncastled king
     if(color == White) {
@@ -203,7 +446,7 @@ int evalRook(int sq, int color) {
 
     // the rook becomes more valuable as there are less pawns on the board
     int numberOfPawns = popcount(board.pawnsBB);
-    eval += rookPawnConstant * (16 - numberOfPawns);
+    eval += rookPawnConstant * (8 - numberOfPawns);
 
     // bonus for a rook on an open or semi open file
     bool ourBlockingPawns = (currFileBB & ourPawnsBB);
@@ -215,14 +458,19 @@ int evalRook(int sq, int color) {
     }
 
     // the rook on the seventh rank gets a huge bonus if there are pawns on that rank or if it restricts the king to the eighth rank
-    if(sq/8 ==  seventhRank && (opponentKingSquare/8 == eightRank || (opponentPawnsBB & ranksBB[seventhRank])))
+    if(sq/8 ==  seventhRank && (opponentKingSquare/8 == eighthRank || (opponentPawnsBB & ranksBB[seventhRank])))
         eval += rookOnSeventh;
 
     // small bonus if the rook is defended by another rook
     if((board.rooksBB & ourPiecesBB & (currRankBB | currFileBB)) ^ bits[sq])
         eval += rooksDefendingEachOther;
 
-    // mobility and squares attacked near the opponent king
+    // bonus for a rook that is on the same file as the enemy queen
+    if(currFileBB & opponentPiecesBB & board.queensBB) eval += rookOnQueenFile;
+
+    // mobility and attacks
+    U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
+
     int mobility = 0;
     int attackedSquares = 0;
     for(int dir: piecesDirs[Rook]) {
@@ -231,8 +479,7 @@ int evalRook(int sq, int color) {
         int curSq = sq+dir;
         while(true) {
             if(!(bits[curSq] & ourPiecesBB)) mobility++;
-            if(opponentKingSquare == curSq || (kingAttacksBB[opponentKingSquare] & bits[curSq]))
-                attackedSquares++;
+            if(sqNearKing & bits[curSq]) attackedSquares++;
 
             if(!isInBoard(curSq, dir) || (bits[curSq] & (opponentPiecesBB | ourPiecesBB))) break;
             curSq += dir;
@@ -240,14 +487,18 @@ int evalRook(int sq, int color) {
     }
 
     eval += rookMobilityConstant * (mobility-7);
-    eval += attackingRookBonus * attackedSquares;
+    if(attackedSquares) {
+        if(color == White) {
+            whiteAttackersCnt++;
+            whiteAttackWeight += pieceAttackWeight[Rook] * attackedSquares;
+        } else {
+            blackAttackersCnt++;
+            blackAttackWeight += pieceAttackWeight[Rook] * attackedSquares;
+        }
+    }
 
     return eval;
 }
-
-const int attackingQueenBonus = 15;
-const int earlyQueenDevelopment = 5;
-const int queenMobilityConstant = 3;
 
 int evalQueen(int sq, int color) {
     U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
@@ -257,7 +508,12 @@ int evalQueen(int sq, int color) {
 
     int opponentKingSquare = (color == Black ? board.whiteKingSquare : board.blackKingSquare);
 
-    int eval = pieceValues[Queen];
+    gamePhase += mgWeight[Knight];
+    if(color == White) pieceMaterialWhite += pieceValues[Queen];
+    else pieceMaterialBlack += pieceValues[Queen];
+
+    // initial piece value and square value
+    int eval = pieceValues[Queen] + queenTable[(color == White ? sq : flipped[sq])];
 
     // penalty for early development
     if(color == White && sq/8 > 1) {
@@ -273,7 +529,9 @@ int evalQueen(int sq, int color) {
         if(ourKnightsBB & bits[g8]) eval -= earlyQueenDevelopment;
     }
 
-    // mobility and squares attacked near the opponent king
+    // mobility and attacks
+    U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
+
     int mobility = 0;
     int attackedSquares = 0;
     for(int dir: piecesDirs[Queen]) {
@@ -282,8 +540,7 @@ int evalQueen(int sq, int color) {
         int curSq = sq+dir;
         while(true) {
             if(!(bits[curSq] & ourPiecesBB)) mobility++;
-            if(opponentKingSquare == curSq || (kingAttacksBB[opponentKingSquare] & bits[curSq]))
-                attackedSquares++;
+            if(sqNearKing & bits[curSq]) attackedSquares++;
 
             if(!isInBoard(curSq, dir) || (bits[curSq] & (opponentPiecesBB | ourPiecesBB))) break;
             curSq += dir;
@@ -291,14 +548,17 @@ int evalQueen(int sq, int color) {
     }
 
     eval += queenMobilityConstant * (mobility-14);
-    eval += attackingQueenBonus * attackedSquares;
-
+    if(attackedSquares) {
+        if(color == White) {
+            whiteAttackersCnt++;
+            whiteAttackWeight += pieceAttackWeight[Queen] * attackedSquares;
+        } else {
+            blackAttackersCnt++;
+            blackAttackWeight += pieceAttackWeight[Queen] * attackedSquares;
+        }
+    }
     return eval;
 }
-
-const int shield1 = 10;
-const int shield2 = 5;
-const int noShield = 5;
 
 int whiteKingShield() {
     U64 ourPawnsBB = (board.whitePiecesBB & board.pawnsBB);
@@ -374,19 +634,6 @@ int blackKingShield() {
     return eval;
 }
 
-const int doubledPawnsPenalty = 20;
-const int weakPawnPenalty = 15;
-const int passedPawnTable[64] = {
-    0, 0, 0, 0, 0, 0, 0, 0,
-    20, 20, 20, 20, 20, 20, 20, 20,
-    20, 20, 20, 20, 20, 20, 20, 20,
-    40, 40, 40, 40, 40, 40, 40, 40,
-    60, 60, 60, 60, 60, 60, 60, 60,
-    80, 80, 80, 80, 80, 80, 80, 80,
-    100, 100, 100, 100, 100, 100, 100, 100,
-    0, 0, 0, 0, 0, 0, 0, 0,
-};
-
 int evalPawn(int sq, int color) {
     U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
 
@@ -398,7 +645,11 @@ int evalPawn(int sq, int color) {
 
     bool weak = true, passed = true, opposed = false;
 
-    int eval = pieceValues[Pawn];
+    if(color == White) pawnCntWhite ++;
+    else pawnCntBlack ++;
+
+    // initial pawn value + square value
+    int eval = pieceValues[Pawn] + pawnTable[(color == White ? sq : flipped[sq])];
     int dir = (color == White ? 8 : -8);
 
     // check squares in front of the pawn to see if it is passed or opposed/doubled

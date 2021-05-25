@@ -76,6 +76,7 @@ public:
 extern Board board;
 extern vector<int> knightTargetSquares[64], piecesDirs[8];
 extern U64 bits[64], filesBB[8], ranksBB[8], knightAttacksBB[64], kingAttacksBB[64];
+extern U64 squaresNearWhiteKing[64], squaresNearBlackKing[64];
 
 U64 pawnAttacks(U64 pawns, int color);
 U64 knightAttacks(U64 knights);

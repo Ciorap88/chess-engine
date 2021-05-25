@@ -7,8 +7,6 @@
 ifstream fin("pos.txt");
 ofstream fout("output.txt");
 
-extern unordered_map<unsigned long long, pair<Move, pair<int, int> > > transpositionTable;
-
 int main() {
     Init();
 

@@ -6,6 +6,7 @@ using namespace std;
 
 U64 bits[64];
 U64 filesBB[8], ranksBB[8], knightAttacksBB[64], kingAttacksBB[64];
+U64 squaresNearWhiteKing[64], squaresNearBlackKing[64];
 
 const string startingPos = "rnbqkbnr/ppppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 vector<int> piecesDirs[8];
@@ -155,6 +156,12 @@ void Init() {
                 knightAttacksBB[i] |= bits[i+17];
             }
         }
+    }
+
+    for(int i = 0; i < 64; i++) {
+        squaresNearWhiteKing[i] = squaresNearBlackKing[i] = (kingAttacksBB[i] | bits[i]);
+        if(i+South >= 0) squaresNearBlackKing[i] |= kingAttacksBB[i+South];
+        if(i+North < 64) squaresNearWhiteKing[i] |= kingAttacksBB[i+North];
     }
 }
 

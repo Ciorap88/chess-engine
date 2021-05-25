@@ -7,8 +7,7 @@
 
 #include "Board.h"
 
-extern std::vector<int> pieceValues;
-extern Board board;
+extern int pieceValues[7];
 
 void initTables();
 int Evaluate();
