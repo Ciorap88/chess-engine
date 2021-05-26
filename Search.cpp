@@ -62,8 +62,6 @@ int quiesce(int alpha, int beta) {
     return alpha;
 }
 
-ofstream out ("res.txt");
-
 // negamax algorithm with alpha-beta pruning
 int AlphaBeta(int depth, int alpha, int beta) {
     vector<Move> moves = board.GenerateLegalMoves();
@@ -103,13 +101,14 @@ int AlphaBeta(int depth, int alpha, int beta) {
 
         board.unmakeMove(m, ep, castleRights);
 
-        if(eval >= beta)
-            return eval;
         if(eval > bestEval) {
             bestEval = eval;
             bestMove = m;
+            transpositionTable[board.zobristHash] = {bestMove, {bestEval, depth}};
             alpha = max(alpha, eval);
         }
+        if(eval >= beta)
+            return eval;
 
         // if we find a checkmate we should do it
         if(eval == mateEval) {
@@ -118,17 +117,15 @@ int AlphaBeta(int depth, int alpha, int beta) {
         }
     }
 
-    transpositionTable[board.zobristHash] = {bestMove, {bestEval, depth}};
     return bestEval;
 }
 
 pair<Move, int> Search() {
-    int eval = AlphaBeta(1, -inf, inf);
-
     time(&startTime);
     ios_base::sync_with_stdio(false);
 
-    for(int depth = 2; depth <= maxDepth; depth++) {
+    int eval;
+    for(int depth = 1; depth <= maxDepth; depth++) {
         eval = AlphaBeta(depth, -inf, inf);
 
         time(&currTime);

@@ -880,7 +880,7 @@ void Board::unmakeMove(Move m, int ep, int castleRights) {
     }
 
     this->addPieceInBB((this->squares[m.to] ^ color), color, m.from);
-    if(!m.ep) this->addPieceInBB(otherPiece, otherColor, m.to);
+    if(m.capture && !m.ep) this->addPieceInBB(otherPiece, otherColor, m.to);
 
     this->zobristHash ^= zobristNumbers[zPieceSquareIndex(piece, color, m.to)];
     if(m.capture && !m.ep) this->zobristHash ^= zobristNumbers[zPieceSquareIndex(otherPiece, otherColor, m.to)];

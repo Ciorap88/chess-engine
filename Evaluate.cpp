@@ -167,6 +167,7 @@ int evalRook(int sq, int color);
 int evalQueen(int sq, int color);
 int whiteKingShield(), blackKingShield();
 
+
 int Evaluate() {
 
     // reset everything
@@ -247,7 +248,6 @@ int Evaluate() {
            && weakerPieces == pieceValues[Rook])
             res /= 2;
     }
-
     // return result from the perspective of the side to move
     if(board.turn == Black) res *= -1;
 
