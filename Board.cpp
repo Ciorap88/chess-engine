@@ -952,10 +952,8 @@ bool putsKingInCheck(Move a) {
     return check;
 }
 
-ofstream fileout("res.txt");
-
 // perft function that returns the number of positions reached from an initial position after a certain depth
-int moveGenTest(int depth, bool show) {
+int moveGenTest(int depth) {
     if(depth == 0) return 1;
 
     vector<Move> moves = board.GenerateLegalMoves();
@@ -966,9 +964,7 @@ int moveGenTest(int depth, bool show) {
         int castleRights = board.castleRights;
 
         board.makeMove(m);
-        int mv = moveGenTest(depth-1, false);
-        if(show)
-            fileout << square(m.from) << square(m.to) << ": " << mv << '\n';
+        int mv = moveGenTest(depth-1);
 
         numPos += mv;
 

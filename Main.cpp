@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#include <unistd.h>
 
 #include "Search.h"
 #include "Evaluate.h"
@@ -6,8 +7,6 @@
 
 ifstream fin("pos.txt");
 ofstream fout("output.txt");
-
-extern unordered_map<unsigned long long, pair<Move, pair<int, int> > > transpositionTable;
 
 int main() {
     Init();
@@ -17,6 +16,7 @@ int main() {
         pos += (s + " ");
     }
     board.LoadFenPos(pos);
+    Search();
 
     while(true) {
         auto result = Search();
@@ -29,9 +29,12 @@ int main() {
         cout << moveToString(result.first) << ' ' << (board.turn == White ? 1 : -1) * result.second << '\n';
         board.makeMove(result.first);
 
-
         vector<Move> moves = board.GenerateLegalMoves();
-        if(moves.size() == 0) break;
+
+        if(moves.size() == 0) {
+            sleep(3);
+            break;
+        }
 
         bool good;
         do {

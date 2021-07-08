@@ -11,60 +11,29 @@ const Move noMove = {-1,-1,0,0,0,0};
 
 const int mateEval = inf-1;
 
-// considers captures first, sorting them by the difference between the captured and capturing piece
-int moveScore(Move m) {
-    int score = 0;
+unordered_map<unsigned long long, pair<Move, pair<int, int> > > tt;
 
-    if(m.capture) score += inf;
-
-    int capturedPieceVal = pieceValues[m.capture ^ (Black & White)];
-    int capturingPieceVal = pieceValues[board.squares[m.from] ^ (Black & White)];
-
-    score += (capturedPieceVal - capturingPieceVal);
-
-    return score;
-}
-
-// function that compares 2 moves in order to sort them
-bool compareMoves(Move a, Move b) {
-    return (moveScore(a) > moveScore(b));
-}
-
-unordered_map<unsigned long long, pair<Move, pair<int, int> > > transpositionTable;
-
-time_t startTime, currTime;
-const double timePerMove = 30;
+clock_t startTime;
+const int timePerMove = 15;
 const int maxDepth = 100;
+
+bool cmpCaptures(Move a, Move b) {
+    int otherColor = (board.turn ^ (Black | White));
+
+    int scoreA = (a.capture ^ otherColor);
+    scoreA -= (board.squares[a.from] ^ board.turn);
+
+    int scoreB = (b.capture ^ otherColor);
+    scoreB -= (board.squares[b.from] ^ board.turn);
+
+    return (scoreA > scoreB);
+}
+
 
 // only searching for captures at the end of a regular search in order to ensure the engine won't miss any tactics
 int quiesce(int alpha, int beta) {
-    int standPat = Evaluate();
-    if(standPat >= beta)
-        return beta;
-    alpha = max(alpha, standPat);
-
     vector<Move> moves = board.GenerateLegalMoves();
-
-    for(Move m : moves)  {
-        if(!m.capture) continue;
-
-        int ep = board.ep;
-        int castleRights = board.castleRights;
-
-        board.makeMove(m);
-        int eval = -quiesce(-beta, -alpha);
-        board.unmakeMove(m, ep, castleRights);
-
-        if(eval >= beta)
-            return beta;
-        alpha = max(alpha, eval);
-    }
-    return alpha;
-}
-
-// negamax algorithm with alpha-beta pruning
-int AlphaBeta(int depth, int alpha, int beta) {
-    vector<Move> moves = board.GenerateLegalMoves();
+    sort(moves.begin(), moves.end(), cmpCaptures);
 
     // game is over
     if(moves.size() == 0) {
@@ -73,66 +42,93 @@ int AlphaBeta(int depth, int alpha, int beta) {
         return 0;
     }
 
-    time(&currTime);
-    if(depth == 0 || (double)(currTime - startTime) > timePerMove) {
-        return quiesce(alpha, beta);
-    }
+    bool isInCheck = board.isInCheck();
 
-    Move bestMove = noMove;
+    int standPat = Evaluate();
+    if(standPat >= beta)
+        return beta;
+    alpha = max(alpha, standPat);
 
-    // we already searched this node with a better depth, so we return the result from the table
-    if(transpositionTable.find(board.zobristHash) != transpositionTable.end()) {
-        int oldDepth = transpositionTable[board.zobristHash].second.second;
-        if(oldDepth >= depth) {
-            return transpositionTable[board.zobristHash].second.first;
-        }
-    }
+    for(Move m : moves)  {
+        if((clock() - startTime) / CLOCKS_PER_SEC > timePerMove)
+            break;
 
-    // sorting the moves by score in order to prune more branches by considering the potentially better moves first;
-    sort(moves.begin(), moves.end(), compareMoves);
+        // if the current player is in check, we should look at all the moves because none of them is considered 'quiet'
+        if(!m.capture && !isInCheck) continue;
 
-    int bestEval = -inf;
-    for(Move m: moves) {
         int ep = board.ep;
         int castleRights = board.castleRights;
 
         board.makeMove(m);
-        int eval = -AlphaBeta(depth-1, -beta, -alpha);
-
+        int score = -quiesce(-beta, -alpha);
         board.unmakeMove(m, ep, castleRights);
 
-        if(eval > bestEval) {
-            bestEval = eval;
-            bestMove = m;
-            transpositionTable[board.zobristHash] = {bestMove, {bestEval, depth}};
-            alpha = max(alpha, eval);
-        }
-        if(eval >= beta)
-            return eval;
+        if(score >= beta)
+            return beta;
+        alpha = max(alpha, score);
+    }
+    return alpha;
+}
 
-        // if we find a checkmate we should do it
-        if(eval == mateEval) {
-            transpositionTable[board.zobristHash] = {bestMove, {eval, maxDepth}};
-            return eval;
+// negamax algorithm with alpha-beta pruning
+pair<Move, int> alphaBeta(int alpha, int beta, int depth) {
+    int bestScore = -inf;
+    Move bestMove = noMove;
+
+    vector<Move> moves = board.GenerateLegalMoves();
+    if(moves.size() == 0) {
+        if(board.isInCheck())
+            return {bestMove, -mateEval};
+        return {bestMove, 0};
+    }
+
+    bool isChecked = (tt.find(board.zobristHash) != tt.end());
+
+    if(isChecked && tt[board.zobristHash].second.second >= depth) {
+        return {tt[board.zobristHash].first, tt[board.zobristHash].second.first};
+    }
+
+    if(depth == 0) return {bestMove, quiesce(alpha, beta)};
+
+    for(Move m: moves) {
+        if((clock() - startTime) / CLOCKS_PER_SEC > timePerMove)
+            break;
+
+        int ep = board.ep;
+        int castleRights = board.castleRights;
+
+        board.makeMove(m);
+        int score = -alphaBeta(-beta, -alpha, depth-1).second;
+        board.unmakeMove(m, ep, castleRights);
+
+        if(score >= beta) return {bestMove, score};  // fail-soft beta-cutoff
+        if(score > bestScore) {
+            bestScore = score;
+            bestMove = m;
+            if(score > alpha) alpha = score;
         }
     }
 
-    return bestEval;
+    // update tt only if the program ran a complete search
+    if((clock() - startTime) / CLOCKS_PER_SEC < timePerMove)
+        tt[board.zobristHash] = {bestMove, {bestScore, depth}};
+
+    return {bestMove, bestScore};
 }
 
 pair<Move, int> Search() {
-    time(&startTime);
-    ios_base::sync_with_stdio(false);
+    startTime = clock();
 
-    int eval;
     for(int depth = 1; depth <= maxDepth; depth++) {
-        eval = AlphaBeta(depth, -inf, inf);
+        alphaBeta(-inf, inf, depth);
 
-        time(&currTime);
-        if((double)(currTime - startTime) > timePerMove) {
-            cout << depth << '\n';
-            return {transpositionTable[board.zobristHash].first, eval};
-        }
+        // if the program finds mate, it shouldn't search further
+        if(tt[board.zobristHash].second.first == mateEval)
+            break;
+
+        // time runs out
+        if((clock() - startTime) / CLOCKS_PER_SEC > timePerMove)
+            break;
     }
-    return {transpositionTable[board.zobristHash].first, eval};
+    return {tt[board.zobristHash].first, tt[board.zobristHash].second.first};
 }
