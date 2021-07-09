@@ -16,6 +16,28 @@ unordered_map<unsigned long long, pair<Move, pair<int, int> > > tt;
 clock_t startTime;
 const int timePerMove = 15;
 const int maxDepth = 100;
+int root;
+
+// draw by insufficient material
+bool isDraw() {
+    if(board.queensBB | board.rooksBB | board.pawnsBB) return false;
+
+    if((board.knightsBB | board.bishopsBB) == 0) return true; // king vs king
+
+    int whiteBishops = popcount(board.bishopsBB | board.whitePiecesBB);
+    int blackBishops = popcount(board.bishopsBB | board.blackPiecesBB);
+    int whiteKnights = popcount(board.knightsBB | board.whitePiecesBB);
+    int blackKnights = popcount(board.knightsBB | board.blackPiecesBB);
+
+    if(whiteKnights + blackKnights + whiteBishops + blackBishops == 1) return true; // king and minor piece vs king
+
+    if(whiteKnights + blackKnights == 0 && whiteBishops == 1 && blackBishops == 1) {
+        int lightSquareBishops = popcount(lightSquaresBB & board.bishopsBB);
+        if(lightSquareBishops == 0 || lightSquareBishops == 2) return true; // king and bishop vs king and bishops with same color bishops
+    }
+
+    return false;
+}
 
 bool cmpCaptures(Move a, Move b) {
     int otherColor = (board.turn ^ (Black | White));
@@ -32,10 +54,11 @@ bool cmpCaptures(Move a, Move b) {
 
 // only searching for captures at the end of a regular search in order to ensure the engine won't miss any tactics
 int quiesce(int alpha, int beta) {
+    // game over
+    if(isDraw()) return 0;
+
     vector<Move> moves = board.GenerateLegalMoves();
     sort(moves.begin(), moves.end(), cmpCaptures);
-
-    // game is over
     if(moves.size() == 0) {
         if(board.isInCheck())
             return -mateEval;
@@ -75,18 +98,26 @@ pair<Move, int> alphaBeta(int alpha, int beta, int depth) {
     int bestScore = -inf;
     Move bestMove = noMove;
 
+    bool isInCheck = board.isInCheck();
+
+    // game over
+    if(isDraw()) return {bestMove, 0};
+
     vector<Move> moves = board.GenerateLegalMoves();
     if(moves.size() == 0) {
-        if(board.isInCheck())
-            return {bestMove, -mateEval};
+        if(isInCheck)
+            return {bestMove, -(mateEval+maxDepth-root+depth)}; // score is higher for a faster mate
         return {bestMove, 0};
     }
 
-    bool isChecked = (tt.find(board.zobristHash) != tt.end());
+    bool isStored = (tt.find(board.zobristHash) != tt.end());
 
-    if(isChecked && tt[board.zobristHash].second.second >= depth) {
+    if(isStored && (tt[board.zobristHash].second.second >= depth || tt[board.zobristHash].second.first >= mateEval)) {
         return {tt[board.zobristHash].first, tt[board.zobristHash].second.first};
     }
+
+    // increase the depth if king is in check because there are fewer moves to calculate
+    if(isInCheck) depth++;
 
     if(depth == 0) return {bestMove, quiesce(alpha, beta)};
 
@@ -120,11 +151,12 @@ pair<Move, int> Search() {
     startTime = clock();
 
     for(int depth = 1; depth <= maxDepth; depth++) {
-        alphaBeta(-inf, inf, depth);
-
+        root = depth;
         // if the program finds mate, it shouldn't search further
-        if(tt[board.zobristHash].second.first == mateEval)
+        if(tt[board.zobristHash].second.first >= mateEval)
             break;
+
+        alphaBeta(-inf, inf, depth);
 
         // time runs out
         if((clock() - startTime) / CLOCKS_PER_SEC > timePerMove)

@@ -10,4 +10,6 @@
 
 pair<Move, int> Search();
 
+extern const int mateEval;
+
 #endif

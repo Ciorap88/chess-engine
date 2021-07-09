@@ -26,7 +26,11 @@ int main() {
             break;
         }
 
-        cout << moveToString(result.first) << ' ' << (board.turn == White ? 1 : -1) * result.second << '\n';
+        cout << moveToString(result.first) << ' ';
+        if(result.second >= mateEval) cout << "MATE\n";
+        else if(result.second <= -mateEval) cout << "-MATE\n";
+        else cout << (board.turn == White ? 1 : -1) * result.second << '\n';
+
         board.makeMove(result.first);
 
         vector<Move> moves = board.GenerateLegalMoves();
