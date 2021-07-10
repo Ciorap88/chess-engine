@@ -16,8 +16,6 @@ int main() {
         pos += (s + " ");
     }
     board.LoadFenPos(pos);
-    Search();
-
     while(true) {
         auto result = Search();
 
@@ -27,8 +25,8 @@ int main() {
         }
 
         cout << moveToString(result.first) << ' ';
-        if(result.second >= mateEval) cout << "MATE\n";
-        else if(result.second <= -mateEval) cout << "-MATE\n";
+        if(result.second >= MATE_THRESHOLD) cout << "MATE\n";
+        else if(result.second <= -MATE_THRESHOLD) cout << "-MATE\n";
         else cout << (board.turn == White ? 1 : -1) * result.second << '\n';
 
         board.makeMove(result.first);

@@ -10,6 +10,6 @@
 
 pair<Move, int> Search();
 
+extern const int MATE_THRESHOLD;
 extern const int mateEval;
-
 #endif
