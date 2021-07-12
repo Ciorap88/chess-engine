@@ -90,13 +90,13 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot) {
     bool isInCheck = board.isInCheck();
 
     // game over
-    if(isDraw()) return 0;
+    if(isDraw()) return 0; //insufficient material
 
     vector<Move> moves = board.GenerateLegalMoves();
     if(moves.size() == 0) {
         if(isInCheck)
             return -(mateEval - distToRoot); // score is higher for a faster mate
-        return 0;
+        return 0; //stalemate
     }
 
     bool isStored = (tt.find(board.zobristHash) != tt.end());
@@ -152,8 +152,10 @@ pair<Move, int> Search() {
         alphaBeta(-inf, inf, depth, 1);
 
         // time runs out
-        if((clock() - startTime) / CLOCKS_PER_SEC > timePerMove)
+        if((clock() - startTime) / CLOCKS_PER_SEC > timePerMove) {
+            cout << depth << ' ';
             break;
+        }
     }
     return {tt[board.zobristHash].first, tt[board.zobristHash].second.first};
 }

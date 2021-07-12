@@ -8,10 +8,18 @@ U64 bits[64];
 U64 filesBB[8], ranksBB[8], knightAttacksBB[64], kingAttacksBB[64];
 U64 squaresNearWhiteKing[64], squaresNearBlackKing[64];
 U64 lightSquaresBB, darkSquaresBB;
+U64 castleMask[4]; // bitboard for checking empty squares between king and rook when castling
+
+int castleStartSq[4] = {e1,e1,e8,e8};
+int castleEndSq[4] = {g1,c1,g8,c8};
 
 const string startingPos = "rnbqkbnr/ppppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+vector<int> promPieces = {Knight, Bishop, Rook, Queen}; // pieces that a pawn can promote to
 vector<int> piecesDirs[8];
 vector<int> knightTargetSquares[64];
+vector<int> kingMoves[64];
+vector<int> whitePawnCaptures[64], blackPawnCaptures[64];
 
 enum Directions {
     North = 8,
@@ -101,6 +109,11 @@ void Init() {
     for(int i = 0; i < 64; i++)
         bits[i] = (1LL << i);
 
+    castleMask[0] = (bits[f1] | bits[g1]);
+    castleMask[1] = (bits[b1] | bits[c1] | bits[d1]);
+    castleMask[2] = (bits[f8] | bits[g8]);
+    castleMask[3] = (bits[b8] | bits[c8] | bits[d8]);
+
     piecesDirs[Bishop] = {NorthEast, NorthWest, SouthEast, SouthWest};
     piecesDirs[Rook] = {East, West, North, South};
     piecesDirs[King] = piecesDirs[Queen] = {NorthEast, NorthWest, SouthEast, SouthWest, East, West, North, South};
@@ -108,7 +121,7 @@ void Init() {
     generateZobristHashNumbers();
 
     for(int i = 0; i < 64; i++) {
-        int File = i%8, Rank = i/8;
+        int File = (i & 7), Rank = (i >> 3);
 
         filesBB[File] |= bits[i];
         ranksBB[Rank] |= bits[i];
@@ -116,6 +129,19 @@ void Init() {
         kingAttacksBB[i] = (eastOne(bits[i]) | westOne(bits[i]));
         U64 king = (bits[i] | kingAttacksBB[i]);
         kingAttacksBB[i] |= (northOne(king) | southOne(king));
+
+        if(File > 0) {
+            whitePawnCaptures[i].push_back(i+7);
+            blackPawnCaptures[i].push_back(i-9);
+        }
+        if(File < 7) {
+            whitePawnCaptures[i].push_back(i+9);
+            blackPawnCaptures[i].push_back(i-7);
+        }
+
+        for(int j = 0; j < 64; j++)
+            if(kingAttacksBB[i] & bits[j])
+                kingMoves[i].push_back(j);
 
         if(File > 1) {
             if(Rank > 0) {
@@ -376,12 +402,21 @@ vector<Move> Board::GeneratePseudoLegalMoves() {
     int color = this->turn;
     int otherColor = (color ^ (Black | White));
 
+    U64 ourPiecesBB = (color == White ? this->whitePiecesBB : this->blackPiecesBB);
+    U64 opponentPiecesBB = (color == White ? this->blackPiecesBB : this->whitePiecesBB);
+    U64 allPiecesBB = (this->whitePiecesBB | this->blackPiecesBB);
+
+    int pawnDir = (color == White ? North : South);
+    int pawnStartRank = (color == White ? 1 : 6);
+    int pawnPromRank = (color == White ? 7 : 0);
+
     vector<Move> moves;
+
     for(int i = 0; i < 64; i++) {
-        if(this->squares[i] == Empty || this->squares[i] & color == 0) continue;
+        if(this->squares[i] == Empty || (this->squares[i] & color) == 0) continue;
         int piece = (this->squares[i]) - color;
-        int Rank = i/8;
-        int File = i%8;
+        int Rank = (i >> 3);
+        int File = (i & 7);
 
         // moves for sliding pieces
         if(piece == Bishop || piece == Queen || piece == Rook)  {
@@ -398,34 +433,31 @@ vector<Move> Board::GeneratePseudoLegalMoves() {
 
         // moves, captures and promotions for pawns
         if(piece == Pawn) {
-            int dir = (color == White ? North : South);
-            int startRank = (color == White ? 1 : 6);
-            int promRank = (color == White ? 7 : 0);
-            vector<int> promPieces = {Knight, Bishop, Rook, Queen};
-
-            // 2 square move at the beginning
-            if(Rank == startRank && this->squares[i+dir] == Empty && this->squares[i+2*dir] == Empty) {
-                moves.push_back({i, i+2*dir, 0, 0, 0, 0});
-            }
+            bool isPromoting = (((i+pawnDir) >> 3) == pawnPromRank);
+            vector<int> pawnCaptures = (color == White ? whitePawnCaptures[i] : blackPawnCaptures[i]);
 
             // normal moves and promotions
-            if(Rank != promRank && this->squares[i+dir] == Empty) {
-                if((i+dir)/8 == promRank) {
-                    for(auto pc: promPieces)
-                        moves.push_back({i, i+dir, 0, 0, 0 , pc});
+            if((allPiecesBB & bits[i+pawnDir]) == 0) {
+
+                if(Rank == pawnStartRank && (allPiecesBB & bits[i+2*pawnDir]) == 0)
+                    moves.push_back({i, i+2*pawnDir, 0, 0, 0, 0}); // 2 square move
+
+                if(isPromoting) {
+                    for(int pc: promPieces)
+                        moves.push_back({i, i+pawnDir, 0, 0, 0 , pc});
                 } else {
-                    moves.push_back({i, i+dir, 0, 0, 0 , 0});
+                    moves.push_back({i, i+pawnDir, 0, 0, 0 , 0});
                 }
             }
 
             // captures and capture-promotions
-            for(int side: {East, West}) {
-                if(Rank != promRank && isInBoard(i+dir, side) && this->squares[i+dir+side] != Empty && (this->squares[i+dir+side] & color) == 0) {
-                    if((i+dir)/8 == promRank) {
+            for(int sq : pawnCaptures) {
+                if(bits[sq] & opponentPiecesBB) {
+                    if(isPromoting) {
                         for(auto pc: promPieces)
-                            moves.push_back({i, i+dir+side, this->squares[i+dir+side], 0, 0, pc});
+                            moves.push_back({i, sq, this->squares[sq], 0, 0, pc});
                     } else {
-                        moves.push_back({i, i+dir+side, this->squares[i+dir+side], 0, 0, 0});
+                        moves.push_back({i, sq, this->squares[sq], 0, 0, 0});
                     }
                 }
             }
@@ -434,7 +466,7 @@ vector<Move> Board::GeneratePseudoLegalMoves() {
         // moves for knights
         if(piece == Knight) {
             for(auto sq: knightTargetSquares[i]) {
-                if((this->squares[sq] & color) == 0) {
+                if((ourPiecesBB & bits[sq]) == 0) {
                     moves.push_back({i, sq, this->squares[sq], 0, 0, 0});
                 }
             }
@@ -442,26 +474,17 @@ vector<Move> Board::GeneratePseudoLegalMoves() {
 
         // moves for kings
         if(piece == King) {
-            for(int dir: piecesDirs[King]) {
-                if(isInBoard(i, dir) && (this->squares[i+dir] & color) == 0) {
-                    moves.push_back({i, i+dir, this->squares[i+dir], 0, 0, 0});
-                }
+            for(int sq: kingMoves[i]) {
+                if((ourPiecesBB & bits[sq]) == 0)
+                    moves.push_back({i, sq, this->squares[sq], 0, 0, 0});
             }
         }
     }
 
     // castles
-    if((this->castleRights & bits[0]) && this->squares[f1] == Empty && this->squares[g1] == Empty)
-        moves.push_back({e1, g1, 0, 0, 1, 0});
-
-    if((this->castleRights & bits[1]) && this->squares[b1] == Empty && this->squares[c1] == Empty && this->squares[d1] == Empty)
-        moves.push_back({e1, c1, 0, 0, 1, 0});
-
-    if((this->castleRights & bits[2]) && this->squares[f8] == Empty && this->squares[g8] == Empty)
-        moves.push_back({e8, g8, 0, 0, 1, 0});
-
-    if((this->castleRights & bits[3]) && this->squares[b8] == Empty && this->squares[c8] == Empty && this->squares[d8] == Empty)
-        moves.push_back({e8, c8, 0, 0, 1, 0});
+    for(int i = 0; i < 4; i++)
+        if((this->castleRights & bits[i]) && ((allPiecesBB & castleMask[i]) == 0))
+             moves.push_back({castleStartSq[i], castleEndSq[i], 0, 0, 1, 0});
 
     // en passant
     if(ep != -1) {
@@ -481,22 +504,17 @@ vector<Move> Board::GeneratePseudoLegalMoves() {
 bool Board::isInCheck() {
     int color = this->turn;
     int otherColor = (color ^ (Black | White));
-
     int kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
 
+    U64 opponentPiecesBB = (color == White ? this->blackPiecesBB : this->whitePiecesBB);
+
     // knight checks
-    for(auto sq: knightTargetSquares[kingSquare])
-        if(this->squares[sq] == (otherColor | Knight))
-            return true;
+    if(knightAttacksBB[kingSquare] & (opponentPiecesBB | this->knightsBB))
+        return true;
 
     // pawn checks
-    vector<int> pawnDirs;
-    if(color == White) pawnDirs = {NorthWest, NorthEast};
-    if(color == Black) pawnDirs = {SouthWest, SouthEast};
-
-    for(int dir: pawnDirs)
-        if(isInBoard(kingSquare, dir) && this->squares[kingSquare+dir] == (Pawn | otherColor))
-            return true;
+    if(bits[kingSquare] & pawnAttacks((opponentPiecesBB & this->pawnsBB), otherColor))
+        return true;
 
     // sliding piece checks
     vector<int> slidingPieces = {Bishop, Rook, Queen};
