@@ -5,7 +5,7 @@
 using namespace std;
 
 U64 bits[64];
-U64 filesBB[8], ranksBB[8], knightAttacksBB[64], kingAttacksBB[64];
+U64 filesBB[8], ranksBB[8], knightAttacksBB[64], kingAttacksBB[64], whitePawnAttacksBB[64], blackPawnAttacksBB[64];
 U64 squaresNearWhiteKing[64], squaresNearBlackKing[64];
 U64 lightSquaresBB, darkSquaresBB;
 U64 castleMask[4]; // bitboard for checking empty squares between king and rook when castling
@@ -66,18 +66,18 @@ int popcount(U64 bb) {
 }
 
 U64 eastOne(U64 bb) {
-    return ((bb >> 1) & (~filesBB[0]));
+    return ((bb << 1) & (~filesBB[0]));
 }
 
 U64 westOne(U64 bb) {
-    return ((bb << 1) & (~filesBB[7]));
+    return ((bb >> 1) & (~filesBB[7]));
 }
 
 U64 northOne(U64 bb) {
-    return ((bb << 8) & (~ranksBB[0]));
+    return (bb << 8);
 }
 U64 southOne(U64 bb) {
-    return ((bb >> 8) & (~ranksBB[7]));
+    return (bb >> 8);
 }
 
 vector<unsigned long long> zobristNumbers;
@@ -126,22 +126,20 @@ void Init() {
         filesBB[File] |= bits[i];
         ranksBB[Rank] |= bits[i];
 
-        kingAttacksBB[i] = (eastOne(bits[i]) | westOne(bits[i]));
-        U64 king = (bits[i] | kingAttacksBB[i]);
-        kingAttacksBB[i] |= (northOne(king) | southOne(king));
-
         if(File > 0) {
+            whitePawnAttacksBB[i] |= bits[i+7];
+            blackPawnAttacksBB[i] |= bits[i-9];
+
             whitePawnCaptures[i].push_back(i+7);
             blackPawnCaptures[i].push_back(i-9);
         }
         if(File < 7) {
+            whitePawnAttacksBB[i] |= bits[i+9];
+            blackPawnAttacksBB[i] |= bits[i-7];
+
             whitePawnCaptures[i].push_back(i+9);
             blackPawnCaptures[i].push_back(i-7);
         }
-
-        for(int j = 0; j < 64; j++)
-            if(kingAttacksBB[i] & bits[j])
-                kingMoves[i].push_back(j);
 
         if(File > 1) {
             if(Rank > 0) {
@@ -183,6 +181,17 @@ void Init() {
                 knightAttacksBB[i] |= bits[i+17];
             }
         }
+    }
+
+    for(int i = 0; i < 64; i++) {
+        kingAttacksBB[i] = (eastOne(bits[i]) | westOne(bits[i]));
+        U64 king = (bits[i] | kingAttacksBB[i]);
+        kingAttacksBB[i] |= (northOne(king) | southOne(king));
+
+        for(int j = 0; j < 64; j++)
+            if(kingAttacksBB[i] & bits[j])
+                kingMoves[i].push_back(j);
+
     }
 
     for(int i = 0; i < 64; i++) {
@@ -542,7 +551,8 @@ vector<Move> Board::GenerateLegalMoves() {
     // remove the king before calculating attacked squares by opponent's sliding pieces
     this->squares[kingSquare] = Empty;
 
-    vector<int> attackedSquares(64, 0), checkingPieces;
+    vector<int> checkingPieces;
+    U64 attackedSquaresBB = 0;
 
     // attacked squares for sliding pieces
     for(int slidingPiece: {Rook, Bishop, Queen}) {
@@ -550,13 +560,12 @@ vector<Move> Board::GenerateLegalMoves() {
             if(this->squares[i] == (slidingPiece | otherColor)) {
                 for(int dir : piecesDirs[slidingPiece]) {
                     for(int j = i; ; j += dir) {
-                        attackedSquares[j] ++;
+                        if(j != i) attackedSquaresBB |= bits[j];
                         if(j == kingSquare) {
                             checkingPieces.push_back(i);
                         }
                         if((this->squares[j] != Empty && j != i) || !isInBoard(j, dir)) break;
                     }
-                    attackedSquares[i]--;
                 }
             }
         }
@@ -566,61 +575,49 @@ vector<Move> Board::GenerateLegalMoves() {
 
     // squares attacked by knights
     for(int i = 0; i < 64; i++) {
-        if(this->squares[i] == (Knight | otherColor))
-        for(auto j: knightTargetSquares[i]) {
-            attackedSquares[j] ++;
-            if(j == kingSquare) {
+        if(this->squares[i] == (Knight | otherColor)) {
+            attackedSquaresBB |= knightAttacksBB[i];
+            if(knightAttacksBB[i] & bits[kingSquare])
                 checkingPieces.push_back(i);
-            }
         }
     }
 
     // squares attacked by the opponent king
-    for(int dir: piecesDirs[King]) {
-        if(isInBoard(otherKingSquare, dir)) {
-            attackedSquares[otherKingSquare+dir]++;
-        }
-    }
+    attackedSquaresBB |= kingAttacksBB[otherKingSquare];
 
     // squares attacked by pawns
     for(int i = 0; i < 64; i++) {
         if(this->squares[i] == (Pawn | otherColor)) {
-            vector<int> attackDirs;
-            if(otherColor == Black) attackDirs = {SouthEast, SouthWest};
-            else attackDirs = {NorthEast, NorthWest};
+            U64 attacks = (otherColor == Black ? blackPawnAttacksBB[i] : whitePawnAttacksBB[i]);
 
-            for(int dir: attackDirs) {
-                if(isInBoard(i, dir)) {
-                    attackedSquares[i+dir]++;
-                    if(i+dir == kingSquare) checkingPieces.push_back(i);
-                }
-            }
+            attackedSquaresBB |= attacks;
+            if(attacks & bits[kingSquare])
+                checkingPieces.push_back(i);
         }
     }
 
     // check ray is the path between the king and the sliding piece checking it
-    set<int> checkRay;
+    U64 checkRayBB = 0;
     if(checkingPieces.size() == 1) {
-        checkRay.insert(checkingPieces[0]);
+        checkRayBB |= bits[checkingPieces[0]];
 
         int piece = (this->squares[checkingPieces[0]]^otherColor);
 
         if(piece == Bishop || piece == Queen || piece == Rook) {
             int rayDir = direction(checkingPieces[0], kingSquare);
-            for(int i = checkingPieces[0]; i != kingSquare; i += rayDir) {
-                checkRay.insert(i);
-            }
+            for(int i = checkingPieces[0]; i != kingSquare; i += rayDir)
+                checkRayBB |= bits[i];
         }
     }
-    set<int> pinned;
+    U64 pinnedBB = 0;
     vector<int> pinDirection(64, 0);
 
     // finding the absolute pins
     for(int pinner: {Rook, Queen, Bishop}) {
         for(int dir: piecesDirs[pinner]) {
-            set<int> kingRay;
+            U64 kingRayBB = 0;
             for(int i = kingSquare; ; i += dir) {
-                kingRay.insert(i);
+                kingRayBB |= bits[i];
                 if((i != kingSquare && this->squares[i] != Empty) || !isInBoard(i, dir))
                     break;
             }
@@ -630,8 +627,8 @@ vector<Move> Board::GenerateLegalMoves() {
                     for(int j = i; ; j -= dir) {
 
                         // the intersection of the king ray and the other piece ray in the opposite direction
-                        if(kingRay.count(j)) {
-                            pinned.insert(j);
+                        if(kingRayBB & bits[j]) {
+                            pinnedBB |= bits[j];
                             pinDirection[j] = dir;
                         }
                         if(!isInBoard(j, -dir) || (this->squares[j] != Empty && j != i))
@@ -646,25 +643,35 @@ vector<Move> Board::GenerateLegalMoves() {
 
     vector<Move> epMoves;
     vector<Move> moves;
+
     for(Move m: potentialMoves) {
+        // we can always move the king to a safe square
         if(m.from == kingSquare) {
-            if(attackedSquares[m.to] == 0) moves.push_back(m);
-
-        // if in double check, we can only move the king
-        } else if(checkingPieces.size() > 1) {
+            if((attackedSquaresBB & bits[m.to]) == 0) moves.push_back(m);
             continue;
+        }
 
-        // if in single check, we can also intercept the check or capture the checking piece
-        } else if(checkingPieces.size() == 1) {
-            if(((m.ep && checkingPieces[0] == m.to + (color == White ? South : North)) || checkRay.count(m.to)) && !pinned.count(m.from))
+        // single check, can capture the attacker or intercept the check only if the moving piece is not pinned
+        if(checkingPieces.size() == 1 && ((pinnedBB & bits[m.from]) == 0)) {
+
+            // capturing the checking pawn by en passant (special case)
+            if(m.ep && checkingPieces[0] == m.to + (color == White ? South: North))
                 moves.push_back(m);
 
-        // pinned pieces can only move in the direction of the pin
-        } else if(pinned.count(m.from)) {
-            if(abs(direction(m.from, m.to)) == abs(pinDirection[m.from]))
+            // check ray includes interception or capturing the attacker
+            else if(checkRayBB & bits[m.to])
                 moves.push_back(m);
-        } else {
-            moves.push_back(m);
+        }
+
+        // no checks, every piece can move if it is not pinned or it moves in the direction of the pin
+        if(checkingPieces.size() == 0) {
+            // not pinned
+            if((pinnedBB & bits[m.from]) == 0)
+                moves.push_back(m);
+
+            // pinned, can only move in the pin direction
+            else if(abs(direction(m.from, m.to)) == abs(pinDirection[m.from]))
+                moves.push_back(m);
         }
     }
 
@@ -689,7 +696,7 @@ vector<Move> Board::GenerateLegalMoves() {
         bool ok = true;
 
         for(int i = first; i <= second; i++)
-            if(attackedSquares[i])
+            if(attackedSquaresBB & bits[i])
                 ok = false;
 
         if(ok) moves.push_back(m);
@@ -977,7 +984,8 @@ bool putsKingInCheck(Move a) {
 }
 
 // perft function that returns the number of positions reached from an initial position after a certain depth
-int moveGenTest(int depth) {
+ofstream q("perft.txt");
+int moveGenTest(int depth, bool show) {
     if(depth == 0) return 1;
 
     vector<Move> moves = board.GenerateLegalMoves();
@@ -988,7 +996,9 @@ int moveGenTest(int depth) {
         int castleRights = board.castleRights;
 
         board.makeMove(m);
-        int mv = moveGenTest(depth-1);
+        int mv = moveGenTest(depth-1, false);
+
+        if(show) q << moveToString(m) << ": " << mv << '\n';
 
         numPos += mv;
 
