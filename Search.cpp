@@ -99,10 +99,10 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot) {
         return 0; //stalemate
     }
 
-    bool isStored = (tt.find(board.zobristHash) != tt.end());
+    bool isStored = (tt.find(board.hashKey) != tt.end());
 
-    if(isStored && (tt[board.zobristHash].second.second >= depth || tt[board.zobristHash].second.first >= mateEval-distToRoot)) {
-        return tt[board.zobristHash].second.first;
+    if(isStored && (tt[board.hashKey].second.second >= depth || tt[board.hashKey].second.first >= mateEval-distToRoot)) {
+        return tt[board.hashKey].second.first;
     }
 
     // increase the depth if king is in check because there are fewer moves to calculate
@@ -135,7 +135,7 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot) {
 
     // update tt only if the program ran a complete search
     if((clock() - startTime) / CLOCKS_PER_SEC < timePerMove)
-        tt[board.zobristHash] = {bestMove, {bestScore, depth}};
+        tt[board.hashKey] = {bestMove, {bestScore, depth}};
 
     return bestScore;
 }
@@ -146,7 +146,7 @@ pair<Move, int> Search() {
     for(int depth = 1; depth <= maxDepth; depth++) {
 
         // if the program finds mate, it shouldn't search further
-        if(tt[board.zobristHash].second.first >= mateEval-depth)
+        if(tt[board.hashKey].second.first >= mateEval-depth)
             break;
 
         alphaBeta(-inf, inf, depth, 1);
@@ -157,5 +157,5 @@ pair<Move, int> Search() {
             break;
         }
     }
-    return {tt[board.zobristHash].first, tt[board.zobristHash].second.first};
+    return {tt[board.hashKey].first, tt[board.hashKey].second.first};
 }

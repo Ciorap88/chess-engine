@@ -47,7 +47,7 @@ public:
     U64 pawnsBB, knightsBB, bishopsBB, rooksBB, queensBB;
     U64 blackPiecesBB, whitePiecesBB;
 
-    U64 zobristHash;
+    U64 hashKey;
 
     int ep;
 
@@ -56,10 +56,10 @@ public:
 
     void initZobristHashFromCurrPos();
 
-    void addPieceInBB(int piece, int color, int sq);
-    void deletePieceInBB(int piece, int color, int sq);
+    void updatePieceInBB(int piece, int color, int sq);
+    void movePieceInBB(int piece, int color, int from, int to);
 
-    void LoadFenPos(string fen);
+    void loadFenPos(string pieces, char turn, string castles, string epTargetSq, int halfMoveClock, int fullMoveNumber);
     string getFenFromCurrPos();
 
     bool isInCheck();
@@ -81,7 +81,6 @@ U64 pawnAttacks(U64 pawns, int color);
 U64 knightAttacks(U64 knights);
 
 bool isInBoard(int sq, int dir);
-int dist(int sq1, int sq2);
 int popcount(U64 bb);
 bool putsKingInCheck(Move a);
 int moveGenTest(int depth, bool show);
