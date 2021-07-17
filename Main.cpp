@@ -4,6 +4,7 @@
 #include "Search.h"
 #include "Evaluate.h"
 #include "Board.h"
+#include "MagicBitboards.h"
 
 ifstream depthFile("depth.txt");
 ifstream fin("pos.txt");
@@ -18,17 +19,6 @@ int main() {
 
     fin >> pieces >> turn >> castles >> epTargetSq >> halfMoveClock >> fullMoveNumber;
     board.loadFenPos(pieces, turn, castles, epTargetSq, halfMoveClock, fullMoveNumber);
-
-//    int depth;
-//    depthFile >> depth;
-//    auto startTime = clock();
-//
-//    int nodes = moveGenTest(depth, true);
-//    fout << nodes << '\n';
-//    auto endTime = clock();
-//    double seconds = (endTime-startTime)/CLOCKS_PER_SEC;
-//    double speed = (double)nodes / (1000.0*seconds);
-//    fout << speed << " knodes per second\n";
 
     while(true) {
         auto result = Search();
@@ -67,5 +57,4 @@ int main() {
             }
         } while(good == false);
     }
-
 }

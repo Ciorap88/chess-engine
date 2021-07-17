@@ -62,6 +62,8 @@ public:
     void loadFenPos(string pieces, char turn, string castles, string epTargetSq, int halfMoveClock, int fullMoveNumber);
     string getFenFromCurrPos();
 
+    U64 attacksTo(int sq);
+    bool isAttacked(int sq);
     bool isInCheck();
 
     vector<Move> GeneratePseudoLegalMoves();
@@ -72,15 +74,16 @@ public:
 };
 
 extern Board board;
-extern vector<int> knightTargetSquares[64], piecesDirs[8];
 extern U64 bits[64], filesBB[8], ranksBB[8], knightAttacksBB[64], kingAttacksBB[64];
 extern U64 squaresNearWhiteKing[64], squaresNearBlackKing[64];
 extern U64 lightSquaresBB, darkSquaresBB;
+extern U64 bishopMasks[64], rookMasks[64];
 
 U64 pawnAttacks(U64 pawns, int color);
 U64 knightAttacks(U64 knights);
 
 bool isInBoard(int sq, int dir);
+int popcount(U64 bb);
 int popcount(U64 bb);
 bool putsKingInCheck(Move a);
 int moveGenTest(int depth, bool show);

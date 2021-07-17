@@ -2,6 +2,7 @@
 
 #include "Evaluate.h"
 #include "Board.h"
+#include "MagicBitboards.h"
 
 using namespace std;
 
@@ -375,23 +376,11 @@ int evalBishop(int sq, int color) {
     if(color == Black && (sq ==  b7 || sq == g7)) eval += fianchettoBonus;
 
     // mobility and attacks
-    int mobility = 0;
-    int attackedSquares = 0;
-
     U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
+    U64 attacks = magicBishopAttacks((board.whitePiecesBB & board.blackPiecesBB), sq);
 
-    for(int dir: piecesDirs[Bishop]) {
-        if(!isInBoard(sq, dir)) continue;
-
-        int curSq = sq+dir;
-        while(true) {
-            if(!(bits[curSq] & ourPiecesBB)) mobility++;
-            if(sqNearKing & bits[curSq]) attackedSquares++;
-
-            if(!isInBoard(curSq, dir) || (bits[curSq] & (opponentPiecesBB | ourPiecesBB))) break;
-            curSq += dir;
-        }
-    }
+    int mobility = popcount(attacks & ~ourPiecesBB);
+    int attackedSquares = popcount(attacks & sqNearKing);
 
     eval += bishopMobilityConstant * (mobility-7);
     if(attackedSquares) {
@@ -470,21 +459,10 @@ int evalRook(int sq, int color) {
 
     // mobility and attacks
     U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
+    U64 attacks = magicRookAttacks((board.whitePiecesBB & board.blackPiecesBB), sq);
 
-    int mobility = 0;
-    int attackedSquares = 0;
-    for(int dir: piecesDirs[Rook]) {
-        if(!isInBoard(sq, dir)) continue;
-
-        int curSq = sq+dir;
-        while(true) {
-            if(!(bits[curSq] & ourPiecesBB)) mobility++;
-            if(sqNearKing & bits[curSq]) attackedSquares++;
-
-            if(!isInBoard(curSq, dir) || (bits[curSq] & (opponentPiecesBB | ourPiecesBB))) break;
-            curSq += dir;
-        }
-    }
+    int mobility = popcount(attacks & ~ourPiecesBB);
+    int attackedSquares = popcount(attacks & sqNearKing);
 
     eval += rookMobilityConstant * (mobility-7);
     if(attackedSquares) {
@@ -531,21 +509,10 @@ int evalQueen(int sq, int color) {
 
     // mobility and attacks
     U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
+    U64 attacks = (magicBishopAttacks((board.whitePiecesBB & board.blackPiecesBB), sq) | magicRookAttacks((board.whitePiecesBB & board.blackPiecesBB), sq));
 
-    int mobility = 0;
-    int attackedSquares = 0;
-    for(int dir: piecesDirs[Queen]) {
-        if(!isInBoard(sq, dir)) continue;
-
-        int curSq = sq+dir;
-        while(true) {
-            if(!(bits[curSq] & ourPiecesBB)) mobility++;
-            if(sqNearKing & bits[curSq]) attackedSquares++;
-
-            if(!isInBoard(curSq, dir) || (bits[curSq] & (opponentPiecesBB | ourPiecesBB))) break;
-            curSq += dir;
-        }
-    }
+    int mobility = popcount(attacks & ~ourPiecesBB);
+    int attackedSquares = popcount(attacks & sqNearKing);
 
     eval += queenMobilityConstant * (mobility-14);
     if(attackedSquares) {
