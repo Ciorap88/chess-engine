@@ -163,7 +163,6 @@ U64 magicRookAttacks(U64 occ, int sq) {
     occ &= rookMasks[sq];
     occ *= rookMagics[sq];
     occ >>= 64-rookBits[sq];
-
     return mRookAttacks[sq][occ];
 }
 
@@ -172,5 +171,6 @@ void initMagics() {
         bishopMagics[i] = findMagic(i, bishopBits[i], 1);
         rookMagics[i] = findMagic(i, rookBits[i], 0);
     }
+    cout << "magics found\n";
 }
 

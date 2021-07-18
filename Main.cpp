@@ -16,7 +16,6 @@ int main() {
     string pieces, castles, epTargetSq;
     char turn;
     int halfMoveClock = 0, fullMoveNumber = 0;
-
     fin >> pieces >> turn >> castles >> epTargetSq >> halfMoveClock >> fullMoveNumber;
     board.loadFenPos(pieces, turn, castles, epTargetSq, halfMoveClock, fullMoveNumber);
 

@@ -56,6 +56,7 @@ public:
 
     void initZobristHashFromCurrPos();
 
+    void updateHashKey(Move m);
     void updatePieceInBB(int piece, int color, int sq);
     void movePieceInBB(int piece, int color, int from, int to);
 
