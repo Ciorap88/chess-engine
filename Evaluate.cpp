@@ -133,7 +133,7 @@ const int knightPairPenalty = 20;
 
 const int bishopPairBonus = 50;
 const int trappedBishopPenalty = 150;
-const int fianchettoBonus = 30;
+const int fianchettoBonus = 20;
 const int bishopMobilityConstant = 3;
 const int blockedBishopPenalty = 30;
 
@@ -185,7 +185,7 @@ int Evaluate() {
 
         int color = (board.squares[sq] & (Black | White));
         int c = (color == White ? 1 : -1);
-
+        int oldRes = res;
         if(board.pawnsBB & bits[sq]) res += evalPawn(sq, color) * c;
         if(board.knightsBB & bits[sq]) res += evalKnight(sq, color) * c;
         if(board.bishopsBB & bits[sq]) res += evalBishop(sq, color) * c;
@@ -200,7 +200,15 @@ int Evaluate() {
     int mgKingScore = whiteKingShield() - blackKingShield();
     int egKingScore = 0;
 
+    // evaluate king safety in the middlegame
+
+    // if only 1 or 2 attackers, we consider the king safe
+    if(whiteAttackersCnt <= 2) whiteAttackWeight = 0;
+    if(blackAttackersCnt <= 2) blackAttackWeight = 0;
+
+    mgKingScore += kingSafetyTable[whiteAttackWeight] - kingSafetyTable[blackAttackWeight];
     mgKingScore += mgKingTable[board.whiteKingSquare] - mgKingTable[flipped[board.blackKingSquare]];
+
     egKingScore += egKingTable[board.whiteKingSquare] - egKingTable[flipped[board.blackKingSquare]];
 
     res += (mgWeight * mgKingScore + egWeight * egKingScore) / 24;
@@ -208,14 +216,6 @@ int Evaluate() {
     // tempo bonus
     if(board.turn == White) res += tempoBonus;
     else res -= tempoBonus;
-
-    // evaluate attacks on the kings
-
-    // if only 1 or 2 attackers, we consider the king safe
-    if(whiteAttackersCnt <= 2) whiteAttackWeight = 0;
-    if(blackAttackersCnt <= 2) blackAttackWeight = 0;
-
-    res += kingSafetyTable[whiteAttackWeight] - kingSafetyTable[blackAttackWeight];
 
     // add scores for bishop and knight pairs
     if(popcount(board.whitePiecesBB & board.bishopsBB) >= 2) res += bishopPairBonus;
@@ -372,12 +372,14 @@ int evalBishop(int sq, int color) {
     }
 
     // fianchetto bonus (bishop on long diagonal on the second rank)
-    if(color == White && (sq == b2 || sq == g2)) eval += fianchettoBonus;
-    if(color == Black && (sq ==  b7 || sq == g7)) eval += fianchettoBonus;
+    if(color == White && sq == g2 && (ourPawnsBB & bits[g3]) && (ourPawnsBB & bits[f2])) eval += fianchettoBonus;
+    if(color == White && sq == b2 && (ourPawnsBB & bits[b3]) && (ourPawnsBB & bits[c2])) eval += fianchettoBonus;
+    if(color == Black && sq == g7 && (ourPawnsBB & bits[g6]) && (ourPawnsBB & bits[f7])) eval += fianchettoBonus;
+    if(color == Black && sq == b7 && (ourPawnsBB & bits[b6]) && (ourPawnsBB & bits[c7])) eval += fianchettoBonus;
 
     // mobility and attacks
     U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
-    U64 attacks = magicBishopAttacks((board.whitePiecesBB & board.blackPiecesBB), sq);
+    U64 attacks = magicBishopAttacks((board.whitePiecesBB | board.blackPiecesBB), sq);
 
     int mobility = popcount(attacks & ~ourPiecesBB);
     int attackedSquares = popcount(attacks & sqNearKing);
@@ -459,7 +461,7 @@ int evalRook(int sq, int color) {
 
     // mobility and attacks
     U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
-    U64 attacks = magicRookAttacks((board.whitePiecesBB & board.blackPiecesBB), sq);
+    U64 attacks = magicRookAttacks((board.whitePiecesBB | board.blackPiecesBB), sq);
 
     int mobility = popcount(attacks & ~ourPiecesBB);
     int attackedSquares = popcount(attacks & sqNearKing);
@@ -509,7 +511,7 @@ int evalQueen(int sq, int color) {
 
     // mobility and attacks
     U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
-    U64 attacks = (magicBishopAttacks((board.whitePiecesBB & board.blackPiecesBB), sq) | magicRookAttacks((board.whitePiecesBB & board.blackPiecesBB), sq));
+    U64 attacks = (magicBishopAttacks((board.whitePiecesBB | board.blackPiecesBB), sq) | magicRookAttacks((board.whitePiecesBB | board.blackPiecesBB), sq));
 
     int mobility = popcount(attacks & ~ourPiecesBB);
     int attackedSquares = popcount(attacks & sqNearKing);

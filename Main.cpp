@@ -27,9 +27,10 @@ int main() {
         }
 
         cout << moveToString(result.first) << ' ';
-        if(result.second >= MATE_THRESHOLD) cout << "MATE\n";
-        else if(result.second <= -MATE_THRESHOLD) cout << "-MATE\n";
-        else cout << (board.turn == White ? 1 : -1) * result.second << '\n';
+        if(result.second >= MATE_THRESHOLD) cout << "MATE";
+        else if(result.second <= -MATE_THRESHOLD) cout << "-MATE";
+        else cout << (board.turn == White ? 1 : -1) * result.second;
+        cout << ' ' << Evaluate() << '\n';
 
         board.makeMove(result.first);
 

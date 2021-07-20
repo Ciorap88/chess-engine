@@ -56,8 +56,8 @@ string square(int x) {
 
 // general bitboard operations
 int popcount(U64 bb) {
-    int res;
-    for(res = 0; bb; res++, bb &= bb - 1);
+    int res = 0;
+    for( ; bb; res++, bb &= bb - 1);
     return res;
 }
 
