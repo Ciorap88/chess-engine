@@ -22,6 +22,18 @@ enum Piece {
     Black = 16
 };
 
+enum Directions {
+    North = 8,
+    South = -8,
+    East = 1,
+    West = -1,
+
+    SouthEast = South+East,
+    SouthWest = South+West,
+    NorthEast = North+East,
+    NorthWest = North+West
+};
+
 enum squares {
     a1, b1, c1, d1, e1, f1, g1, h1,
     a2, b2, c2, d2, e2, f2, g2, h2,
@@ -71,7 +83,7 @@ public:
     vector<Move> GenerateLegalMoves();
 
     void makeMove(Move m);
-    void unmakeMove(Move m, int ep, int castleRights);
+    void unmakeMove(Move m);
 };
 
 extern Board board;
@@ -84,9 +96,6 @@ U64 pawnAttacks(U64 pawns, int color);
 U64 knightAttacks(U64 knights);
 
 bool isInBoard(int sq, int dir);
-int popcount(U64 bb);
-int popcount(U64 bb);
-bool putsKingInCheck(Move a);
 int moveGenTest(int depth, bool show);
 void Init();
 

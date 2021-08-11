@@ -5,6 +5,7 @@
 #include "Evaluate.h"
 #include "Board.h"
 #include "MagicBitboards.h"
+#include "TranspositionTable.h"
 
 ifstream depthFile("depth.txt");
 ifstream fin("pos.txt");
@@ -26,13 +27,15 @@ int main() {
             break;
         }
 
-        cout << moveToString(result.first) << ' ';
+        cout << "best:" << moveToString(result.first) << '\n';
+        cout << "eval:";
         if(result.second >= MATE_THRESHOLD) cout << "MATE";
         else if(result.second <= -MATE_THRESHOLD) cout << "-MATE";
-        else cout << (board.turn == White ? 1 : -1) * result.second;
-        cout << ' ' << Evaluate() << '\n';
-
+        else
+            cout << (board.turn == White ? 1 : -1) * result.second;
+        cout << '\n';
         board.makeMove(result.first);
+        showPV(result.first);
 
         vector<Move> moves = board.GenerateLegalMoves();
 

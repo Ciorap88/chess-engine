@@ -3,20 +3,27 @@
 #include "Evaluate.h"
 #include "Board.h"
 #include "Search.h"
+#include "TranspositionTable.h"
+#include "MagicBitboards.h"
 
 using namespace std;
 
 const int inf = 1000000;
 const Move noMove = {-1,-1,0,0,0,0};
 
+Move bestMove = noMove;
+
 const int mateEval = inf-1;
 const int MATE_THRESHOLD = mateEval/2;
 
-unordered_map<unsigned long long, pair<Move, pair<int, int> > > tt;
-
 clock_t startTime;
-const int timePerMove = 15;
+const int timePerMove = 30;
 const int maxDepth = 100;
+
+// when nodes searched reach a certain number, we check for time over
+int nodesSearched = 0;
+bool timeOver = false;
+Move ttMove = noMove;
 
 // draw by insufficient material
 bool isDraw() {
@@ -39,6 +46,10 @@ bool isDraw() {
     return false;
 }
 
+bool areEqual(Move a, Move b) {
+    return ((a.from == b.from) && (a.to == b.to));
+}
+
 bool cmpCaptures(Move a, Move b) {
     int otherColor = (board.turn ^ (Black | White));
 
@@ -51,9 +62,32 @@ bool cmpCaptures(Move a, Move b) {
     return (scoreA > scoreB);
 }
 
+bool cmpMoves(Move a, Move b) {
 
-// only searching for captures at the end of a regular search in order to ensure the engine won't miss any tactics
+    // first move should always be the current best
+    if(areEqual(a, bestMove)) return true;
+    if(areEqual(b, bestMove)) return false;
+
+    // if both are captures just compare them using the other function
+    if(a.capture && b.capture) return cmpCaptures(a, b);
+
+    // prioritize captures over 'quiet' moves
+    if(a.capture) return true;
+    if(b.capture) return false;
+
+    return false;
+}
+
+
+// only searching for captures at the end of a regular search in order to ensure the engine won't miss obvious tactics
 int quiesce(int alpha, int beta) {
+    if(!(nodesSearched & 4095)) {
+        if((clock() - startTime) / CLOCKS_PER_SEC >= timePerMove)
+            timeOver = true;
+    }
+    if(timeOver) return 0;
+    nodesSearched++;
+
     vector<Move> moves = board.GenerateLegalMoves();
     sort(moves.begin(), moves.end(), cmpCaptures);
 
@@ -63,31 +97,45 @@ int quiesce(int alpha, int beta) {
     alpha = max(alpha, standPat);
 
     for(Move m : moves)  {
-        if((clock() - startTime) / CLOCKS_PER_SEC > timePerMove)
-            break;
-
         if(!m.capture) continue;
-
-        int ep = board.ep;
-        int castleRights = board.castleRights;
 
         board.makeMove(m);
         int score = -quiesce(-beta, -alpha);
-        board.unmakeMove(m, ep, castleRights);
+        board.unmakeMove(m);
 
-        if(score >= beta)
-            return beta;
-        alpha = max(alpha, score);
+        if(timeOver) return 0;
+
+        if(score > alpha) {
+            if(score >= beta)
+                return beta;
+            alpha = score;
+        }
     }
     return alpha;
 }
 
 // negamax algorithm with alpha-beta pruning
 int alphaBeta(int alpha, int beta, int depth, int distToRoot) {
-    int bestScore = -inf;
-    Move bestMove = noMove;
+    if(!(nodesSearched & 4095)) {
+        if((clock() - startTime) / CLOCKS_PER_SEC >= timePerMove)
+            timeOver = true;
+    }
+    if(timeOver) return 0;
+    nodesSearched++;
+
+    int hashFlag = hashFAlpha;
 
     bool isInCheck = board.isInCheck();
+
+    // increase the depth if king is in check
+    if(isInCheck) depth++;
+
+    // mate distance pruning
+    int mateScore = mateEval-distToRoot;
+
+    if(alpha < -mateScore) alpha = -mateScore;
+    if(beta > mateScore - 1) beta = mateScore - 1;
+    if(alpha >= beta) return alpha;
 
     // game over
     if(isDraw()) return 0; //insufficient material
@@ -95,67 +143,59 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot) {
     vector<Move> moves = board.GenerateLegalMoves();
     if(moves.size() == 0) {
         if(isInCheck)
-            return -(mateEval - distToRoot); // score is higher for a faster mate
+            return -mateScore;
         return 0; //stalemate
     }
+    sort(moves.begin(), moves.end(), cmpMoves);
 
-    bool isStored = (tt.find(board.hashKey) != tt.end());
-
-    if(isStored && (tt[board.hashKey].second.second >= depth || tt[board.hashKey].second.first >= mateEval-distToRoot)) {
-        return tt[board.hashKey].second.first;
-    }
-
-    // increase the depth if king is in check because there are fewer moves to calculate
-    if(isInCheck) depth++;
+    int hashScore = ProbeHash(depth, alpha, beta, &ttMove);
+    if(hashScore != valUnknown)
+        return hashScore;
 
     if(depth == 0) return quiesce(alpha, beta);
+    Move currBestMove = noMove;
 
     for(Move m: moves) {
-        if((clock() - startTime) / CLOCKS_PER_SEC > timePerMove)
-            break;
-
-        int ep = board.ep;
-        int castleRights = board.castleRights;
-
         board.makeMove(m);
         int score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1);
+        board.unmakeMove(m);
 
-        if(score >= MATE_THRESHOLD) score--;
-        if(score <= -MATE_THRESHOLD) score++;
+        if(timeOver) return 0;
 
-        board.unmakeMove(m, ep, castleRights);
+        if(score >= beta) {
+            RecordHash(depth, beta, hashFBeta, currBestMove);
+            return beta;
+        }
 
-        if(score >= beta) return score;  // fail-soft beta-cutoff
-        if(score > bestScore) {
-            bestScore = score;
-            bestMove = m;
-            if(score > alpha) alpha = score;
+        if(score > alpha) {
+            hashFlag = hashFExact;
+            alpha = score;
+
+            if(distToRoot == 0) bestMove = m;
+            currBestMove = m;
         }
     }
 
-    // update tt only if the program ran a complete search
-    if((clock() - startTime) / CLOCKS_PER_SEC < timePerMove)
-        tt[board.hashKey] = {bestMove, {bestScore, depth}};
-
-    return bestScore;
+    RecordHash(depth, alpha, hashFlag, currBestMove);
+    return alpha;
 }
 
 pair<Move, int> Search() {
     startTime = clock();
+    bestMove = noMove;
+    timeOver = false;
+    nodesSearched = 0;
 
-    for(int depth = 1; depth <= maxDepth; depth++) {
-
-        // if the program finds mate, it shouldn't search further
-        if(tt[board.hashKey].second.first >= mateEval-depth)
-            break;
-
-        alphaBeta(-inf, inf, depth, 1);
+    int eval = alphaBeta(-inf, inf, 1, 0);
+    for(int depth = 2; depth <= maxDepth; depth++) {
+        int curEval = alphaBeta(-inf, inf, depth, 0);
 
         // time runs out
-        if((clock() - startTime) / CLOCKS_PER_SEC > timePerMove) {
-            cout << depth << ' ';
+        if(timeOver) {
+            cout << "depth:" << depth << '\n';
             break;
         }
+        eval = curEval;
     }
-    return {tt[board.hashKey].first, tt[board.hashKey].second.first};
+    return {bestMove, eval};
 }

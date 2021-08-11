@@ -10,6 +10,8 @@
 
 pair<Move, int> Search();
 
+extern bool timeOver;
+extern Move bestMove;
 extern const Move noMove;
 extern const int MATE_THRESHOLD;
 extern const int mateEval;

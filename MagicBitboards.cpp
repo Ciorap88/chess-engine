@@ -34,8 +34,12 @@ U64 rookMagics[64];
 U64 bishopMagics[64];
 U64 mBishopAttacks[64][512], mRookAttacks[64][4096];
 
+// index of least significant set bit
+int bitscanForward(U64 bb) {
+    return __builtin_ctzll(bb);
+}
 
-U64 randomU64() {
+U64 randomULL() {
     U64 u1 = (U64)(rand()) & 0xFFFF;
     U64 u2 = (U64)(rand()) & 0xFFFF;
     U64 u3 = (U64)(rand()) & 0xFFFF;
@@ -44,7 +48,7 @@ U64 randomU64() {
 }
 
 U64 randomU64FewBits() {
-    return (randomU64() & randomU64() & randomU64());
+    return (randomULL() & randomULL() & randomULL());
 }
 
 const int BitTable[64] = {
@@ -53,6 +57,12 @@ const int BitTable[64] = {
     26, 60, 6, 23, 44, 46, 27, 56, 16, 7, 39, 48, 24, 59, 14, 12, 55, 38, 28,
     58, 20, 37, 17, 36, 8
 };
+
+int popcount(U64 bb) {
+    int res = 0;
+    for( ; bb; res++, bb &= bb - 1);
+    return res;
+}
 
 int popFirstBit(U64 *bb) {
     U64 b = *bb ^ (*bb - 1);

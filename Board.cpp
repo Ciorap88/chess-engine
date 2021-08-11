@@ -2,6 +2,7 @@
 
 #include "Board.h"
 #include "MagicBitboards.h"
+#include "TranspositionTable.h"
 
 using namespace std;
 
@@ -15,22 +16,7 @@ U64 bishopMasks[64], rookMasks[64];
 int castleStartSq[4] = {e1,e1,e8,e8};
 int castleEndSq[4] = {g1,c1,g8,c8};
 
-enum Directions {
-    North = 8,
-    South = -8,
-    East = 1,
-    West = -1,
-
-    SouthEast = South+East,
-    SouthWest = South+West,
-    NorthEast = North+East,
-    NorthWest = North+West
-};
-
-// index of least significant set bit
-int bitscanForward(U64 bb) {
-    return __builtin_ctzll(bb);
-}
+stack<int> castleStk, epStk;
 
 string moveToString(Move m) {
     string s;
@@ -54,12 +40,6 @@ string square(int x) {
     return s;
 }
 
-// general bitboard operations
-int popcount(U64 bb) {
-    int res = 0;
-    for( ; bb; res++, bb &= bb - 1);
-    return res;
-}
 
 U64 eastOne(U64 bb) {
     return ((bb << 1) & (~filesBB[0]));
@@ -92,50 +72,6 @@ bool isInBoard(int sq, int dir) {
 
     return false;
 }
-
-
-// indices in zobristNumbers vector
-const int zBlackTurnIndex = 12*64;
-const int zCastleRightsIndex = 12*64+1;
-const int zEpFileIndex = 12*64+17;
-
-vector<U64> zobristNumbers;
-
-U64 randomULL() {
-    static U64 next = 1;
-
-    next = next * 1103515245 + 12345;
-    return next;
-}
-
-void generateZobristHashNumbers() {
-    for(int i = 0; i < 793; i++) {
-        zobristNumbers.push_back(randomULL());
-  }
-}
-
-int zPieceSquareIndex(int piece, int color, int square) {
-    int idx = (2*(piece-1) + (int)(color == Black))*64 + square;
-    return idx;
-}
-
-// xor zobrist numbers corresponding to all features of the current position
-void Board::initZobristHashFromCurrPos() {
-    this->hashKey = 0;
-    for(int i = 0; i < 64; i++) {
-        int color = (this->squares[i] & (Black | White));
-        int piece = (this->squares[i] ^ color);
-
-        this->hashKey ^= zobristNumbers[zPieceSquareIndex(piece, color, i)];
-    }
-
-    this->hashKey ^= zobristNumbers[zCastleRightsIndex + this->castleRights];
-    if(this->turn == Black) this->hashKey ^= zobristNumbers[zBlackTurnIndex];
-
-    int epFile = this->ep % 8;
-    this->hashKey ^= zobristNumbers[zEpFileIndex + epFile];
-}
-
 
 void Init() {
     // bitmasks for every bit from 0 to 63
@@ -406,7 +342,7 @@ void Board::loadFenPos(string pieces, char turn, string castles, string epTarget
     this->ep = (epTargetSq == "-" ? -1 : (epTargetSq[0]-'a' + 8*(epTargetSq[1]-'1')));
 
     // initialize hash key
-    initZobristHashFromCurrPos();
+    this->hashKey = getZobristHashFromCurrPos();
 }
 
 vector<Move> Board::GeneratePseudoLegalMoves() {
@@ -745,60 +681,11 @@ vector<Move> Board::GenerateLegalMoves() {
     return moves;
 }
 
-void Board::updateHashKey(Move m) {
-    int color = (this->squares[m.from] & (Black | White));
-    int piece = (this->squares[m.from] ^ color);
-    int otherColor = (color ^ (Black | White));
-    int otherPiece = (m.capture ^ otherColor);
-    int capturedPieceSquare = (m.ep ? (m.to + (color == White ? South : North)) : m.to);
-
-    // update pieces
-    this->hashKey ^= zobristNumbers[zPieceSquareIndex(piece, color, m.from)];
-    if(m.capture) this->hashKey ^= zobristNumbers[zPieceSquareIndex(otherPiece, otherColor, capturedPieceSquare)];
-
-    if(!m.prom) this->hashKey ^= zobristNumbers[zPieceSquareIndex(piece, color, m.to)];
-    else this->hashKey ^= zobristNumbers[zPieceSquareIndex(m.prom, color, m.to)];
-
-    // castle stuff
-    int newCastleRights = this->castleRights;
-    if(piece == King) {
-        int mask = (color == White ? 12 : 3);
-        newCastleRights &= mask;
-    }
-    if((newCastleRights & bits[1]) && (m.from == a1 || m.to == a1))
-        newCastleRights ^= bits[1];
-    if((newCastleRights & bits[0]) && (m.from == h1 || m.to == h1))
-        newCastleRights ^= bits[0];
-    if((newCastleRights & bits[3]) && (m.from == a8 || m.to == a8))
-        newCastleRights ^= bits[3];
-    if((newCastleRights & bits[2]) && (m.from == h8 || m.to == h8))
-        newCastleRights ^= bits[2];
-
-    this->hashKey ^= zobristNumbers[zCastleRightsIndex + this->castleRights];
-    this->hashKey ^= zobristNumbers[zCastleRightsIndex + newCastleRights];
-
-    if(m.castle) {
-        int Rank = (m.to >> 3), File = (m.to & 7);
-        int rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
-        int rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
-
-        this->hashKey ^= zobristNumbers[zPieceSquareIndex(Rook, color, rookStartSquare)];
-        this->hashKey ^= zobristNumbers[zPieceSquareIndex(Rook, color, rookEndSquare)];
-    }
-
-    // update ep square
-    int nextEp = -1;
-    if(piece == Pawn && abs(m.from-m.to) == 16)
-        nextEp = m.to + (color == White ? South : North);
-
-    if(this->ep != -1) this->hashKey ^= zobristNumbers[zEpFileIndex + (this->ep & 7)];
-    if(nextEp != -1) this->hashKey ^= zobristNumbers[zEpFileIndex + (nextEp & 7)];
-
-    // switch turn
-    this->hashKey ^= zobristNumbers[zBlackTurnIndex];
-}
-
 void Board::makeMove(Move m) {
+    // push the current castle and ep info in order to retrieve it when we unmake the move
+    castleStk.push(board.castleRights);
+    epStk.push(board.ep);
+
     int color = (this->squares[m.from] & (Black | White));
     int piece = (this->squares[m.from] ^ color);
     int otherColor = (color ^ (Black | White));
@@ -865,14 +752,17 @@ void Board::makeMove(Move m) {
 }
 
 // basically the inverse of makeMove but we need to memorize the castling right and ep square before the move
-void Board::unmakeMove(Move m, int ep, int castleRights) {
+void Board::unmakeMove(Move m) {
     int color = (this->squares[m.to] & (Black | White));
     int otherColor = (color ^ (Black | White));
     int piece = (this->squares[m.to] ^ color);
     int otherPiece = (m.capture ^ otherColor);
 
-    this->ep = ep;
-    this->castleRights = castleRights;
+    // retrieve previous castle and ep info
+    this->ep = epStk.top();
+    this->castleRights = castleStk.top();
+    epStk.pop();
+    castleStk.pop();
 
     if(piece == King) {
         if(color == White) this->whiteKingSquare = m.from;
@@ -913,20 +803,6 @@ void Board::unmakeMove(Move m, int ep, int castleRights) {
 
 Board board;
 
-// returns true if the move puts the opponent's king in check
-bool putsKingInCheck(Move a) {
-    bool check = false;
-
-    int ep = board.ep;
-    int castleRights = board.castleRights;
-
-    board.makeMove(a);
-    if(board.isInCheck()) check = true;
-    board.unmakeMove(a, ep, castleRights);
-
-    return check;
-}
-
 // perft function that returns the number of positions reached from an initial position after a certain depth
 ofstream q("perft.txt");
 int moveGenTest(int depth, bool show) {
@@ -936,9 +812,6 @@ int moveGenTest(int depth, bool show) {
     int numPos = 0;
 
     for(Move m: moves) {
-        int ep = board.ep;
-        int castleRights = board.castleRights;
-
         board.makeMove(m);
         int mv = moveGenTest(depth-1, false);
 
@@ -946,7 +819,7 @@ int moveGenTest(int depth, bool show) {
 
         numPos += mv;
 
-        board.unmakeMove(m, ep, castleRights);
+        board.unmakeMove(m);
     }
     return numPos;
 }
