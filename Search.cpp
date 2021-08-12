@@ -134,7 +134,7 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot) {
     int mateScore = mateEval-distToRoot;
 
     if(alpha < -mateScore) alpha = -mateScore;
-    if(beta > mateScore - 1) beta = mateScore - 1;
+    if(beta > mateScore) beta = mateScore;
     if(alpha >= beta) return alpha;
 
     // game over
