@@ -180,22 +180,35 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot) {
     return alpha;
 }
 
+const int aspirationWindow = 50;
 pair<Move, int> Search() {
     startTime = clock();
     bestMove = noMove;
     timeOver = false;
     nodesSearched = 0;
 
-    int eval = alphaBeta(-inf, inf, 1, 0);
-    for(int depth = 2; depth <= maxDepth; depth++) {
-        int curEval = alphaBeta(-inf, inf, depth, 0);
+    int alpha = -inf, beta = inf;
 
-        // time runs out
+    int eval = alphaBeta(-inf, inf, 1, 0);
+    for(int depth = 2; depth <= maxDepth; ) {
+        int curEval = alphaBeta(alpha, beta, depth, 0);
+
         if(timeOver) {
             cout << "depth:" << depth << '\n';
             break;
         }
+
+        // if we fall outside the window, we do a full width search with the same depth
+        if(curEval <= alpha || curEval >= beta) {
+            alpha = -inf;
+            beta = inf;
+            continue;
+        }
+
         eval = curEval;
+        alpha = eval-aspirationWindow; // increase window for next iteration
+        beta = eval+aspirationWindow;
+        depth++; // increase depth only if we are inside the window
     }
     return {bestMove, eval};
 }
