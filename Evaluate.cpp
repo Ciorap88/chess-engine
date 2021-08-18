@@ -59,7 +59,7 @@ const int rookTable[64] = {
     -5, 0, 0, 0, 0, 0, 0, -5,
     -5, 0, 0, 0, 0, 0, 0, -5,
     -5, 0, 0, 0, 0, 0, 0, -5,
-    20, 20, 20, 20, 20, 20, 20, 20,
+    -5, 0, 0, 0, 0, 0, 0, -5,
     5, 5, 5, 5, 5, 5, 5, 5,
 };
 
@@ -139,8 +139,8 @@ const int blockedBishopPenalty = 30;
 
 const int rookOnQueenFile = 10;
 const int rookOnOpenFile = 20;
-const int rookOnSeventh = 60;
 const int rookPawnConstant = 3;
+const int rookOnSeventh = 50;
 const int rooksDefendingEachOther = 5;
 const int rookMobilityConstant = 3;
 const int blockedRookPenalty = 30;
@@ -354,9 +354,9 @@ int evalBishop(int sq, int color) {
         if(sq == h7 && (opponentPawnsBB & bits[g6]) && (opponentPawnsBB & bits[f7]))
             eval -= trappedBishopPenalty;
 
-        if(sq == c1 && (ourPawnsBB & bits[d2]) & (ourPiecesBB & bits[d3]))
+        if(sq == c1 && (ourPawnsBB & bits[d2]) & (ourPiecesBB & bits[e3]))
             eval -= blockedBishopPenalty;
-        if(sq == f1 && (ourPawnsBB & bits[e2]) & (ourPiecesBB & bits[e3]))
+        if(sq == f1 && (ourPawnsBB & bits[e2]) & (ourPiecesBB & bits[d3]))
             eval -= blockedBishopPenalty;
     }
     if(color == Black) {
@@ -365,9 +365,9 @@ int evalBishop(int sq, int color) {
         if(sq == h2 && (opponentPawnsBB & bits[g3]) && (opponentPawnsBB & bits[f2]))
             eval -= trappedBishopPenalty;
 
-        if(sq == c8 && (ourPawnsBB & bits[d7]) & (ourPiecesBB & bits[d6]))
+        if(sq == c8 && (ourPawnsBB & bits[d7]) & (ourPiecesBB & bits[e6]))
             eval -= blockedBishopPenalty;
-        if(sq == f8 && (ourPawnsBB & bits[e7]) & (ourPiecesBB & bits[e6]))
+        if(sq == f8 && (ourPawnsBB & bits[e7]) & (ourPiecesBB & bits[d6]))
             eval -= blockedBishopPenalty;
     }
 
@@ -449,7 +449,7 @@ int evalRook(int sq, int color) {
     }
 
     // the rook on the seventh rank gets a huge bonus if there are pawns on that rank or if it restricts the king to the eighth rank
-    if(sq/8 ==  seventhRank && (opponentKingSquare/8 == eighthRank || (opponentPawnsBB & ranksBB[seventhRank])))
+    if(sq/8 == seventhRank && (opponentKingSquare/8 == eighthRank || (opponentPawnsBB & ranksBB[seventhRank])))
         eval += rookOnSeventh;
 
     // small bonus if the rook is defended by another rook
