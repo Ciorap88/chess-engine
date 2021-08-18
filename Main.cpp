@@ -29,16 +29,12 @@ int main() {
 
         cout << "best:" << moveToString(result.first) << '\n';
         cout << "eval:";
-        if(result.second >= MATE_THRESHOLD) cout << "MATE";
-        else if(result.second <= -MATE_THRESHOLD) cout << "-MATE";
-        else
-            cout << (board.turn == White ? 1 : -1) * result.second;
-        cout << '\n';
+        if(result.second >= MATE_THRESHOLD) cout << "MATE\n";
+        else if(result.second <= -MATE_THRESHOLD) cout << "-MATE\n";
+        else cout << (board.turn == White ? 1 : -1) * result.second << '\n';
+
         board.makeMove(result.first);
-        showPV(result.first);
-
         vector<Move> moves = board.GenerateLegalMoves();
-
         if(moves.size() == 0) {
             sleep(3);
             break;
