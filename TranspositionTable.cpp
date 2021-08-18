@@ -110,7 +110,7 @@ struct hashElement {
     Move best;
 };
 
-const int tableSize = (1 << 18);
+const int tableSize = (1 << 19);
 const int valUnknown = -1e9;
 
 hashElement hashTable[tableSize];
@@ -145,30 +145,15 @@ void RecordHash(int depth, int val, int hashF, Move best) {
     int index = (board.hashKey & (tableSize-1));
     hashElement *h = &hashTable[index];
 
-    if((h->key == board.hashKey) && (h->depth > depth)) return; // replace if same depth or deeper
+    bool skip = false;
+    if((h->key == board.hashKey) && (h->depth > depth)) skip = true; // replace if same depth or deeper
+    if(hashF != hashFExact && h->flags == hashFExact) skip = true; // never replace exact entry with a non exact one
+    if(hashF == hashFExact && h->flags != hashFExact) skip = false;// always replace inexact entry with an exact one
+    if(skip) return;
 
     h->key = board.hashKey;
     h->best = best;
     h->value = val;
     h->flags = hashF;
     h->depth = depth;
-}
-
-void showPV(Move firstMove) {
-    vector<Move> pv;
-    cout << "PV: " << moveToString(firstMove) << ' ';
-    while(true) {
-        Move m = retrieveBestMove();
-        if(m.from == -1) break;
-
-        pv.push_back(m);
-        cout << moveToString(m) << ' ';
-
-        board.makeMove(m);
-        }
-    cout << '\n';
-    while(pv.size()) {
-        board.unmakeMove(pv.back());
-        pv.pop_back();
-    }
 }
