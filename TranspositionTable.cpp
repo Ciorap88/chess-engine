@@ -124,12 +124,11 @@ Move retrieveBestMove() {
     return h->best;
 }
 
-int ProbeHash(int depth, int alpha, int beta, Move* best) {
+int ProbeHash(int depth, int alpha, int beta) {
     int index = (board.hashKey & (tableSize-1));
     hashElement *h = &hashTable[index];
 
     if(h->key == board.hashKey) {
-        *best = h->best;
         if(h->depth >= depth) {
             if(h->flags == hashFExact) return h->value;
             if(h->flags == hashFAlpha && h->value <= alpha) return alpha;
@@ -156,4 +155,21 @@ void RecordHash(int depth, int val, int hashF, Move best) {
     h->value = val;
     h->flags = hashF;
     h->depth = depth;
+}
+
+void showPV(int depth) {
+    vector<Move> moves;
+    cout << "PV:";
+    while(retrieveBestMove().from != noMove.from && depth) {
+        Move m = retrieveBestMove();
+        cout << moveToString(m) << ' ';
+        board.makeMove(m);
+        moves.push_back(m);
+        depth--;
+    }
+    cout << '\n';
+    while(moves.size()) {
+        board.unmakeMove(moves.back());
+        moves.pop_back();
+    }
 }

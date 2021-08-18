@@ -11,7 +11,6 @@ using namespace std;
 const int inf = 1000000;
 const Move noMove = {-1,-1,0,0,0,0};
 
-vector<Move> bestPV;
 Move bestMove = noMove;
 
 const int mateEval = inf-1;
@@ -24,7 +23,6 @@ const int maxDepth = 100;
 // when nodes searched reach a certain number, we check for time over
 int nodesSearched = 0;
 bool timeOver = false;
-Move ttMove = noMove;
 
 // draw by insufficient material
 bool isDraw() {
@@ -149,7 +147,7 @@ int nullWindowSearch(int beta, int depth) {
 }
 
 // negamax algorithm with alpha-beta pruning
-int alphaBeta(int alpha, int beta, int depth, int distToRoot, vector<Move> &PV) {
+int alphaBeta(int alpha, int beta, int depth, int distToRoot) {
     if(!(nodesSearched & 4095)) {
         if((clock() - startTime) / CLOCKS_PER_SEC >= timePerMove)
             timeOver = true;
@@ -187,12 +185,9 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, vector<Move> &PV) 
     else firstMove = retrieveBestMove();
     sortMoves(moves, firstMove);
 
-    int hashScore = ProbeHash(depth, alpha, beta, &ttMove);
-    if(hashScore != valUnknown) {
-        Move pvMove = retrieveBestMove();
-        if(pvMove.from != noMove.from) PV.push_back(pvMove);
+    int hashScore = ProbeHash(depth, alpha, beta);
+    if(hashScore != valUnknown)
         return hashScore;
-    }
 
     if(depth == 0) return quiesce(alpha, beta);
     Move currBestMove = noMove;
@@ -206,13 +201,12 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, vector<Move> &PV) 
         // for the rest of the moves we start with a quick (null window) search
         // and only if the move has potential to be the best, we do a full search
         int score;
-        vector<Move> childPV;
         if(doPVSearch) {
-            score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1, childPV);
+            score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1);
         } else {
             score = -nullWindowSearch(-alpha, depth-1);
             if(score > alpha && score < beta)
-                score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1, childPV);
+                score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1);
         }
         board.unmakeMove(m);
 
@@ -228,15 +222,11 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, vector<Move> &PV) 
             alpha = score;
             doPVSearch = false;
 
-            if(distToRoot == 0) bestMove = m;
             currBestMove = m;
-
-            PV.clear();
-            PV.push_back(currBestMove);
-            copy(childPV.begin(), childPV.end(), back_inserter(PV));
         }
     }
 
+    if(!timeOver && distToRoot == 0) bestMove = currBestMove;
     RecordHash(depth, alpha, hashFlag, currBestMove);
     return alpha;
 }
@@ -247,24 +237,19 @@ pair<Move, int> Search() {
     bestMove = noMove;
     timeOver = false;
     nodesSearched = 0;
-    bestPV.clear();
-
-    vector<Move> newPV;
 
     int alpha = -inf, beta = inf;
+    int eval = 0;
 
-    int eval = alphaBeta(-inf, inf, 1, 0, newPV);
-    bestPV = newPV;
-    for(int depth = 2; depth <= maxDepth; ) {
+    for(int depth = 1; depth <= maxDepth; ) {
 
-        newPV.clear();
-        int curEval = alphaBeta(alpha, beta, depth, 0, newPV);
+        int curEval = alphaBeta(alpha, beta, depth, 0);
 
         if(timeOver) {
             cout << "depth:" << depth << '\n';
+            showPV(depth-1);
             break;
         }
-        bestPV = newPV;
 
         // if we fall outside the window, we do a full width search with the same depth
         if(curEval <= alpha || curEval >= beta) {
@@ -280,8 +265,5 @@ pair<Move, int> Search() {
     }
 
     cout << "nodes:" << nodesSearched << '\n';
-    cout << "PV: ";
-    for(Move m: bestPV) cout << moveToString(m) << ' ';
-    cout << '\n';
     return {bestMove, eval};
 }
