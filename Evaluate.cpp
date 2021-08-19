@@ -123,6 +123,7 @@ const int flipped[64] = {
 const int mgWeight[7] = {0, 0, 1, 1, 2, 4, 0};
 int pieceValues[7] = {0, 100, 300, 310, 500, 900, 0};
 int pieceAttackWeight[6] = {0, 0, 2, 2, 3, 5};
+const int endgameMaterial = 10;
 
 const int knightMobilityConstant = 3;
 const int knightPawnConstant = 3;

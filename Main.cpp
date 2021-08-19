@@ -7,7 +7,6 @@
 #include "MagicBitboards.h"
 #include "TranspositionTable.h"
 
-ifstream depthFile("depth.txt");
 ifstream fin("pos.txt");
 ofstream fout("output.txt");
 
@@ -24,6 +23,7 @@ int main() {
         auto result = Search();
         if(result.first.from == -1) {
             cout << "Game over\n";
+            sleep(3);
             break;
         }
 
@@ -36,6 +36,7 @@ int main() {
         board.makeMove(result.first);
         vector<Move> moves = board.GenerateLegalMoves();
         if(moves.size() == 0) {
+            cout << "Game Over\n";
             sleep(3);
             break;
         }

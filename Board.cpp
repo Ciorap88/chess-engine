@@ -682,16 +682,24 @@ vector<Move> Board::GenerateLegalMoves() {
 }
 
 void Board::makeMove(Move m) {
+    this->updateHashKey(m);
+
+    if(m.from == -1) { // null move
+        epStk.push(this->ep);
+        this->ep = -1;
+        this->turn ^= (Black | White);
+
+        return;
+    }
+
     // push the current castle and ep info in order to retrieve it when we unmake the move
-    castleStk.push(board.castleRights);
-    epStk.push(board.ep);
+    castleStk.push(this->castleRights);
+    epStk.push(this->ep);
 
     int color = (this->squares[m.from] & (Black | White));
     int piece = (this->squares[m.from] ^ color);
     int otherColor = (color ^ (Black | White));
     int otherPiece = (m.capture ^ otherColor);
-
-    this->updateHashKey(m);
 
     // update bitboards
     this->updatePieceInBB(piece, color, m.from);
@@ -753,6 +761,16 @@ void Board::makeMove(Move m) {
 
 // basically the inverse of makeMove but we need to memorize the castling right and ep square before the move
 void Board::unmakeMove(Move m) {
+    if(m.from == -1) { // null move
+        this->ep = epStk.top();
+        epStk.pop();
+        this->turn ^= (Black | White);
+
+        this->updateHashKey(m);
+
+        return;
+    }
+
     int color = (this->squares[m.to] & (Black | White));
     int otherColor = (color ^ (Black | White));
     int piece = (this->squares[m.to] ^ color);

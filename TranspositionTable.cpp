@@ -48,6 +48,12 @@ U64 getZobristHashFromCurrPos() {
 }
 
 void Board::updateHashKey(Move m) {
+    if(m.from == -1) { // null move
+        this->hashKey ^= zobristNumbers[zEpFileIndex + (this->ep & 7)];
+        this->hashKey ^= zobristNumbers[zBlackTurnIndex];
+        return;
+    }
+
     int color = (this->squares[m.from] & (Black | White));
     int piece = (this->squares[m.from] ^ color);
     int otherColor = (color ^ (Black | White));

@@ -91,6 +91,7 @@ void sortMoves(vector<Move> &moves, Move PVMove) {
     moves = sorted;
 }
 
+// ---quiescence search---
 // only searching for captures at the end of a regular search in order to ensure the engine won't miss obvious tactics
 int quiesce(int alpha, int beta) {
     if(!(nodesSearched & 4095)) {
@@ -128,26 +129,10 @@ int quiesce(int alpha, int beta) {
     return alpha;
 }
 
-// quick search to prove if a node is worth doing a complete search on
-int nullWindowSearch(int beta, int depth) {
-    int alpha = beta-1;
-    if(depth == 0) return quiesce(alpha, beta);
+// alpha-beta algorithm with a lot of enhancements
+int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull) {
+    assert(depth >= 0);
 
-    vector<Move> moves = board.GenerateLegalMoves();
-    sortMoves(moves, retrieveBestMove());
-
-    for(Move m: moves) {
-        board.makeMove(m);
-        int score = -nullWindowSearch(-alpha, depth-1);
-        board.unmakeMove(m);
-
-        if(score >= beta) return beta;
-    }
-    return alpha;
-}
-
-// negamax algorithm with alpha-beta pruning
-int alphaBeta(int alpha, int beta, int depth, int distToRoot) {
     if(!(nodesSearched & 4095)) {
         if((clock() - startTime) / CLOCKS_PER_SEC >= timePerMove)
             timeOver = true;
@@ -162,29 +147,31 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot) {
     // increase the depth if king is in check
     if(isInCheck) depth++;
 
-    // mate distance pruning
+    // ---mate distance pruning---
+    // if we find mate, we shouldn't look for a better move
     int mateScore = mateEval-distToRoot;
 
     if(alpha < -mateScore) alpha = -mateScore;
     if(beta > mateScore) beta = mateScore;
     if(alpha >= beta) return alpha;
 
-    // game over
     if(isDraw()) return 0; //insufficient material
-
     vector<Move> moves = board.GenerateLegalMoves();
     if(moves.size() == 0) {
         if(isInCheck)
-            return -mateScore;
+            return -mateScore; //checkmate
         return 0; //stalemate
     }
 
+    // ---move ordering---
+    // we sort the moves so that we can achieve cutoffs faster, so we don't need to search all the moves
     // first move should always be the hashed move or the best move found in previous iterations
     Move firstMove;
-    if(distToRoot == 0) firstMove = bestMove;
+    if(distToRoot == 0 && bestMove.from != -1) firstMove = bestMove;
     else firstMove = retrieveBestMove();
     sortMoves(moves, firstMove);
 
+    // retrieving the hashed move and evaluation if there is any
     int hashScore = ProbeHash(depth, alpha, beta);
     if(hashScore != valUnknown)
         return hashScore;
@@ -193,20 +180,35 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot) {
     Move currBestMove = noMove;
     bool doPVSearch = true;
 
+    // ---null move pruning---
+    // if our position is good, we can pass the turn to the opponent
+    // and if that doesn't wreck our position, we don't need to search further
+    if((isInCheck == false) && distToRoot && (depth >= 3) && (Evaluate() >= beta) && doNull && (gamePhase >= endgameMaterial)) {
+        board.makeMove(noMove);
+
+        int R = (depth > 6 ? 3 : 2);
+        int score = -alphaBeta(-beta, -beta+1, depth-R-1, distToRoot+1, false);
+
+        board.unmakeMove(noMove);
+
+        if(timeOver) return 0;
+        if(score >= beta) return beta;
+    }
+
     for(Move m: moves) {
         board.makeMove(m);
 
-        // principal variation search
+        // ---principal variation search---
         // we do a full search only until we find a move that raises alpha and we consider it to be the best
-        // for the rest of the moves we start with a quick (null window) search
+        // for the rest of the moves we start with a quick (null window - beta = alpha+1) search
         // and only if the move has potential to be the best, we do a full search
         int score;
         if(doPVSearch) {
-            score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1);
+            score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1, true);
         } else {
-            score = -nullWindowSearch(-alpha, depth-1);
+            score = -alphaBeta(-alpha-1, -alpha, depth-1, distToRoot+1, true);
             if(score > alpha && score < beta)
-                score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1);
+                score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1, true);
         }
         board.unmakeMove(m);
 
@@ -231,7 +233,7 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot) {
     return alpha;
 }
 
-const int aspirationWindow = 50;
+const int aspIncrease = 50;
 pair<Move, int> Search() {
     startTime = clock();
     bestMove = noMove;
@@ -241,9 +243,13 @@ pair<Move, int> Search() {
     int alpha = -inf, beta = inf;
     int eval = 0;
 
+    //---iterative deepening---
+    // we start with a depth 1 search and then we increase the depth by 1 every time
+    // this helps manage the time because at any point the engine can return the best move found so far
+    // also it helps improve move ordering by memorizing the best move that we can search first in the next iteration
     for(int depth = 1; depth <= maxDepth; ) {
 
-        int curEval = alphaBeta(alpha, beta, depth, 0);
+        int curEval = alphaBeta(alpha, beta, depth, 0, false);
 
         if(timeOver) {
             cout << "depth:" << depth << '\n';
@@ -251,7 +257,10 @@ pair<Move, int> Search() {
             break;
         }
 
-        // if we fall outside the window, we do a full width search with the same depth
+        // ---aspiration window---
+        // we start with a full width search (alpha = -inf and beta = inf), modifying them accordingly
+        // if we fall outside the current window, we do a full width search with the same depth
+        // and if we stay inside the window, we only increase it by a small number, so that we can achieve more cutoffs
         if(curEval <= alpha || curEval >= beta) {
             alpha = -inf;
             beta = inf;
@@ -259,11 +268,11 @@ pair<Move, int> Search() {
         }
 
         eval = curEval;
-        alpha = eval-aspirationWindow; // increase window for next iteration
-        beta = eval+aspirationWindow;
+        alpha = eval-aspIncrease; // increase window for next iteration
+        beta = eval+aspIncrease;
         depth++; // increase depth only if we are inside the window
     }
 
     cout << "nodes:" << nodesSearched << '\n';
-    return {bestMove, eval};
+    return {retrieveBestMove(), eval};
 }

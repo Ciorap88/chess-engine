@@ -8,6 +8,8 @@
 #include "Board.h"
 
 extern int pieceValues[7];
+extern int gamePhase;
+extern const int endgameMaterial;
 
 void initTables();
 int Evaluate();
