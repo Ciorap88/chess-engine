@@ -49,27 +49,29 @@ bool areEqual(Move a, Move b) {
     return ((a.from == b.from) && (a.to == b.to));
 }
 
-bool cmpCaptures(Move a, Move b) {
+// ordering the moves based on material gain
+bool cmpMoves(Move a, Move b) {
     int otherColor = (board.turn ^ (Black | White));
 
-    int scoreA = (a.capture ^ otherColor);
-    scoreA -= (board.squares[a.from] ^ board.turn);
+    // initial score is 0, if the move is a capture we favor the moves that capture 
+    // a more valuable piece with a less valuable one
+    int scoreA = 0;
+    if(a.capture) {
+        scoreA += pieceValues[(a.capture ^ otherColor)];
+        scoreA -= pieceValues[(board.squares[a.from] ^ board.turn)];
+    }
 
-    int scoreB = (b.capture ^ otherColor);
-    scoreB -= (board.squares[b.from] ^ board.turn);
+    int scoreB = 0;
+    if(b.capture) {
+        scoreB += pieceValues[(b.capture ^ otherColor)];
+        scoreB -= pieceValues[(board.squares[b.from] ^ board.turn)];
+    }
+
+    // if the move is a pawn promotion we add the material gain to the score
+    if(a.prom) scoreA += pieceValues[a.prom] - pieceValues[Pawn];
+    if(b.prom) scoreB += pieceValues[b.prom] - pieceValues[Pawn];
 
     return (scoreA > scoreB);
-}
-
-bool cmpMoves(Move a, Move b) {
-    // if both are captures just compare them using the other function
-    if(a.capture && b.capture) return cmpCaptures(a, b);
-
-    // prioritize captures over 'quiet' moves
-    if(a.capture) return true;
-    if(b.capture) return false;
-
-    return false;
 }
 
 void sortMoves(vector<Move> &moves, Move PVMove) {
@@ -109,6 +111,13 @@ int quiesce(int alpha, int beta) {
     int standPat = Evaluate();
     if(standPat >= beta)
         return beta;
+
+    // ---delta pruning---
+    // we test if the greatest material swing is enough to raise alpha
+    // if it isn't, then the position is hopeless so searching deeper won't improve it
+    int delta = 975 + 875 + 200; // capturing a queen + promoting a pawn to a queen + safety margin
+    if(delta + standPat <= alpha) return alpha;
+
     alpha = max(alpha, standPat);
 
     for(Move m : moves)  {
@@ -164,7 +173,7 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull) {
     }
 
     // ---move ordering---
-    // we sort the moves so that we can achieve cutoffs faster, so we don't need to search all the moves
+    // we sort the moves so that we can achieve cutoffs faster, so we don't need to search all the moves too deep
     // first move should always be the hashed move or the best move found in previous iterations
     Move firstMove;
     if(distToRoot == 0 && bestMove.from != -1) firstMove = bestMove;
@@ -195,14 +204,29 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull) {
         if(score >= beta) return beta;
     }
 
+    int movesSearched = 0;
     for(Move m: moves) {
-        board.makeMove(m);
+        if(alpha >= beta) return alpha;
 
+        board.makeMove(m);
+        int score;
+
+        // ---late move reduction---
+        // we do full searches only for the first moves, and then do a reduced search
+        // if the move is potentially good, we do a full search instead
+        int reductionDepth = 0;
+        if(movesSearched > 3 && !m.capture && !m.prom && !isInCheck && depth > 4 && !board.isInCheck()) {
+            reductionDepth = 1;
+            if(movesSearched > 8) reductionDepth ++;
+
+            depth -= reductionDepth;
+        } 
+
+    pvSearch:
         // ---principal variation search---
         // we do a full search only until we find a move that raises alpha and we consider it to be the best
         // for the rest of the moves we start with a quick (null window - beta = alpha+1) search
         // and only if the move has potential to be the best, we do a full search
-        int score;
         if(doPVSearch) {
             score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1, true);
         } else {
@@ -210,7 +234,17 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull) {
             if(score > alpha && score < beta)
                 score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1, true);
         }
+
+        // move can be good, we do a full depth search
+        if(reductionDepth && score > alpha) {
+            depth += reductionDepth;
+            reductionDepth = 0;
+
+            goto pvSearch;
+        }
+
         board.unmakeMove(m);
+        movesSearched++;
 
         if(timeOver) return 0;
 
@@ -226,6 +260,7 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull) {
 
             currBestMove = m;
         }
+        
     }
 
     if(!timeOver && distToRoot == 0) bestMove = currBestMove;

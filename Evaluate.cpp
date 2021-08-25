@@ -121,7 +121,7 @@ const int flipped[64] = {
 
 
 const int mgWeight[7] = {0, 0, 1, 1, 2, 4, 0};
-int pieceValues[7] = {0, 100, 300, 310, 500, 900, 0};
+int pieceValues[7] = {0, 100, 325, 350, 500, 975, 0};
 int pieceAttackWeight[6] = {0, 0, 2, 2, 3, 5};
 const int endgameMaterial = 10;
 
@@ -512,7 +512,8 @@ int evalQueen(int sq, int color) {
 
     // mobility and attacks
     U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
-    U64 attacks = (magicBishopAttacks((board.whitePiecesBB | board.blackPiecesBB), sq) | magicRookAttacks((board.whitePiecesBB | board.blackPiecesBB), sq));
+    U64 attacks = (magicBishopAttacks((board.whitePiecesBB | board.blackPiecesBB), sq)
+                 | magicRookAttacks((board.whitePiecesBB | board.blackPiecesBB), sq));
 
     int mobility = popcount(attacks & ~ourPiecesBB);
     int attackedSquares = popcount(attacks & sqNearKing);
