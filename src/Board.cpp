@@ -3,6 +3,7 @@
 #include "Board.h"
 #include "MagicBitboards.h"
 #include "TranspositionTable.h"
+#include "Search.h"
 
 using namespace std;
 
@@ -691,6 +692,7 @@ void Board::makeMove(Move m) {
 
         return;
     }
+    repetitionMap[board.hashKey]++;
 
     // push the current castle and ep info in order to retrieve it when we unmake the move
     castleStk.push(this->castleRights);
@@ -770,6 +772,7 @@ void Board::unmakeMove(Move m) {
 
         return;
     }
+    repetitionMap[board.hashKey]--;
 
     int color = (this->squares[m.to] & (Black | White));
     int otherColor = (color ^ (Black | White));

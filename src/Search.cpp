@@ -8,6 +8,8 @@
 
 using namespace std;
 
+unordered_map<U64, int> repetitionMap;
+
 const int inf = 1000000;
 const Move noMove = {-1,-1,0,0,0,0};
 
@@ -24,8 +26,10 @@ const int maxDepth = 100;
 int nodesSearched = 0;
 bool timeOver = false;
 
-// draw by insufficient material
+// draw by insufficient material or repetition
 bool isDraw() {
+    if(repetitionMap[board.hashKey] > 2) return true; // repetition
+
     if(board.queensBB | board.rooksBB | board.pawnsBB) return false;
 
     if((board.knightsBB | board.bishopsBB) == 0) return true; // king vs king
@@ -139,7 +143,7 @@ int quiesce(int alpha, int beta) {
 }
 
 // alpha-beta algorithm with a lot of enhancements
-int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull) {
+int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool isPV) {
     assert(depth >= 0);
 
     if(!(nodesSearched & 4095)) {
@@ -164,13 +168,14 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull) {
     if(beta > mateScore) beta = mateScore;
     if(alpha >= beta) return alpha;
 
-    if(isDraw()) return 0; //insufficient material
+    if(isDraw()) return 0;
     vector<Move> moves = board.GenerateLegalMoves();
     if(moves.size() == 0) {
         if(isInCheck)
             return -mateScore; //checkmate
         return 0; //stalemate
     }
+
 
     // ---move ordering---
     // we sort the moves so that we can achieve cutoffs faster, so we don't need to search all the moves too deep
@@ -182,21 +187,23 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull) {
 
     // retrieving the hashed move and evaluation if there is any
     int hashScore = ProbeHash(depth, alpha, beta);
-    if(hashScore != valUnknown)
-        return hashScore;
+    if(hashScore != valUnknown) {
+        // we return hashed info only if it is an exact hit in pv nodes
+        if(!isPV || (hashScore > alpha && hashScore < beta))
+            return hashScore;
+    }
 
     if(depth == 0) return quiesce(alpha, beta);
     Move currBestMove = noMove;
-    bool doPVSearch = true;
 
     // ---null move pruning---
     // if our position is good, we can pass the turn to the opponent
     // and if that doesn't wreck our position, we don't need to search further
-    if((isInCheck == false) && distToRoot && (depth >= 3) && (Evaluate() >= beta) && doNull && (gamePhase >= endgameMaterial)) {
+    if((!isPV) && (isInCheck == false) && distToRoot && (depth >= 3) && (Evaluate() >= beta) && doNull && (gamePhase >= endgameMaterial)) {
         board.makeMove(noMove);
 
         int R = (depth > 6 ? 3 : 2);
-        int score = -alphaBeta(-beta, -beta+1, depth-R-1, distToRoot+1, false);
+        int score = -alphaBeta(-beta, -beta+1, depth-R-1, distToRoot+1, false, false);
 
         board.unmakeMove(noMove);
 
@@ -204,11 +211,27 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull) {
         if(score >= beta) return beta;
     }
 
+    // decide if we can apply futility pruning
+    bool fPrune = false;
+    int fMargin[4] = { 0, 200, 300, 500 };
+    if (depth <= 3 && !isPV && !isInCheck && abs(alpha) < 9000 && Evaluate() + fMargin[depth] <= alpha)
+        fPrune = true;
+
     int movesSearched = 0;
+    bool raisedAlpha = false;
     for(Move m: moves) {
         if(alpha >= beta) return alpha;
 
         board.makeMove(m);
+
+        // ---futility pruning---
+        // if a move is bad enough that it wouldn't be able to raise alpha, we just skip it
+        // this only applies close to the horizon depth
+        if(fPrune && !m.capture && !m.prom && !board.isInCheck()) {
+            board.unmakeMove(m);
+            continue;
+        }
+
         int score;
 
         // ---late move reduction---
@@ -216,8 +239,9 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull) {
         // if the move is potentially good, we do a full search instead
         int reductionDepth = 0;
         if(movesSearched > 3 && !m.capture && !m.prom && !isInCheck && depth > 4 && !board.isInCheck()) {
-            reductionDepth = 1;
-            if(movesSearched > 8) reductionDepth ++;
+            reductionDepth = int(sqrt(double(depth-1)) + sqrt(double(movesSearched-1))); 
+            if(isPV) reductionDepth /= 3;
+            reductionDepth = min(reductionDepth, depth-1);
 
             depth -= reductionDepth;
         } 
@@ -227,12 +251,12 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull) {
         // we do a full search only until we find a move that raises alpha and we consider it to be the best
         // for the rest of the moves we start with a quick (null window - beta = alpha+1) search
         // and only if the move has potential to be the best, we do a full search
-        if(doPVSearch) {
-            score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1, true);
+        if(!raisedAlpha) {
+            score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1, true, true);
         } else {
-            score = -alphaBeta(-alpha-1, -alpha, depth-1, distToRoot+1, true);
+            score = -alphaBeta(-alpha-1, -alpha, depth-1, distToRoot+1, true, false);
             if(score > alpha && score < beta)
-                score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1, true);
+                score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1, true, true);
         }
 
         // move can be good, we do a full depth search
@@ -256,7 +280,7 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull) {
         if(score > alpha) {
             hashFlag = hashFExact;
             alpha = score;
-            doPVSearch = false;
+            raisedAlpha = true;
 
             currBestMove = m;
         }
@@ -284,7 +308,7 @@ pair<Move, int> Search() {
     // also it helps improve move ordering by memorizing the best move that we can search first in the next iteration
     for(int depth = 1; depth <= maxDepth; ) {
 
-        int curEval = alphaBeta(alpha, beta, depth, 0, false);
+        int curEval = alphaBeta(alpha, beta, depth, 0, false, true);
 
         if(timeOver) {
             cout << "depth:" << depth << '\n';
