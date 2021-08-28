@@ -18,9 +18,9 @@ Move bestMove = noMove;
 const int mateEval = inf-1;
 const int MATE_THRESHOLD = mateEval/2;
 
-clock_t startTime;
-const int timePerMove = 30;
-const int maxDepth = 100;
+int startTime, stopTime;
+int maxDepth = 200;
+bool infiniteTime;
 
 // when nodes searched reach a certain number, we check for time over
 int nodesSearched = 0;
@@ -100,9 +100,9 @@ void sortMoves(vector<Move> &moves, Move PVMove) {
 // ---quiescence search---
 // only searching for captures at the end of a regular search in order to ensure the engine won't miss obvious tactics
 int quiesce(int alpha, int beta) {
-    if(!(nodesSearched & 4095)) {
-        if((clock() - startTime) / CLOCKS_PER_SEC >= timePerMove)
-            timeOver = true;
+    if(!(nodesSearched & 4095) && !infiniteTime) {
+        int currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+        if(currTime >= stopTime) timeOver = true;
     }
     if(timeOver) return 0;
     nodesSearched++;
@@ -146,9 +146,9 @@ int quiesce(int alpha, int beta) {
 int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool isPV) {
     assert(depth >= 0);
 
-    if(!(nodesSearched & 4095)) {
-        if((clock() - startTime) / CLOCKS_PER_SEC >= timePerMove)
-            timeOver = true;
+    if(!(nodesSearched & 4095) && !infiniteTime) {
+        int currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+        if(currTime >= stopTime) timeOver = true;
     }
     if(timeOver) return 0;
     nodesSearched++;
@@ -292,12 +292,19 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool 
     return alpha;
 }
 
+// for showing uci info
+string scoreToStr(int score) {
+    if(board.turn == Black) score *= -1;
+
+    if(abs(score) <= MATE_THRESHOLD) return "cp " + to_string(score);
+
+    return "mate " + to_string((score > 0 ? mateEval - score + 1 : -mateEval - score) / 2);
+}
+
 const int aspIncrease = 50;
 pair<Move, int> Search() {
-    startTime = clock();
     bestMove = noMove;
     timeOver = false;
-    nodesSearched = 0;
 
     int alpha = -inf, beta = inf;
     int eval = 0;
@@ -307,12 +314,11 @@ pair<Move, int> Search() {
     // this helps manage the time because at any point the engine can return the best move found so far
     // also it helps improve move ordering by memorizing the best move that we can search first in the next iteration
     for(int depth = 1; depth <= maxDepth; ) {
+        nodesSearched = 0;
 
         int curEval = alphaBeta(alpha, beta, depth, 0, false, true);
 
         if(timeOver) {
-            cout << "depth:" << depth << '\n';
-            showPV(depth-1);
             break;
         }
 
@@ -329,9 +335,13 @@ pair<Move, int> Search() {
         eval = curEval;
         alpha = eval-aspIncrease; // increase window for next iteration
         beta = eval+aspIncrease;
+
+        // info for UCI
+        cout << "info score " << scoreToStr(eval) << " depth " << depth << " nodes " << nodesSearched << " time " << 0 << " ";
+        showPV(depth);
+
         depth++; // increase depth only if we are inside the window
     }
 
-    cout << "nodes:" << nodesSearched << '\n';
     return {retrieveBestMove(), eval};
 }

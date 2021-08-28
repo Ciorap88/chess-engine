@@ -9,6 +9,7 @@ void RecordHash(int depth, int val, int hashF, Move best);
 void generateZobristHashNumbers();
 U64 getZobristHashFromCurrPos();
 void showPV(int depth);
+void clearTT();
 
 extern const int valUnknown;
 extern const int hashFAlpha, hashFBeta, hashFExact;

@@ -181,6 +181,5 @@ void initMagics() {
         bishopMagics[i] = findMagic(i, bishopBits[i], 1);
         rookMagics[i] = findMagic(i, rookBits[i], 0);
     }
-    cout << "magics found\n";
 }
 

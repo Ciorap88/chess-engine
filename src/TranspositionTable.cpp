@@ -121,6 +121,13 @@ const int valUnknown = -1e9;
 
 hashElement hashTable[tableSize];
 
+void clearTT() {
+    hashElement newElement = {0, 0, 0, 0, noMove};
+    for(int i = 0; i < tableSize; i++) {
+        hashTable[i] = newElement;
+    }
+}
+
 Move retrieveBestMove() {
     int index = (board.hashKey & (tableSize-1));
     hashElement *h = &hashTable[index];
@@ -165,7 +172,7 @@ void RecordHash(int depth, int val, int hashF, Move best) {
 
 void showPV(int depth) {
     vector<Move> moves;
-    cout << "PV:";
+    cout << "pv ";
     while(retrieveBestMove().from != noMove.from && depth) {
         Move m = retrieveBestMove();
         cout << moveToString(m) << ' ';

@@ -20,6 +20,8 @@ int castleEndSq[4] = {g1,c1,g8,c8};
 stack<int> castleStk, epStk;
 
 string moveToString(Move m) {
+    if(m.from == -1 || m.from == m.to) return "0000";
+
     string s;
     s += (m.from%8)+'a';
     s += (m.from/8)+'1';
@@ -290,15 +292,35 @@ string Board::getFenFromCurrPos() {
     return fen;
 }
 
-void Board::loadFenPos(string pieces, char turn, string castles, string epTargetSq, int halfMoveClock, int fullMoveNumber) {
+void Board::loadFenPos(string input) {
     this->blackPiecesBB = this->whitePiecesBB = 0;
     this->pawnsBB = this->knightsBB = 0;
     this->bishopsBB = this->rooksBB = 0;
     this->queensBB = 0;
 
+    // parse the fen string
+    string pieces;
+    int i = 0;
+    for(; input[i] != ' ' && i < input.length(); i++)
+        pieces += input[i];
+    i++;
+
+    char turn = input[i];
+    i += 2;
+
+    string castles;
+    for(; input[i] != ' ' && i < input.length(); i++)
+        castles += input[i];
+    i++;
+            
+    string epTargetSq;
+    for(; input[i] != ' ' && i < input.length(); i++) 
+        epTargetSq += input[i];
+
     unordered_map<char, int> pieceSymbols = {{'p', Pawn}, {'n', Knight},
     {'b', Bishop}, {'r', Rook}, {'q', Queen}, {'k', King}};
 
+    // iterate through squares
     int File = 0, Rank = 7;
     for(char p: pieces) {
         if(p == '/') {

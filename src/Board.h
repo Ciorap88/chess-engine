@@ -72,7 +72,7 @@ public:
     void updatePieceInBB(int piece, int color, int sq);
     void movePieceInBB(int piece, int color, int from, int to);
 
-    void loadFenPos(string pieces, char turn, string castles, string epTargetSq, int halfMoveClock, int fullMoveNumber);
+    void loadFenPos(string input);
     string getFenFromCurrPos();
 
     U64 attacksTo(int sq);
