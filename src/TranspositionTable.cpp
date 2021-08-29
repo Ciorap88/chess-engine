@@ -132,7 +132,7 @@ Move retrieveBestMove() {
     int index = (board.hashKey & (tableSize-1));
     hashElement *h = &hashTable[index];
 
-    if(h->key != board.hashKey || h->flags != hashFExact) return noMove;
+    if(h->key != board.hashKey) return noMove;
 
     return h->best;
 }

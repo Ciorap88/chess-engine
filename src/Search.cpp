@@ -9,6 +9,7 @@
 using namespace std;
 
 unordered_map<U64, int> repetitionMap;
+Move killerMoves[200][2];
 
 const int inf = 1000000;
 const Move noMove = {-1,-1,0,0,0,0};
@@ -22,8 +23,8 @@ int startTime, stopTime;
 int maxDepth = 200;
 bool infiniteTime;
 
-// when nodes searched reach a certain number, we check for time over
 int nodesSearched = 0;
+int nodesQ = 0;
 bool timeOver = false;
 
 // draw by insufficient material or repetition
@@ -50,49 +51,95 @@ bool isDraw() {
 }
 
 bool areEqual(Move a, Move b) {
-    return ((a.from == b.from) && (a.to == b.to));
+    return ((a.from == b.from) && (a.to == b.to) && (a.capture == b.capture) &&
+     (a.ep == b.ep) && (a.prom == b.prom) && (a.castle == b.castle));
 }
 
-// ordering the moves based on material gain
-bool cmpMoves(Move a, Move b) {
+// store unique killer moves
+void storeKiller(int ply, Move m) {
+    if(m.capture) return; // killer moves are by definition quiet moves
+
+    // make sure the moves are different
+    if(!areEqual(killerMoves[ply][0], m)) 
+        killerMoves[ply][1] = killerMoves[ply][0];
+
+    killerMoves[ply][0] = m;
+}
+
+// most valuable victim - least valuable aggressor
+int captureScore(Move m) {
+    if(!m.capture) return 0;
+
     int otherColor = (board.turn ^ (Black | White));
-
-    // initial score is 0, if the move is a capture we favor the moves that capture 
-    // a more valuable piece with a less valuable one
-    int scoreA = 0;
-    if(a.capture) {
-        scoreA += pieceValues[(a.capture ^ otherColor)];
-        scoreA -= pieceValues[(board.squares[a.from] ^ board.turn)];
-    }
-
-    int scoreB = 0;
-    if(b.capture) {
-        scoreB += pieceValues[(b.capture ^ otherColor)];
-        scoreB -= pieceValues[(board.squares[b.from] ^ board.turn)];
-    }
-
-    // if the move is a pawn promotion we add the material gain to the score
-    if(a.prom) scoreA += pieceValues[a.prom] - pieceValues[Pawn];
-    if(b.prom) scoreB += pieceValues[b.prom] - pieceValues[Pawn];
-
-    return (scoreA > scoreB);
+    return (pieceValues[(m.capture ^ otherColor)]
+           -pieceValues[(board.squares[m.from] ^ board.turn)]);
 }
 
-void sortMoves(vector<Move> &moves, Move PVMove) {
-    // if there is not a pv move we just sort them normally
-    if(areEqual(PVMove, noMove)) {
-        sort(moves.begin(), moves.end(), cmpMoves);
-        return;
+bool cmpCapturesDesc(Move a, Move b) {
+    return (captureScore(a) < captureScore(b));
+}
+
+bool cmpCapturesAsc(Move a, Move b) {
+    return  (captureScore(a) > captureScore(b));
+}
+
+// ---move ordering---
+void sortMoves(vector<Move> &moves, int ply) {
+    // sorting in quiescence search
+      if(ply == -1) {
+          sort(moves.begin(), moves.end(), cmpCapturesAsc);
+          return;
+      }
+
+    vector<Move> sorted, captures, nonCaptures;
+
+    // find pv move
+    Move pvMove = noMove;
+    if(ply == 0) pvMove = bestMove;
+    if(areEqual(pvMove, noMove)) pvMove = retrieveBestMove();
+
+    // check legality of killer moves
+    bool killerLegal[2] = {false, false};
+    for(int i = 0; i < 2; i++)
+        for(auto m: moves)
+            if(areEqual(killerMoves[ply][i], m))
+                killerLegal[i] = true;
+
+    // split the other moves into captures and non captures for easier sorting
+    for(Move m: moves) {
+        if(areEqual(m, pvMove) || areEqual(m, killerMoves[ply][0]) || areEqual(m, killerMoves[ply][1]))
+            continue;
+
+        if(m.capture) captures.push_back(m);
+        else nonCaptures.push_back(m);
     }
 
-    // if there is a pv move we put it first and then sort the rest
-    vector<Move> sorted, nonPVMoves;
-    for(Move m: moves) {
-        if(areEqual(PVMove, m)) sorted.push_back(m);
-        else nonPVMoves.push_back(m);
+    // 1: add pv move
+    if(!areEqual(pvMove, noMove)) sorted.push_back(pvMove);
+    
+    // 2: add captures sorted by MVV-LVA (only winning / equal captures first)
+    sort(captures.begin(), captures.end(), cmpCapturesDesc);
+    while(captures.size() && captureScore(captures.back()) >= 0) {
+        sorted.push_back(captures.back());
+        captures.pop_back();
     }
-    sort(nonPVMoves.begin(), nonPVMoves.end(), cmpMoves);
-    for(Move m: nonPVMoves) sorted.push_back(m);
+
+    // 3: add killer moves
+    for(int i = 0; i < 2; i++)
+        if(killerLegal[i] && !areEqual(killerMoves[ply][i], noMove) && !areEqual(killerMoves[ply][i], pvMove)) 
+            sorted.push_back(killerMoves[ply][i]);
+
+    // 4: add other quiet moves
+    for(Move m: nonCaptures)
+        sorted.push_back(m);
+
+    // 5: add losing captures
+    while(captures.size()) {
+        sorted.push_back(captures.back());
+        captures.pop_back();
+    }
+
+    assert(moves.size() == sorted.size());
 
     moves = sorted;
 }
@@ -100,17 +147,16 @@ void sortMoves(vector<Move> &moves, Move PVMove) {
 // ---quiescence search---
 // only searching for captures at the end of a regular search in order to ensure the engine won't miss obvious tactics
 int quiesce(int alpha, int beta) {
-    if(!(nodesSearched & 4095) && !infiniteTime) {
+    if(!(nodesQ & 4095) && !infiniteTime) {
         int currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
         if(currTime >= stopTime) timeOver = true;
     }
     if(timeOver) return 0;
-    nodesSearched++;
+    nodesQ++;
 
     if(isDraw()) return 0;
 
     vector<Move> moves = board.GenerateLegalMoves();
-    sortMoves(moves, noMove);
 
     int standPat = Evaluate();
     if(standPat >= beta)
@@ -124,6 +170,7 @@ int quiesce(int alpha, int beta) {
 
     alpha = max(alpha, standPat);
 
+    sortMoves(moves, -1);
     for(Move m : moves)  {
         if(!m.capture) continue;
 
@@ -176,15 +223,6 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool 
         return 0; //stalemate
     }
 
-
-    // ---move ordering---
-    // we sort the moves so that we can achieve cutoffs faster, so we don't need to search all the moves too deep
-    // first move should always be the hashed move or the best move found in previous iterations
-    Move firstMove;
-    if(distToRoot == 0 && bestMove.from != -1) firstMove = bestMove;
-    else firstMove = retrieveBestMove();
-    sortMoves(moves, firstMove);
-
     // retrieving the hashed move and evaluation if there is any
     int hashScore = ProbeHash(depth, alpha, beta);
     if(hashScore != valUnknown) {
@@ -193,7 +231,11 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool 
             return hashScore;
     }
 
-    if(depth == 0) return quiesce(alpha, beta);
+    if(depth == 0) {
+        int q = quiesce(alpha, beta);
+        if(timeOver) return 0;
+        return q;
+    }
     Move currBestMove = noMove;
 
     // ---null move pruning---
@@ -219,6 +261,8 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool 
 
     int movesSearched = 0;
     bool raisedAlpha = false;
+
+    sortMoves(moves, distToRoot);
     for(Move m: moves) {
         if(alpha >= beta) return alpha;
 
@@ -274,6 +318,10 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool 
 
         if(score >= beta) {
             RecordHash(depth, beta, hashFBeta, currBestMove);
+
+            // killer moves are quiet moves that cause a beta cutoff and are used for sorting purposes
+            storeKiller(distToRoot, m);
+
             return beta;
         }
 
@@ -309,12 +357,15 @@ pair<Move, int> Search() {
     int alpha = -inf, beta = inf;
     int eval = 0;
 
+    for(int i = 0; i < 200; i++)
+        killerMoves[i][0] = killerMoves[i][1] = noMove;
+
     //---iterative deepening---
     // we start with a depth 1 search and then we increase the depth by 1 every time
     // this helps manage the time because at any point the engine can return the best move found so far
     // also it helps improve move ordering by memorizing the best move that we can search first in the next iteration
     for(int depth = 1; depth <= maxDepth; ) {
-        nodesSearched = 0;
+        nodesSearched = nodesQ = 0;
 
         int curEval = alphaBeta(alpha, beta, depth, 0, false, true);
 
@@ -337,7 +388,7 @@ pair<Move, int> Search() {
         beta = eval+aspIncrease;
 
         // info for UCI
-        cout << "info score " << scoreToStr(eval) << " depth " << depth << " nodes " << nodesSearched << " time " << 0 << " ";
+        cout << "info score " << scoreToStr(eval) << " depth " << depth << " nodes " << nodesSearched << " ";
         showPV(depth);
 
         depth++; // increase depth only if we are inside the window
