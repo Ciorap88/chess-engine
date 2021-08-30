@@ -155,8 +155,6 @@ int quiesce(int alpha, int beta) {
 
     alpha = max(alpha, standPat);
 
-    Move best = noMove;
-
     sortMoves(moves, -1);
     for(Move m : moves)  {
         if(!m.capture && !m.prom) continue;
@@ -167,19 +165,10 @@ int quiesce(int alpha, int beta) {
 
         if(timeOver) return 0;
 
-        if(score >= beta) {
-            RecordHash(0, beta, hashFBeta, m);
-            return beta;
-        }
+        if(score >= beta) return beta;
 
-        if(score > alpha) {
-            alpha = score;
-            best = m;
-        }
+        alpha = max(alpha, score);
     }
-
-    if(!areEqual(best, noMove))
-        RecordHash(0, alpha, hashFExact, best);
 
     return alpha;
 }

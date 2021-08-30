@@ -104,6 +104,8 @@ int UCI::moveGenTest(int depth, bool show) {
     if(depth == 0) return 1;
 
     vector<Move> moves = board.GenerateLegalMoves();
+    if(depth == 1) return moves.size();
+
     int numPos = 0;
 
     for(Move m: moves) {
