@@ -47,6 +47,7 @@ U64 getZobristHashFromCurrPos() {
     return key;
 }
 
+// update the hash key after making a move
 void Board::updateHashKey(Move m) {
     if(m.from == -1) { // null move
         this->hashKey ^= zobristNumbers[zEpFileIndex + (this->ep & 7)];
@@ -128,6 +129,7 @@ void clearTT() {
     }
 }
 
+// get the best move from the tt
 Move retrieveBestMove() {
     int index = (board.hashKey & (tableSize-1));
     hashElement *h = &hashTable[index];
@@ -137,6 +139,7 @@ Move retrieveBestMove() {
     return h->best;
 }
 
+// check if the stored hash element corresponds to the current position and if it was searched at a good enough depth
 int ProbeHash(int depth, int alpha, int beta) {
     int index = (board.hashKey & (tableSize-1));
     hashElement *h = &hashTable[index];
@@ -151,6 +154,7 @@ int ProbeHash(int depth, int alpha, int beta) {
     return valUnknown;
 }
 
+// replace hashed element if replacement conditions are met
 void RecordHash(int depth, int val, int hashF, Move best) {
     if(timeOver) return;
 
@@ -158,9 +162,9 @@ void RecordHash(int depth, int val, int hashF, Move best) {
     hashElement *h = &hashTable[index];
 
     bool skip = false;
-    if((h->key == board.hashKey) && (h->depth > depth)) skip = true; // replace if same depth or deeper
-    if(hashF != hashFExact && h->flags == hashFExact) skip = true; // never replace exact entry with a non exact one
-    if(hashF == hashFExact && h->flags != hashFExact) skip = false;// always replace inexact entry with an exact one
+    if((h->key == board.hashKey) && (h->depth > depth)) skip = true; 
+    if(hashF != hashFExact && h->flags == hashFExact) skip = true; 
+    if(hashF == hashFExact && h->flags != hashFExact) skip = false;
     if(skip) return;
 
     h->key = board.hashKey;

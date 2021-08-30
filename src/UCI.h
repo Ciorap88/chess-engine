@@ -17,6 +17,9 @@ public:
     static void inputUCINewGame();
     static void inputPosition(string input);
     static void inputGo(string input);
+
+    static void showSearchInfo(int depth, int nodes, int startTime, int score);
+    static int moveGenTest(int depth, bool show);
 };
 
 #endif

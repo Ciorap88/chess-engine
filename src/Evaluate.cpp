@@ -155,6 +155,7 @@ const int noShield = 5;
 
 const int doubledPawnsPenalty = 20;
 const int weakPawnPenalty = 15;
+const int CPawnPenalty = 25;
 
 const int tempoBonus = 10;
 
@@ -168,7 +169,6 @@ int evalBishop(int sq, int color);
 int evalRook(int sq, int color);
 int evalQueen(int sq, int color);
 int whiteKingShield(), blackKingShield();
-
 
 int Evaluate() {
 
@@ -662,6 +662,12 @@ int evalPawn(int sq, int color) {
 
         eval -= penalty;
     }
+
+    // penalty for having a pawn on d4 and not having a pawn on c4 or c3 in a d4 opening
+    if(color == White && sq == c2 && (ourPawnsBB & bits[d4]) && !(ourPawnsBB & bits[e4]))
+        eval -= CPawnPenalty;
+    if(color == Black && sq == c7 && (ourPawnsBB & bits[d5]) && !(ourPawnsBB & bits[e5]))
+        eval -= CPawnPenalty;
 
     return eval;
 }

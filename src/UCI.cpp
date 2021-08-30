@@ -7,6 +7,18 @@
 
 using namespace std;
 
+// for showing uci info
+string scoreToStr(int score) {
+    // the score is initially relative to the side to move, so we change it to be positive for white
+    if(board.turn == Black) score *= -1;
+
+    // if the score isn't a mate, we print it in centipawns
+    if(abs(score) <= MATE_THRESHOLD) return "cp " + to_string(score);
+
+    // if it is a mate, we print "mate" + the number of plies until mate
+    return "mate " + to_string((score > 0 ? mateEval - score + 1 : -mateEval - score) / 2);
+}
+
 // function to split string into words
 vector<string> splitStr(string s) {
     vector<string> ans;
@@ -87,6 +99,44 @@ void UCI::inputPosition(string input) {
     }
 }
 
+// perft function that returns the number of positions reached from an initial position after a certain depth
+int UCI::moveGenTest(int depth, bool show) {
+    if(depth == 0) return 1;
+
+    vector<Move> moves = board.GenerateLegalMoves();
+    int numPos = 0;
+
+    for(Move m: moves) {
+        board.makeMove(m);
+        int mv = moveGenTest(depth-1, false);
+
+        if(show) cout << moveToString(m) << ": " << mv << '\n';
+
+        numPos += mv;
+
+        board.unmakeMove(m);
+    }
+    return numPos;
+}
+
+// show information related to the search such as the depth, nodes, time etc.
+void UCI::showSearchInfo(int depth, int nodes, int startTime, int score) {
+    // get current time
+    int currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+
+    // if time is 0 then make it 1 so we wouldn't divide by 0
+    int time = (currTime == startTime ? 1 : currTime - startTime); 
+
+    // nodes searched per second
+    U64 nps =  1000LL*nodes/time;
+
+    cout << "info score " << scoreToStr(score) << " depth " << depth << " nodes " 
+         << nodes << " time " << time << " nps " << nps << " ";
+
+    // print principal variation
+    showPV(depth);
+}
+
 void UCI::inputGo(string input) {
     int time = -1, inc = 0, depth = 200, movesToGo = 30, moveTime = -1;
     infiniteTime = true;
@@ -94,7 +144,14 @@ void UCI::inputGo(string input) {
     vector<string> parsedInput = splitStr(input);
 
     // loop through words
-    for(int i = 0; i < parsedInput.size(); i++) {
+    for(int i = 0; i < parsedInput.size()-1; i++) {
+        
+        // do a perft and then return if it is requested
+        if(parsedInput[i] == "perft") {
+            int num = moveGenTest(stoi(parsedInput[i+1]), true);
+            cout << "Total nodes: " << num << '\n';
+            return;
+        }
 
         // get time and increment according to our color 
         if(parsedInput[i] == "wtime" && board.turn == White) {

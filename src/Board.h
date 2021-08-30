@@ -78,6 +78,7 @@ public:
     U64 attacksTo(int sq);
     bool isAttacked(int sq);
     bool isInCheck();
+    bool isDraw();
 
     vector<Move> GeneratePseudoLegalMoves();
     vector<Move> GenerateLegalMoves();
@@ -96,7 +97,6 @@ U64 pawnAttacks(U64 pawns, int color);
 U64 knightAttacks(U64 knights);
 
 bool isInBoard(int sq, int dir);
-int moveGenTest(int depth, bool show);
 void Init();
 
 string square(int x);

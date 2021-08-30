@@ -5,6 +5,7 @@
 #include "Search.h"
 #include "TranspositionTable.h"
 #include "MagicBitboards.h"
+#include "UCI.h"
 
 using namespace std;
 
@@ -27,29 +28,6 @@ int nodesSearched = 0;
 int nodesQ = 0;
 bool timeOver = false;
 
-// draw by insufficient material or repetition
-bool isDraw() {
-    if(repetitionMap[board.hashKey] > 2) return true; // repetition
-
-    if(board.queensBB | board.rooksBB | board.pawnsBB) return false;
-
-    if((board.knightsBB | board.bishopsBB) == 0) return true; // king vs king
-
-    int whiteBishops = popcount(board.bishopsBB | board.whitePiecesBB);
-    int blackBishops = popcount(board.bishopsBB | board.blackPiecesBB);
-    int whiteKnights = popcount(board.knightsBB | board.whitePiecesBB);
-    int blackKnights = popcount(board.knightsBB | board.blackPiecesBB);
-
-    if(whiteKnights + blackKnights + whiteBishops + blackBishops == 1) return true; // king and minor piece vs king
-
-    if(whiteKnights + blackKnights == 0 && whiteBishops == 1 && blackBishops == 1) {
-        int lightSquareBishops = popcount(lightSquaresBB & board.bishopsBB);
-        if(lightSquareBishops == 0 || lightSquareBishops == 2) return true; // king and bishop vs king and bishop with same color bishops
-    }
-
-    return false;
-}
-
 bool areEqual(Move a, Move b) {
     return ((a.from == b.from) && (a.to == b.to) && (a.capture == b.capture) &&
      (a.ep == b.ep) && (a.prom == b.prom) && (a.castle == b.castle));
@@ -57,7 +35,7 @@ bool areEqual(Move a, Move b) {
 
 // store unique killer moves
 void storeKiller(int ply, Move m) {
-    if(m.capture) return; // killer moves are by definition quiet moves
+    if(m.capture || m.ep) return; // killer moves are by definition quiet moves
 
     // make sure the moves are different
     if(!areEqual(killerMoves[ply][0], m)) 
@@ -66,13 +44,20 @@ void storeKiller(int ply, Move m) {
     killerMoves[ply][0] = m;
 }
 
-// most valuable victim - least valuable aggressor
+// evaluating moves by material gain
 int captureScore(Move m) {
-    if(!m.capture) return 0;
+    int score = 0;
 
     int otherColor = (board.turn ^ (Black | White));
-    return (pieceValues[(m.capture ^ otherColor)]
-           -pieceValues[(board.squares[m.from] ^ board.turn)]);
+
+    // captured piece value - capturing piece value
+    if(m.capture) score += (pieceValues[(m.capture ^ otherColor)]-
+                  pieceValues[(board.squares[m.from] ^ board.turn)]);
+
+    // material gained by promotion
+    if(m.prom) score += pieceValues[m.prom] - pieceValues[Pawn];
+
+    return score;
 }
 
 bool cmpCapturesDesc(Move a, Move b) {
@@ -154,7 +139,7 @@ int quiesce(int alpha, int beta) {
     if(timeOver) return 0;
     nodesQ++;
 
-    if(isDraw()) return 0;
+    if(board.isDraw()) return 0;
 
     vector<Move> moves = board.GenerateLegalMoves();
 
@@ -166,13 +151,15 @@ int quiesce(int alpha, int beta) {
     // we test if the greatest material swing is enough to raise alpha
     // if it isn't, then the position is hopeless so searching deeper won't improve it
     int delta = 975 + 875 + 200; // capturing a queen + promoting a pawn to a queen + safety margin
-    if(delta + standPat <= alpha) return alpha;
+    if(delta + standPat < alpha) return alpha;
 
     alpha = max(alpha, standPat);
 
+    Move best = noMove;
+
     sortMoves(moves, -1);
     for(Move m : moves)  {
-        if(!m.capture) continue;
+        if(!m.capture && !m.prom) continue;
 
         board.makeMove(m);
         int score = -quiesce(-beta, -alpha);
@@ -180,17 +167,25 @@ int quiesce(int alpha, int beta) {
 
         if(timeOver) return 0;
 
+        if(score >= beta) {
+            RecordHash(0, beta, hashFBeta, m);
+            return beta;
+        }
+
         if(score > alpha) {
-            if(score >= beta)
-                return beta;
             alpha = score;
+            best = m;
         }
     }
+
+    if(!areEqual(best, noMove))
+        RecordHash(0, alpha, hashFExact, best);
+
     return alpha;
 }
 
 // alpha-beta algorithm with a lot of enhancements
-int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool isPV) {
+int alphaBeta(int alpha, int beta, int depth, int ply, bool doNull, bool isPV) {
     assert(depth >= 0);
 
     if(!(nodesSearched & 4095) && !infiniteTime) {
@@ -209,13 +204,13 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool 
 
     // ---mate distance pruning---
     // if we find mate, we shouldn't look for a better move
-    int mateScore = mateEval-distToRoot;
+    int mateScore = mateEval-ply;
 
     if(alpha < -mateScore) alpha = -mateScore;
     if(beta > mateScore) beta = mateScore;
     if(alpha >= beta) return alpha;
 
-    if(isDraw()) return 0;
+    if(board.isDraw()) return 0;
     vector<Move> moves = board.GenerateLegalMoves();
     if(moves.size() == 0) {
         if(isInCheck)
@@ -241,11 +236,11 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool 
     // ---null move pruning---
     // if our position is good, we can pass the turn to the opponent
     // and if that doesn't wreck our position, we don't need to search further
-    if((!isPV) && (isInCheck == false) && distToRoot && (depth >= 3) && (Evaluate() >= beta) && doNull && (gamePhase >= endgameMaterial)) {
+    if((!isPV) && (isInCheck == false) && ply && (depth >= 3) && (Evaluate() >= beta) && doNull && (gamePhase >= endgameMaterial)) {
         board.makeMove(noMove);
 
         int R = (depth > 6 ? 3 : 2);
-        int score = -alphaBeta(-beta, -beta+1, depth-R-1, distToRoot+1, false, false);
+        int score = -alphaBeta(-beta, -beta+1, depth-R-1, ply+1, false, false);
 
         board.unmakeMove(noMove);
 
@@ -262,7 +257,7 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool 
     int movesSearched = 0;
     bool raisedAlpha = false;
 
-    sortMoves(moves, distToRoot);
+    sortMoves(moves, ply);
     for(Move m: moves) {
         if(alpha >= beta) return alpha;
 
@@ -296,11 +291,11 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool 
         // for the rest of the moves we start with a quick (null window - beta = alpha+1) search
         // and only if the move has potential to be the best, we do a full search
         if(!raisedAlpha) {
-            score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1, true, true);
+            score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true, true);
         } else {
-            score = -alphaBeta(-alpha-1, -alpha, depth-1, distToRoot+1, true, false);
+            score = -alphaBeta(-alpha-1, -alpha, depth-1, ply+1, true, false);
             if(score > alpha && score < beta)
-                score = -alphaBeta(-beta, -alpha, depth-1, distToRoot+1, true, true);
+                score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true, true);
         }
 
         // move can be good, we do a full depth search
@@ -320,7 +315,7 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool 
             RecordHash(depth, beta, hashFBeta, currBestMove);
 
             // killer moves are quiet moves that cause a beta cutoff and are used for sorting purposes
-            storeKiller(distToRoot, m);
+            storeKiller(ply, m);
 
             return beta;
         }
@@ -335,18 +330,9 @@ int alphaBeta(int alpha, int beta, int depth, int distToRoot, bool doNull, bool 
         
     }
 
-    if(!timeOver && distToRoot == 0) bestMove = currBestMove;
+    if(!timeOver && ply == 0) bestMove = currBestMove;
     RecordHash(depth, alpha, hashFlag, currBestMove);
     return alpha;
-}
-
-// for showing uci info
-string scoreToStr(int score) {
-    if(board.turn == Black) score *= -1;
-
-    if(abs(score) <= MATE_THRESHOLD) return "cp " + to_string(score);
-
-    return "mate " + to_string((score > 0 ? mateEval - score + 1 : -mateEval - score) / 2);
 }
 
 const int aspIncrease = 50;
@@ -364,6 +350,7 @@ pair<Move, int> Search() {
     // we start with a depth 1 search and then we increase the depth by 1 every time
     // this helps manage the time because at any point the engine can return the best move found so far
     // also it helps improve move ordering by memorizing the best move that we can search first in the next iteration
+    int currStartTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
     for(int depth = 1; depth <= maxDepth; ) {
         nodesSearched = nodesQ = 0;
 
@@ -387,9 +374,8 @@ pair<Move, int> Search() {
         alpha = eval-aspIncrease; // increase window for next iteration
         beta = eval+aspIncrease;
 
-        // info for UCI
-        cout << "info score " << scoreToStr(eval) << " depth " << depth << " nodes " << nodesSearched << " ";
-        showPV(depth);
+        UCI::showSearchInfo(depth, nodesSearched+nodesQ, currStartTime, eval);
+        currStartTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
 
         depth++; // increase depth only if we are inside the window
     }

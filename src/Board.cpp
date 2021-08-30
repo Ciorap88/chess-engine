@@ -844,25 +844,27 @@ void Board::unmakeMove(Move m) {
     this->updateHashKey(m);
 }
 
-Board board;
+// draw by insufficient material or repetition
+bool Board::isDraw() {
+    if(repetitionMap[this->hashKey] > 2) return true; // repetition
 
-// perft function that returns the number of positions reached from an initial position after a certain depth
-ofstream q("perft.txt");
-int moveGenTest(int depth, bool show) {
-    if(depth == 0) return 1;
+    if(this->queensBB | this->rooksBB | this->pawnsBB) return false;
 
-    vector<Move> moves = board.GenerateLegalMoves();
-    int numPos = 0;
+    if((this->knightsBB | this->bishopsBB) == 0) return true; // king vs king
 
-    for(Move m: moves) {
-        board.makeMove(m);
-        int mv = moveGenTest(depth-1, false);
+    int whiteBishops = popcount(this->bishopsBB | this->whitePiecesBB);
+    int blackBishops = popcount(this->bishopsBB | this->blackPiecesBB);
+    int whiteKnights = popcount(this->knightsBB | this->whitePiecesBB);
+    int blackKnights = popcount(this->knightsBB | this->blackPiecesBB);
 
-        if(show) q << moveToString(m) << ": " << mv << '\n';
+    if(whiteKnights + blackKnights + whiteBishops + blackBishops == 1) return true; // king and minor piece vs king
 
-        numPos += mv;
-
-        board.unmakeMove(m);
+    if(whiteKnights + blackKnights == 0 && whiteBishops == 1 && blackBishops == 1) {
+        int lightSquareBishops = popcount(lightSquaresBB & this->bishopsBB);
+        if(lightSquareBishops == 0 || lightSquareBishops == 2) return true; // king and bishop vs king and bishop with same color bishops
     }
-    return numPos;
+
+    return false;
 }
+
+Board board;

@@ -4,6 +4,7 @@
 #define MAGICBITBOARDS_H_
 
 void initMagics();
+void generateMagicNumbers();
 U64 magicBishopAttacks(U64 occ, int sq);
 U64 magicRookAttacks(U64 occ, int sq);
 int popcount(U64 bb);
