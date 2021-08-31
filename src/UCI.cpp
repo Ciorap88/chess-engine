@@ -82,7 +82,7 @@ void UCI::inputPosition(string input) {
         movesIdx = 2;
     } else {
         string fen;
-        for(int i = 2; i <= 7; i++)
+        for(char i = 2; i <= 7; i++)
             fen += parsedInput[i] + " ";
         board.loadFenPos(fen);
         movesIdx = 8;
@@ -90,39 +90,42 @@ void UCI::inputPosition(string input) {
 
     // make the moves
     for(int i = movesIdx+1; i < parsedInput.size(); i++) {
-        vector<Move> moves = board.GenerateLegalMoves();
-        for(Move m: moves) 
-            if(moveToString(m) == parsedInput[i]) {
-                board.makeMove(m);
+        Move moves[256];
+        unsigned char num = board.GenerateLegalMoves(moves);
+        for(unsigned char idx = 0; idx < num; idx++) 
+            if(moveToString(moves[idx]) == parsedInput[i]) {
+                board.makeMove(moves[idx]);
                 break;
             }
     }
 }
 
 // perft function that returns the number of positions reached from an initial position after a certain depth
-int UCI::moveGenTest(int depth, bool show) {
+int UCI::moveGenTest(short depth, bool show) {
     if(depth == 0) return 1;
 
-    vector<Move> moves = board.GenerateLegalMoves();
-    if(depth == 1) return moves.size();
+    Move moves[256];
+    unsigned char num = board.GenerateLegalMoves(moves);
+
+    if(depth == 1) return num;
 
     int numPos = 0;
 
-    for(Move m: moves) {
-        board.makeMove(m);
+    for(unsigned char idx = 0; idx < num; idx++) {
+        board.makeMove(moves[idx]);
         int mv = moveGenTest(depth-1, false);
 
-        if(show) cout << moveToString(m) << ": " << mv << '\n';
+        if(show) cout << moveToString(moves[idx]) << ": " << mv << '\n';
 
         numPos += mv;
 
-        board.unmakeMove(m);
+        board.unmakeMove(moves[idx]);
     }
     return numPos;
 }
 
 // show information related to the search such as the depth, nodes, time etc.
-void UCI::showSearchInfo(int depth, int nodes, int startTime, int score) {
+void UCI::showSearchInfo(short depth, int nodes, int startTime, int score) {
     // get current time
     int currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
 
@@ -140,7 +143,8 @@ void UCI::showSearchInfo(int depth, int nodes, int startTime, int score) {
 }
 
 void UCI::inputGo(string input) {
-    int time = -1, inc = 0, depth = 200, movesToGo = 30, moveTime = -1;
+    int time = -1, inc = 0, movesToGo = 30, moveTime = -1;
+    short depth = 200;
     infiniteTime = true;
 
     vector<string> parsedInput = splitStr(input);

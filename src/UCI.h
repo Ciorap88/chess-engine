@@ -18,8 +18,8 @@ public:
     static void inputPosition(string input);
     static void inputGo(string input);
 
-    static void showSearchInfo(int depth, int nodes, int startTime, int score);
-    static int moveGenTest(int depth, bool show);
+    static void showSearchInfo(short depth, int nodes, int startTime, int score);
+    static int moveGenTest(short depth, bool show);
 };
 
 #endif

@@ -7,6 +7,8 @@
 
 using namespace std;
 
+unordered_map<U64, char> repetitionMap;
+
 U64 bits[64];
 U64 filesBB[8], ranksBB[8], knightAttacksBB[64], kingAttacksBB[64], whitePawnAttacksBB[64], blackPawnAttacksBB[64];
 U64 squaresNearWhiteKing[64], squaresNearBlackKing[64];
@@ -14,10 +16,10 @@ U64 lightSquaresBB, darkSquaresBB;
 U64 castleMask[4];
 U64 bishopMasks[64], rookMasks[64];
 
-int castleStartSq[4] = {e1,e1,e8,e8};
-int castleEndSq[4] = {g1,c1,g8,c8};
+char castleStartSq[4] = {e1,e1,e8,e8};
+char castleEndSq[4] = {g1,c1,g8,c8};
 
-stack<int> castleStk, epStk;
+stack<char> castleStk, epStk;
 
 string moveToString(Move m) {
     if(m.from == -1 || m.from == m.to) return "0000";
@@ -36,7 +38,7 @@ string moveToString(Move m) {
     return s;
 }
 
-string square(int x) {
+string square(char x) {
     string s;
     s += ('a'+x%8);
     s += ('1'+x/8);
@@ -59,9 +61,9 @@ U64 southOne(U64 bb) {
     return (bb >> 8);
 }
 
-bool isInBoard(int sq, int dir) {
-    int File = (sq & 7);
-    int Rank = (sq >> 3);
+bool isInBoard(char sq, char dir) {
+    char File = (sq & 7);
+    char Rank = (sq >> 3);
 
     if(dir == North) return Rank < 7;
     if(dir == South) return Rank > 0;
@@ -78,7 +80,7 @@ bool isInBoard(int sq, int dir) {
 
 void Init() {
     // bitmasks for every bit from 0 to 63
-    for(int i = 0; i < 64; i++)
+    for(char i = 0; i < 64; i++)
         bits[i] = (1LL << i);
 
     // bitboard for checking empty squares between king and rook when castling
@@ -91,16 +93,16 @@ void Init() {
     generateZobristHashNumbers();
 
     // create file and rank masks
-    for(int i = 0; i < 64; i++) {
-        int File = (i & 7), Rank = (i >> 3);
+    for(char i = 0; i < 64; i++) {
+        char File = (i & 7), Rank = (i >> 3);
 
         filesBB[File] |= bits[i];
         ranksBB[Rank] |= bits[i];
     }
 
     // create pawn attacks masks and vectors
-    for(int i = 0; i < 64; i++) {
-        int File = (i & 7), Rank = (i >> 3);
+    for(char i = 0; i < 64; i++) {
+        char File = (i & 7), Rank = (i >> 3);
 
         if(File > 0) {
             if(i+7 < 64) whitePawnAttacksBB[i] |= bits[i+7];
@@ -113,8 +115,8 @@ void Init() {
     }
 
     // create knight attacks masks and vectors
-    for(int i = 0; i < 64; i++) {
-        int File = (i & 7), Rank = (i >> 3);
+    for(char i = 0; i < 64; i++) {
+        char File = (i & 7), Rank = (i >> 3);
 
         if(File > 1) {
             if(Rank > 0) knightAttacksBB[i] |= bits[i-10];
@@ -135,9 +137,9 @@ void Init() {
     }
 
     // create bishop masks
-    for(int i = 0; i < 64; i++) {
+    for(char i = 0; i < 64; i++) {
         for(auto dir: {NorthEast, NorthWest, SouthEast, SouthWest}) {
-            int sq = i;
+            char sq = i;
             while(isInBoard(sq, dir)) {
                 bishopMasks[i] |= bits[sq];
                 sq += dir;
@@ -147,9 +149,9 @@ void Init() {
     }
 
     // create rook masks
-    for(int i = 0; i < 64; i++) {
+    for(char i = 0; i < 64; i++) {
         for(auto dir: {East, West, North, South}) {
-            int sq = i;
+            char sq = i;
             while(isInBoard(sq, dir)) {
                 rookMasks[i] |= bits[sq];
                 sq += dir;
@@ -159,21 +161,21 @@ void Init() {
     }
 
     // create king moves masks and vectors
-    for(int i = 0; i < 64; i++) {
+    for(char i = 0; i < 64; i++) {
         kingAttacksBB[i] = (eastOne(bits[i]) | westOne(bits[i]));
         U64 king = (bits[i] | kingAttacksBB[i]);
         kingAttacksBB[i] |= (northOne(king) | southOne(king));
     }
 
     // squares near king are squares that a king can move to and the squares in front of his 'forward' moves
-    for(int i = 0; i < 64; i++) {
+    for(char i = 0; i < 64; i++) {
         squaresNearWhiteKing[i] = squaresNearBlackKing[i] = (kingAttacksBB[i] | bits[i]);
         if(i+South >= 0) squaresNearBlackKing[i] |= kingAttacksBB[i+South];
         if(i+North < 64) squaresNearWhiteKing[i] |= kingAttacksBB[i+North];
     }
 
     // create light and dark squares masks
-    for(int i = 0; i < 64; i++) {
+    for(char i = 0; i < 64; i++) {
         if(i%2) lightSquaresBB |= bits[i];
         else darkSquaresBB |= bits[i];
     }
@@ -182,9 +184,9 @@ void Init() {
 }
 
 // returns the direction of the move if any, or 0 otherwise
-int direction(int from, int to) {
-    int fromRank = (from >> 3), fromFile = (from & 7);
-    int toRank = (to >> 3), toFile = (to & 7);
+char direction(char from, char to) {
+    char fromRank = (from >> 3), fromFile = (from & 7);
+    char toRank = (to >> 3), toFile = (to & 7);
 
     if(fromRank == toRank)
         return (to > from ? East : West);
@@ -202,7 +204,7 @@ int direction(int from, int to) {
 }
 
 // piece attack patterns
-U64 pawnAttacks (U64 pawns, int color) {
+U64 pawnAttacks (U64 pawns, char color) {
     if(color == White) {
         U64 north = northOne(pawns);
         return (eastOne(north) | westOne(north));
@@ -226,7 +228,7 @@ U64 knightAttacks(U64 knights) {
     return attacks;
 }
 
-void Board::updatePieceInBB(int piece, int color, int sq) {
+void Board::updatePieceInBB(char piece, char color, char sq) {
     if(color == White) this->whitePiecesBB ^= bits[sq];
     else this->blackPiecesBB ^= bits[sq];
 
@@ -237,22 +239,22 @@ void Board::updatePieceInBB(int piece, int color, int sq) {
     if(piece == Queen) this->queensBB ^= bits[sq];
 }
 
-void Board::movePieceInBB(int piece, int color, int from, int to) {
+void Board::movePieceInBB(char piece, char color, char from, char to) {
     this->updatePieceInBB(piece, color, from);
     this->updatePieceInBB(piece, color, to);
 }
 
 string Board::getFenFromCurrPos() {
-    unordered_map<int, char> pieceSymbols = {{Pawn, 'p'}, {Knight, 'n'},
+    unordered_map<char, char> pieceSymbols = {{Pawn, 'p'}, {Knight, 'n'},
     {Bishop, 'b'}, {Rook, 'r'}, {Queen, 'q'}, {King, 'k'}};
 
     string fen;
 
-    int emptySquares = 0;
-    for(int Rank = 7; Rank >= 0; Rank--)
-        for(int File = 0; File < 8; File++) {
-            int color = (this->squares[Rank*8 + File] & (Black | White));
-            int piece = (this->squares[Rank*8 + File] ^ color);
+    char emptySquares = 0;
+    for(char Rank = 7; Rank >= 0; Rank--)
+        for(char File = 0; File < 8; File++) {
+            char color = (this->squares[Rank*8 + File] & (Black | White));
+            char piece = (this->squares[Rank*8 + File] ^ color);
 
             if(this->squares[Rank*8 + File] == Empty) {
                 emptySquares++;
@@ -300,7 +302,7 @@ void Board::loadFenPos(string input) {
 
     // parse the fen string
     string pieces;
-    int i = 0;
+    char i = 0;
     for(; input[i] != ' ' && i < input.length(); i++)
         pieces += input[i];
     i++;
@@ -317,11 +319,11 @@ void Board::loadFenPos(string input) {
     for(; input[i] != ' ' && i < input.length(); i++) 
         epTargetSq += input[i];
 
-    unordered_map<char, int> pieceSymbols = {{'p', Pawn}, {'n', Knight},
+    unordered_map<char, char> pieceSymbols = {{'p', Pawn}, {'n', Knight},
     {'b', Bishop}, {'r', Rook}, {'q', Queen}, {'k', King}};
 
     // iterate through squares
-    int File = 0, Rank = 7;
+    char File = 0, Rank = 7;
     for(char p: pieces) {
         if(p == '/') {
             Rank--;
@@ -329,15 +331,15 @@ void Board::loadFenPos(string input) {
         } else {
             // if it is a digit skip the squares
             if(p-'0' >= 1 && p-'0' <= 8) {
-                for(int i = 0; i < (p-'0'); i++) {
+                for(char i = 0; i < (p-'0'); i++) {
                     this->squares[Rank*8 + File] = 0;
                     File++;
                 }
             } else {
-                int color = ((p >= 'A' && p <= 'Z') ? White : Black);
-                int type = pieceSymbols[tolower(p)];
+                char color = ((p >= 'A' && p <= 'Z') ? White : Black);
+                char type = pieceSymbols[tolower(p)];
 
-                int currBit = bits[Rank*8 + File];
+                U64 currBit = bits[Rank*8 + File];
 
                 this->updatePieceInBB(type, color, Rank*8 + File);
                 if(type == King) {
@@ -368,47 +370,49 @@ void Board::loadFenPos(string input) {
     this->hashKey = getZobristHashFromCurrPos();
 }
 
-vector<Move> Board::GeneratePseudoLegalMoves() {
-    int color = this->turn;
-    int otherColor = (color ^ (Black | White));
+static Move pseudoLegalMoves[512];
+short Board::GeneratePseudoLegalMoves() {
+    short numberOfMoves = 0;
+
+    char color = this->turn;
+    char otherColor = (color ^ (Black | White));
 
     U64 ourPiecesBB = (color == White ? this->whitePiecesBB : this->blackPiecesBB);
     U64 opponentPiecesBB = (color == White ? this->blackPiecesBB : this->whitePiecesBB);
     U64 allPiecesBB = (this->whitePiecesBB | this->blackPiecesBB);
 
-    vector<Move> moves;
-
     // -----pawns-----
     U64 ourPawnsBB = (ourPiecesBB & this->pawnsBB);
-    int pawnDir = (color == White ? North : South);
-    int pawnStartRank = (color == White ? 1 : 6);
-    int pawnPromRank = (color == White ? 7 : 0);
+    char pawnDir = (color == White ? North : South);
+    char pawnStartRank = (color == White ? 1 : 6);
+    char pawnPromRank = (color == White ? 7 : 0);
 
     while(ourPawnsBB) {
-        int sq = bitscanForward(ourPawnsBB);
+        char sq = bitscanForward(ourPawnsBB);
         bool isPromoting = (((sq+pawnDir) >> 3) == pawnPromRank);
 
         // normal moves and promotions
         if((allPiecesBB & bits[sq+pawnDir]) == 0) {
 
             if((sq >> 3) == pawnStartRank && (allPiecesBB & bits[sq+2*pawnDir]) == 0)
-                moves.push_back({sq, sq+2*pawnDir, 0, 0, 0, 0}); // 2 square move
+                pseudoLegalMoves[numberOfMoves++] = {sq, (char)(sq+2*pawnDir), 0, 0, 0, 0};
 
             if(isPromoting) {
-                for(int piece: {Knight, Bishop, Rook, Queen})
-                    moves.push_back({sq, sq+pawnDir, 0, 0, 0, piece});
-            } else moves.push_back({sq, sq+pawnDir, 0, 0, 0, 0});
+                for(char piece: {Knight, Bishop, Rook, Queen})
+                    pseudoLegalMoves[numberOfMoves++] = {sq, (char)(sq+pawnDir), 0, 0, 0, piece};
+            } else pseudoLegalMoves[numberOfMoves++] = {sq, (char)(sq+pawnDir), 0, 0, 0, 0};
+
         }
 
         // captures and capture-promotions
         U64 pawnCapturesBB = (color == White ? whitePawnAttacksBB[sq] : blackPawnAttacksBB[sq]);
         pawnCapturesBB &= opponentPiecesBB;
         while(pawnCapturesBB) {
-            int to = bitscanForward(pawnCapturesBB);
+            char to = bitscanForward(pawnCapturesBB);
             if(isPromoting) {
-                for(int piece: {Knight, Bishop, Rook, Queen})
-                    moves.push_back({sq, to, this->squares[to], 0, 0, piece});
-            } else moves.push_back({sq, to, this->squares[to], 0, 0 ,0});
+                for(char piece: {Knight, Bishop, Rook, Queen})
+                    pseudoLegalMoves[numberOfMoves++] = {sq, to, this->squares[to], 0, 0, piece};
+            } else pseudoLegalMoves[numberOfMoves++] = {sq, to, this->squares[to], 0, 0, 0};
 
             pawnCapturesBB &= (pawnCapturesBB-1);
 
@@ -421,12 +425,12 @@ vector<Move> Board::GeneratePseudoLegalMoves() {
     U64 ourKnightsBB = (this->knightsBB & ourPiecesBB);
 
     while(ourKnightsBB) {
-        int sq = bitscanForward(ourKnightsBB);
+        char sq = bitscanForward(ourKnightsBB);
 
         U64 knightMoves = (knightAttacksBB[sq] & ~ourPiecesBB);
         while(knightMoves) {
-            int to = bitscanForward(knightMoves);
-            moves.push_back({sq, to, this->squares[to], 0, 0, 0});
+            char to = bitscanForward(knightMoves);
+            pseudoLegalMoves[numberOfMoves++] = {sq, to, this->squares[to], 0, 0, 0};
             knightMoves &= (knightMoves-1);
         }
 
@@ -434,28 +438,24 @@ vector<Move> Board::GeneratePseudoLegalMoves() {
     }
 
     //-----king-----
-    int kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
+    char kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
     U64 ourKingMoves = (kingAttacksBB[kingSquare] & ~ourPiecesBB);
 
     while(ourKingMoves) {
-        int to = bitscanForward(ourKingMoves);
-
-        moves.push_back({kingSquare, to, this->squares[to], 0, 0, 0});
-
+        char to = bitscanForward(ourKingMoves);
+        pseudoLegalMoves[numberOfMoves++] = {kingSquare, to, this->squares[to], 0, 0, 0};
         ourKingMoves &= (ourKingMoves-1);
     }
 
     //-----sliding pieces-----
     U64 rooksQueens = (ourPiecesBB & (this->rooksBB | this->queensBB));
     while(rooksQueens) {
-        int sq = bitscanForward(rooksQueens);
+        char sq = bitscanForward(rooksQueens);
 
         U64 rookMoves = (magicRookAttacks(allPiecesBB, sq) & ~ourPiecesBB);
         while(rookMoves) {
-            int to = bitscanForward(rookMoves);
-
-            moves.push_back({sq, to, this->squares[to], 0, 0, 0});
-
+            char to = bitscanForward(rookMoves);
+            pseudoLegalMoves[numberOfMoves++] = {sq, to, this->squares[to], 0, 0, 0};
             rookMoves &= (rookMoves-1);
         }
 
@@ -464,14 +464,12 @@ vector<Move> Board::GeneratePseudoLegalMoves() {
 
     U64 bishopsQueens = (ourPiecesBB & (this->bishopsBB | this->queensBB));
     while(bishopsQueens) {
-        int sq = bitscanForward(bishopsQueens);
+        char sq = bitscanForward(bishopsQueens);
 
         U64 bishopMoves = (magicBishopAttacks(allPiecesBB, sq) & ~ourPiecesBB);
         while(bishopMoves) {
-            int to = bitscanForward(bishopMoves);
-
-            moves.push_back({sq, to, this->squares[to], 0, 0, 0});
-
+            char to = bitscanForward(bishopMoves);
+            pseudoLegalMoves[numberOfMoves++] = {sq, to, this->squares[to], 0, 0, 0};
             bishopMoves &= (bishopMoves-1);
         }
 
@@ -479,29 +477,29 @@ vector<Move> Board::GeneratePseudoLegalMoves() {
     }
 
     // -----castles-----
-    for(int i = 0; i < 4; i++)
-        if((this->castleRights & bits[i]) && ((allPiecesBB & castleMask[i]) == 0))
-             moves.push_back({castleStartSq[i], castleEndSq[i], 0, 0, 1, 0});
+    char allowedCastles = (color == White ? 3 : 12);
+    for(char i = 0; i < 4; i++)
+        if((this->castleRights & bits[i]) && ((allPiecesBB & castleMask[i]) == 0) && (allowedCastles & bits[i]))
+            pseudoLegalMoves[numberOfMoves++] = {castleStartSq[i], castleEndSq[i], 0, 0, 1, 0};
+
 
     // -----en passant-----
     if(ep != -1) {
         ourPawnsBB = (this->pawnsBB & ourPiecesBB);
         U64 epBB = ((color == White ? blackPawnAttacksBB[ep] : whitePawnAttacksBB[ep]) & ourPawnsBB);
         while(epBB) {
-            int sq = bitscanForward(epBB);
-
-            moves.push_back({sq, ep, (Pawn | otherColor), 1, 0, 0});
-
+            char sq = bitscanForward(epBB);
+            pseudoLegalMoves[numberOfMoves++] = {sq, ep, (char)(Pawn | otherColor), 1, 0, 0};
             epBB &= (epBB-1);
         }
     }
-    return moves;
+    return numberOfMoves;
 }
 
-bool Board::isAttacked(int sq) {
-    int color = this->turn;
-    int otherColor = (color ^ (Black | White));
-    int otherKingSquare = (otherColor == White ? this->whiteKingSquare : this->blackKingSquare);
+bool Board::isAttacked(char sq) {
+    char color = this->turn;
+    char otherColor = (color ^ (Black | White));
+    char otherKingSquare = (otherColor == White ? this->whiteKingSquare : this->blackKingSquare);
 
     U64 opponentPiecesBB = (color == White ? this->blackPiecesBB : this->whitePiecesBB);
     U64 allPiecesBB = (this->whitePiecesBB | this->blackPiecesBB);
@@ -531,20 +529,20 @@ bool Board::isAttacked(int sq) {
 }
 
 bool Board::isInCheck() {
-    int color = this->turn;
-    int kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
+    char color = this->turn;
+    char kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
     return this->isAttacked(kingSquare);
 }
 
-U64 Board::attacksTo(int sq) {
-    int color = (this->turn ^ (Black | White));
+U64 Board::attacksTo(char sq) {
+    char color = (this->turn ^ (Black | White));
 
     U64 ourPiecesBB = (color == White ? this->whitePiecesBB : this->blackPiecesBB);
     U64 allPiecesBB = (this->whitePiecesBB | this->blackPiecesBB);
     U64 pawnAtt = (color == Black ? whitePawnAttacksBB[sq] : blackPawnAttacksBB[sq]);
     U64 rooksQueens = (ourPiecesBB & (this->rooksBB | this->queensBB));
     U64 bishopsQueens = (ourPiecesBB & (this->bishopsBB | this->queensBB));
-    int kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
+    char kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
 
     U64 res = 0;
     res |= (knightAttacksBB[sq] & ourPiecesBB & this->knightsBB);
@@ -556,32 +554,33 @@ U64 Board::attacksTo(int sq) {
     return res;
 }
 
-vector<Move> Board::GenerateLegalMoves() {
-    int color = this->turn;
-    int otherColor = (color ^ (Black | White));
-    int kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
-    int otherKingSquare = (otherColor == White ? this->whiteKingSquare : this->blackKingSquare);
+unsigned char Board::GenerateLegalMoves(Move *moves) {
+    char color = this->turn;
+    char otherColor = (color ^ (Black | White));
+    char kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
+    char otherKingSquare = (otherColor == White ? this->whiteKingSquare : this->blackKingSquare);
 
     U64 allPiecesBB = (this->whitePiecesBB | this->blackPiecesBB);
     U64 opponentPiecesBB = (color == White ? this->blackPiecesBB : this->whitePiecesBB);
     U64 ourPiecesBB = (color == White ? this->whitePiecesBB : this->blackPiecesBB);
 
-    vector<Move> potentialMoves = this->GeneratePseudoLegalMoves();
+    short pseudoNum = this->GeneratePseudoLegalMoves();
+    unsigned char num = 0;
 
     // remove the king so we can correctly find all squares attacked by sliding pieces, where the king can't go
     if(color == White) this->whitePiecesBB ^= bits[kingSquare];
     else this->blackPiecesBB ^= bits[kingSquare];
 
     U64 checkingPiecesBB = this->attacksTo(kingSquare);
-    int checkingPiecesCnt = popcount(checkingPiecesBB);
-    int checkingPieceIndex = bitscanForward(checkingPiecesBB);
+    char checkingPiecesCnt = popcount(checkingPiecesBB);
+    char checkingPieceIndex = bitscanForward(checkingPiecesBB);
 
     // check ray is the path between the king and the sliding piece checking it
     U64 checkRayBB = 0;
     if(checkingPiecesCnt == 1) {
         checkRayBB |= checkingPiecesBB;
-        int piece = (this->squares[checkingPieceIndex]^otherColor);
-        int dir = direction(checkingPieceIndex, kingSquare);
+        char piece = (this->squares[checkingPieceIndex]^otherColor);
+        char dir = direction(checkingPieceIndex, kingSquare);
 
         // check direction is a straight line
         if(abs(dir) == North || abs(dir) == East)
@@ -599,7 +598,7 @@ vector<Move> Board::GenerateLegalMoves() {
     U64 oppRooksQueens = ((this->rooksBB | this->queensBB) & opponentPiecesBB);
     U64 pinners = ((attacks ^ magicRookAttacks((allPiecesBB ^ blockers), kingSquare)) & oppRooksQueens); // get pinners by computing attacks on the board without the blockers
     while(pinners) {
-        int sq = bitscanForward(pinners);
+        char sq = bitscanForward(pinners);
 
         // get pinned pieces by &-ing attacks from the rook square with attacks from the king square, and then with our own pieces
         pinnedBB |= (magicRookAttacks(allPiecesBB, sq) & magicRookAttacks(allPiecesBB, kingSquare) & ourPiecesBB);
@@ -611,16 +610,17 @@ vector<Move> Board::GenerateLegalMoves() {
     U64 oppBishopsQueens = ((this->bishopsBB | this->queensBB) & opponentPiecesBB);
     pinners = ((attacks ^ magicBishopAttacks((allPiecesBB ^ blockers), kingSquare)) & oppBishopsQueens);
     while(pinners) {
-        int sq = bitscanForward(pinners);
+        char sq = bitscanForward(pinners);
         pinnedBB |= (magicBishopAttacks(allPiecesBB, sq) & magicBishopAttacks(allPiecesBB, kingSquare) & ourPiecesBB);
         pinners &= (pinners-1);
     }
 
-    vector<Move> moves;
-    for(Move m: potentialMoves) {
+    for(int idx = 0; idx < pseudoNum; idx++) {
+        Move m = pseudoLegalMoves[idx];
+
         // we can always move the king to a safe square
         if(m.from == kingSquare) {
-            if(this->isAttacked(m.to) == false) moves.push_back(m);
+            if(this->isAttacked(m.to) == false) moves[num++] = m;
             continue;
         }
 
@@ -629,11 +629,11 @@ vector<Move> Board::GenerateLegalMoves() {
 
             // capturing the checking pawn by en passant (special case)
             if(m.ep && checkingPieceIndex == m.to + (color == White ? South: North))
-                moves.push_back(m);
+                moves[num++] = m;
 
             // check ray includes interception or capturing the attacker
             else if(checkRayBB & bits[m.to]) {
-                moves.push_back(m);
+                moves[num++] = m;
             }
         }
 
@@ -641,57 +641,61 @@ vector<Move> Board::GenerateLegalMoves() {
         if(checkingPiecesCnt == 0) {
             // not pinned
             if((pinnedBB & bits[m.from]) == 0)
-                moves.push_back(m);
+                moves[num++] = m;
 
             // pinned, can only move in the pin direction
             else if(abs(direction(m.from, m.to)) == abs(direction(m.from, kingSquare)))
-                moves.push_back(m);
+                moves[num++] = m;
         }
     }
 
-    // en passant are the last added pseudo legal moves so we know they are at the back of the vector if they exist
-    vector<Move> epMoves;
-    while(moves.size() && moves.back().ep) {
-        epMoves.push_back(moves.back());
-        moves.pop_back();
+    // en passant are the last added pseudo legal moves
+    Move epMoves[2];
+    int numEp = 0;
+    while(num && moves[num-1].ep) {
+        epMoves[numEp++] = moves[--num];
     }
+    assert(numEp <= 2);
 
     // before ep there are the castle moves so we do the same
-    vector<Move> castleMoves;
-    while(moves.size() && moves.back().castle) {
-        castleMoves.push_back(moves.back());
-        moves.pop_back();
+    Move castleMoves[2];
+    int numCastles = 0;
+    while(num && moves[num-1].castle) {
+        castleMoves[numCastles++] = moves[--num];
     }
+    assert(numCastles <= 2);
 
     // manual check for the legality of castle moves
-    for(Move m: castleMoves) {
-        int first = min(m.from, m.to);
-        int second = max(m.from, m.to);
+    for(char idx = 0; idx < numCastles; idx++) {
+        char first = min(castleMoves[idx].from, castleMoves[idx].to);
+        char second = max(castleMoves[idx].from, castleMoves[idx].to);
 
         bool ok = true;
 
-        for(int i = first; i <= second; i++)
+        for(char i = first; i <= second; i++)
             if(this->isAttacked(i))
                 ok = false;
 
-        if(ok) moves.push_back(m);
+        if(ok) moves[num++] = castleMoves[idx];
+            // moves.push_back(m);
     }
 
     // ep horizontal pin
-    for(Move enPassant: epMoves) {
-        int epRank = (enPassant.from >> 3);
-        int otherPawnSquare = (epRank << 3) | (enPassant.to & 7);
+    for(char idx = 0; idx < numEp; idx++) {
+        char epRank = (epMoves[idx].from >> 3);
+        char otherPawnSquare = (epRank << 3) | (epMoves[idx].to & 7);
         U64 rooksQueens = (opponentPiecesBB & (this->rooksBB | this->queensBB) & ranksBB[epRank]);
 
         // remove the 2 pawns and compute attacks from rooks/queens on king square
-        U64 removeWhite = bits[enPassant.from], removeBlack = bits[otherPawnSquare];
+        U64 removeWhite = bits[epMoves[idx].from], removeBlack = bits[otherPawnSquare];
         if(color == Black) swap(removeWhite, removeBlack);
 
         this->whitePiecesBB ^= removeWhite;
         this->blackPiecesBB ^= removeBlack;
 
         U64 attacks = this->attacksTo(kingSquare);
-        if((rooksQueens & attacks) == 0) moves.push_back(enPassant);
+        if((rooksQueens & attacks) == 0) moves[num++] = epMoves[idx];
+            // moves.push_back(enPassant);
 
         this->whitePiecesBB ^= removeWhite;
         this->blackPiecesBB ^= removeBlack;
@@ -701,7 +705,7 @@ vector<Move> Board::GenerateLegalMoves() {
     if(color == White) this->whitePiecesBB ^= bits[kingSquare];
     else this->blackPiecesBB ^= bits[kingSquare];
 
-    return moves;
+    return num;
 }
 
 void Board::makeMove(Move m) {
@@ -714,16 +718,16 @@ void Board::makeMove(Move m) {
 
         return;
     }
-    repetitionMap[board.hashKey]++;
+    repetitionMap[this->hashKey]++;
 
     // push the current castle and ep info in order to retrieve it when we unmake the move
     castleStk.push(this->castleRights);
     epStk.push(this->ep);
 
-    int color = (this->squares[m.from] & (Black | White));
-    int piece = (this->squares[m.from] ^ color);
-    int otherColor = (color ^ (Black | White));
-    int otherPiece = (m.capture ^ otherColor);
+    char color = (this->squares[m.from] & (Black | White));
+    char piece = (this->squares[m.from] ^ color);
+    char otherColor = (color ^ (Black | White));
+    char otherPiece = (m.capture ^ otherColor);
 
     // update bitboards
     this->updatePieceInBB(piece, color, m.from);
@@ -741,7 +745,7 @@ void Board::makeMove(Move m) {
 
     if(piece == King) {
         // bit mask for removing castle rights
-        int mask = (color == White ? 12 : 3);
+        char mask = (color == White ? 12 : 3);
         this->castleRights &= mask;
 
         if(color == White) this->whiteKingSquare = m.to;
@@ -760,16 +764,16 @@ void Board::makeMove(Move m) {
 
     // move the rook if castle
     if(m.castle) {
-        int Rank = (m.to >> 3), File = (m.to & 7);
-        int rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
-        int rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
+        char Rank = (m.to >> 3), File = (m.to & 7);
+        char rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
+        char rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
 
         this->movePieceInBB(Rook, color, rookStartSquare, rookEndSquare);
         swap(this->squares[rookStartSquare], this->squares[rookEndSquare]);
     }
     // remove the captured pawn if en passant
     if(m.ep) {
-        int capturedPawnSquare = m.to+(color == White ? South : North);
+        char capturedPawnSquare = m.to+(color == White ? South : North);
 
         this->updatePieceInBB(Pawn, otherColor, capturedPawnSquare);
         this->squares[capturedPawnSquare] = Empty;
@@ -794,12 +798,12 @@ void Board::unmakeMove(Move m) {
 
         return;
     }
-    repetitionMap[board.hashKey]--;
+    repetitionMap[this->hashKey]--;
 
-    int color = (this->squares[m.to] & (Black | White));
-    int otherColor = (color ^ (Black | White));
-    int piece = (this->squares[m.to] ^ color);
-    int otherPiece = (m.capture ^ otherColor);
+    char color = (this->squares[m.to] & (Black | White));
+    char otherColor = (color ^ (Black | White));
+    char piece = (this->squares[m.to] ^ color);
+    char otherPiece = (m.capture ^ otherColor);
 
     // retrieve previous castle and ep info
     this->ep = epStk.top();
@@ -823,16 +827,16 @@ void Board::unmakeMove(Move m) {
     this->squares[m.to] = m.capture;
 
     if(m.castle) {
-        int Rank = (m.to >> 3), File = (m.to & 7);
-        int rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
-        int rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
+        char Rank = (m.to >> 3), File = (m.to & 7);
+        char rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
+        char rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
 
         this->movePieceInBB(Rook, color, rookEndSquare, rookStartSquare);
         swap(this->squares[rookStartSquare], this->squares[rookEndSquare]);
     }
 
     if(m.ep) {
-        int capturedPawnSquare = m.to+(color == White ? South : North);
+        char capturedPawnSquare = m.to+(color == White ? South : North);
 
         this->updatePieceInBB(Pawn, otherColor, capturedPawnSquare);
         this->squares[capturedPawnSquare] = (otherColor | Pawn);
@@ -846,21 +850,21 @@ void Board::unmakeMove(Move m) {
 
 // draw by insufficient material or repetition
 bool Board::isDraw() {
-    if(repetitionMap[this->hashKey] > 2) return true; // repetition
+    if(repetitionMap[this->hashKey] > 1) return true; // repetition
 
     if(this->queensBB | this->rooksBB | this->pawnsBB) return false;
 
     if((this->knightsBB | this->bishopsBB) == 0) return true; // king vs king
 
-    int whiteBishops = popcount(this->bishopsBB | this->whitePiecesBB);
-    int blackBishops = popcount(this->bishopsBB | this->blackPiecesBB);
-    int whiteKnights = popcount(this->knightsBB | this->whitePiecesBB);
-    int blackKnights = popcount(this->knightsBB | this->blackPiecesBB);
+    char whiteBishops = popcount(this->bishopsBB | this->whitePiecesBB);
+    char blackBishops = popcount(this->bishopsBB | this->blackPiecesBB);
+    char whiteKnights = popcount(this->knightsBB | this->whitePiecesBB);
+    char blackKnights = popcount(this->knightsBB | this->blackPiecesBB);
 
     if(whiteKnights + blackKnights + whiteBishops + blackBishops == 1) return true; // king and minor piece vs king
 
     if(whiteKnights + blackKnights == 0 && whiteBishops == 1 && blackBishops == 1) {
-        int lightSquareBishops = popcount(lightSquaresBB & this->bishopsBB);
+        char lightSquareBishops = popcount(lightSquaresBB & this->bishopsBB);
         if(lightSquareBishops == 0 || lightSquareBishops == 2) return true; // king and bishop vs king and bishop with same color bishops
     }
 

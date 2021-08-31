@@ -3,6 +3,7 @@
 #include "Evaluate.h"
 #include "Board.h"
 #include "MagicBitboards.h"
+#include "TranspositionTable.h"
 
 using namespace std;
 
@@ -163,11 +164,12 @@ const int tempoBonus = 10;
 int gamePhase, whiteAttackersCnt, blackAttackersCnt, whiteAttackWeight, blackAttackWeight;
 int pawnCntWhite, pawnCntBlack, pieceMaterialWhite, pieceMaterialBlack;
 
-int evalPawn(int sq, int color);
-int evalKnight(int sq, int color);
-int evalBishop(int sq, int color);
-int evalRook(int sq, int color);
-int evalQueen(int sq, int color);
+int evalPawn(char sq, char color);
+int evalKnight(char sq, char color);
+int evalBishop(char sq, char color);
+int evalRook(char sq, char color);
+int evalQueen(char sq, char color);
+int evalPawnStructure();
 int whiteKingShield(), blackKingShield();
 
 int Evaluate() {
@@ -181,18 +183,17 @@ int Evaluate() {
 
     // evaluate pieces independently
     int res = 0;
-    for(int sq = 0; sq < 64; sq++) {
+    for(char sq = 0; sq < 64; sq++) {
         if(board.squares[sq] == Empty) continue;
 
-        int color = (board.squares[sq] & (Black | White));
+        char color = (board.squares[sq] & (Black | White));
         int c = (color == White ? 1 : -1);
-        int oldRes = res;
-        if(board.pawnsBB & bits[sq]) res += evalPawn(sq, color) * c;
         if(board.knightsBB & bits[sq]) res += evalKnight(sq, color) * c;
         if(board.bishopsBB & bits[sq]) res += evalBishop(sq, color) * c;
         if(board.rooksBB & bits[sq]) res += evalRook(sq, color) * c;
         if(board.queensBB & bits[sq]) res += evalQueen(sq, color) * c;
     }
+    res += evalPawnStructure();
 
     // evaluate kings based on the current game phase (king centralization becomes more important than safety as pieces disappear from the board)
     int mgWeight = min(gamePhase, 24);
@@ -227,8 +228,8 @@ int Evaluate() {
 
     // low material corrections (adjusting the score for well known draws)
 
-    int strongerSide = White, weakerSide = Black;
-    int strongerPawns = pawnCntWhite, weakerPawns = pawnCntBlack;
+    char strongerSide = White, weakerSide = Black;
+    char strongerPawns = pawnCntWhite, weakerPawns = pawnCntBlack;
     int strongerPieces = pieceMaterialWhite, weakerPieces = pieceMaterialBlack;
     if(res < 0) {
         swap(strongerSide, weakerSide);
@@ -256,7 +257,7 @@ int Evaluate() {
     return res;
 }
 
-int evalKnight(int sq, int color) {
+int evalKnight(char sq, char color) {
     U64 opponentPawnsBB = (board.pawnsBB & (color == White ? board.blackPiecesBB : board.whitePiecesBB));
     U64 ourPawnsBB = (board.pawnsBB ^ opponentPawnsBB);
     U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
@@ -277,7 +278,7 @@ int evalKnight(int sq, int color) {
     eval += knightMobilityConstant * (popcount(mob) - 4);
 
     // decreasing value as pawns disappear
-    int numberOfPawns = popcount(board.pawnsBB);
+    char numberOfPawns = popcount(board.pawnsBB);
     eval += knightPawnConstant * (numberOfPawns - 8);
 
     // traps and blockages
@@ -321,17 +322,17 @@ int evalKnight(int sq, int color) {
     if(attackedSquares) {
         if(color == White) {
             whiteAttackersCnt++;
-            whiteAttackWeight += pieceAttackWeight[Knight] * popcount(attackedSquares);
+            whiteAttackWeight += pieceAttackWeight[Knight] * attackedSquares;
         } else {
             blackAttackersCnt++;
-            blackAttackWeight += pieceAttackWeight[Knight] * popcount(attackedSquares);
+            blackAttackWeight += pieceAttackWeight[Knight] * attackedSquares;
         }
     }
 
     return eval;
 }
 
-int evalBishop(int sq, int color) {
+int evalBishop(char sq, char color) {
     U64 ourPawnsBB = (board.whitePiecesBB & board.pawnsBB);
     U64 opponentPawnsBB = (board.blackPiecesBB & board.pawnsBB);
     if(color == Black) swap(ourPawnsBB, opponentPawnsBB);
@@ -339,7 +340,7 @@ int evalBishop(int sq, int color) {
     U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
     U64 opponentPiecesBB = (color == Black ? board.whitePiecesBB : board.blackPiecesBB);
 
-    int opponentKingSquare = (color == White ? board.blackKingSquare : board.whiteKingSquare);
+    char opponentKingSquare = (color == White ? board.blackKingSquare : board.whiteKingSquare);
 
     gamePhase += mgWeight[Bishop];
     if(color == White) pieceMaterialWhite += pieceValues[Bishop];
@@ -399,7 +400,7 @@ int evalBishop(int sq, int color) {
     return eval;
 }
 
-int evalRook(int sq, int color) {
+int evalRook(char sq, char color) {
     U64 currFileBB = filesBB[sq%8];
     U64 currRankBB = ranksBB[sq/8];
 
@@ -409,11 +410,11 @@ int evalRook(int sq, int color) {
     U64 opponentPawnsBB = (board.blackPiecesBB & board.pawnsBB);
     if(color == Black) swap(ourPawnsBB, opponentPawnsBB);
 
-    int opponentKingSquare = (color == White ? board.blackKingSquare : board.whiteKingSquare);
+    char opponentKingSquare = (color == White ? board.blackKingSquare : board.whiteKingSquare);
 
     // in this case seventh rank means the second rank in the opponent's half
-    int seventhRank = (color == White ? 6 : 1);
-    int eighthRank = (color == White ? 7 : 0);
+    char seventhRank = (color == White ? 6 : 1);
+    char eighthRank = (color == White ? 7 : 0);
 
     gamePhase += mgWeight[Rook];
     if(color == White) pieceMaterialWhite += pieceValues[Rook];
@@ -481,13 +482,13 @@ int evalRook(int sq, int color) {
     return eval;
 }
 
-int evalQueen(int sq, int color) {
+int evalQueen(char sq, char color) {
     U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
     U64 opponentPiecesBB = (color == Black ? board.whitePiecesBB : board.blackPiecesBB);
     U64 ourBishopsBB = (board.bishopsBB & ourPiecesBB);
     U64 ourKnightsBB = (board.knightsBB & ourPiecesBB);
 
-    int opponentKingSquare = (color == Black ? board.whiteKingSquare : board.blackKingSquare);
+    char opponentKingSquare = (color == Black ? board.whiteKingSquare : board.blackKingSquare);
 
     gamePhase += mgWeight[Knight];
     if(color == White) pieceMaterialWhite += pieceValues[Queen];
@@ -533,7 +534,7 @@ int evalQueen(int sq, int color) {
 
 int whiteKingShield() {
     U64 ourPawnsBB = (board.whitePiecesBB & board.pawnsBB);
-    int sq = board.whiteKingSquare;
+    char sq = board.whiteKingSquare;
 
     int eval = 0;
     // queen side
@@ -570,7 +571,7 @@ int whiteKingShield() {
 
 int blackKingShield() {
     U64 ourPawnsBB = (board.blackPiecesBB & board.pawnsBB);
-    int sq = board.blackKingSquare;
+    char sq = board.blackKingSquare;
 
     int eval = 0;
     // queen side
@@ -605,7 +606,33 @@ int blackKingShield() {
     return eval;
 }
 
-int evalPawn(int sq, int color) {
+// evaluate every pawn independently but store the full pawn structure evaluation in the hash map
+int evalPawnStructure() {
+    U64 whitePawns = (board.pawnsBB & board.whitePiecesBB);
+    U64 blackPawns = (board.pawnsBB & board.blackPiecesBB);
+
+    int eval = retrievePawnEval(board.pawnsBB);
+    if(eval != valUnknown)
+        return eval;
+
+    eval = 0;
+    while(whitePawns) {
+        char sq = bitscanForward(whitePawns);
+        eval += evalPawn(sq, White);
+        whitePawns &= (whitePawns-1);
+    }
+    while(blackPawns) {
+        char sq = bitscanForward(blackPawns);
+        eval -= evalPawn(sq, Black);
+        blackPawns &= (blackPawns-1);
+    }
+
+    recordPawnEval(board.pawnsBB, eval);
+
+    return eval;
+}
+
+int evalPawn(char sq, char color) {
     U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
 
     U64 opponentPawnsBB = (board.pawnsBB & (color == White ? board.blackPiecesBB : board.whitePiecesBB));
@@ -621,10 +648,10 @@ int evalPawn(int sq, int color) {
 
     // initial pawn value + square value
     int eval = pieceValues[Pawn] + pawnTable[(color == White ? sq : flipped[sq])];
-    int dir = (color == White ? 8 : -8);
+    char dir = (color == White ? 8 : -8);
 
     // check squares in front of the pawn to see if it is passed or opposed/doubled
-    int curSq = sq+dir;
+    char curSq = sq+dir;
     while(curSq < 64 && curSq >= 0) {
         if(board.pawnsBB & bits[curSq]) {
             passed = false;

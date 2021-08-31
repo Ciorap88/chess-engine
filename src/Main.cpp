@@ -11,4 +11,6 @@
 int main() {
     Init();
     UCI::UCICommunication();
+    // UCI::inputPosition("position startpos");
+    // UCI::inputGo("go depth 10");
 }

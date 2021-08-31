@@ -16,9 +16,8 @@ extern const Move noMove;
 extern const int MATE_THRESHOLD;
 extern const int mateEval;
 
-extern int maxDepth;
+extern short maxDepth;
 extern int startTime, stopTime;
 extern bool infiniteTime;
 
-extern unordered_map<U64, int> repetitionMap;
 #endif

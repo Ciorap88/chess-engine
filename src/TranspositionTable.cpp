@@ -23,7 +23,7 @@ void generateZobristHashNumbers() {
   }
 }
 
-int zPieceSquareIndex(int piece, int color, int square) {
+int zPieceSquareIndex(char piece, char color, char square) {
     int idx = (2*(piece-1) + (int)(color == Black))*64 + square;
     return idx;
 }
@@ -31,9 +31,9 @@ int zPieceSquareIndex(int piece, int color, int square) {
 // xor zobrist numbers corresponding to all features of the current position
 U64 getZobristHashFromCurrPos() {
     U64 key = 0;
-    for(int i = 0; i < 64; i++) {
-        int color = (board.squares[i] & (Black | White));
-        int piece = (board.squares[i] ^ color);
+    for(char i = 0; i < 64; i++) {
+        char color = (board.squares[i] & (Black | White));
+        char piece = (board.squares[i] ^ color);
 
         key ^= zobristNumbers[zPieceSquareIndex(piece, color, i)];
     }
@@ -41,7 +41,7 @@ U64 getZobristHashFromCurrPos() {
     key ^= zobristNumbers[zCastleRightsIndex + board.castleRights];
     if(board.turn == Black) key ^= zobristNumbers[zBlackTurnIndex];
 
-    int epFile = board.ep % 8;
+    char epFile = board.ep % 8;
     key ^= zobristNumbers[zEpFileIndex + epFile];
 
     return key;
@@ -55,11 +55,11 @@ void Board::updateHashKey(Move m) {
         return;
     }
 
-    int color = (this->squares[m.from] & (Black | White));
-    int piece = (this->squares[m.from] ^ color);
-    int otherColor = (color ^ (Black | White));
-    int otherPiece = (m.capture ^ otherColor);
-    int capturedPieceSquare = (m.ep ? (m.to + (color == White ? South : North)) : m.to);
+    char color = (this->squares[m.from] & (Black | White));
+    char piece = (this->squares[m.from] ^ color);
+    char otherColor = (color ^ (Black | White));
+    char otherPiece = (m.capture ^ otherColor);
+    char capturedPieceSquare = (m.ep ? (m.to + (color == White ? South : North)) : m.to);
 
     // update pieces
     this->hashKey ^= zobristNumbers[zPieceSquareIndex(piece, color, m.from)];
@@ -69,9 +69,9 @@ void Board::updateHashKey(Move m) {
     else this->hashKey ^= zobristNumbers[zPieceSquareIndex(m.prom, color, m.to)];
 
     // castle stuff
-    int newCastleRights = this->castleRights;
+    char newCastleRights = this->castleRights;
     if(piece == King) {
-        int mask = (color == White ? 12 : 3);
+        char mask = (color == White ? 12 : 3);
         newCastleRights &= mask;
     }
     if((newCastleRights & bits[1]) && (m.from == a1 || m.to == a1))
@@ -87,16 +87,16 @@ void Board::updateHashKey(Move m) {
     this->hashKey ^= zobristNumbers[zCastleRightsIndex + newCastleRights];
 
     if(m.castle) {
-        int Rank = (m.to >> 3), File = (m.to & 7);
-        int rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
-        int rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
+        char Rank = (m.to >> 3), File = (m.to & 7);
+        char rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
+        char rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
 
         this->hashKey ^= zobristNumbers[zPieceSquareIndex(Rook, color, rookStartSquare)];
         this->hashKey ^= zobristNumbers[zPieceSquareIndex(Rook, color, rookEndSquare)];
     }
 
     // update ep square
-    int nextEp = -1;
+    char nextEp = -1;
     if(piece == Pawn && abs(m.from-m.to) == 16)
         nextEp = m.to + (color == White ? South : North);
 
@@ -107,13 +107,15 @@ void Board::updateHashKey(Move m) {
     this->hashKey ^= zobristNumbers[zBlackTurnIndex];
 }
 
-const int hashFExact = 0;
-const int hashFAlpha = 1;
-const int hashFBeta = 2;
+const char hashFExact = 0;
+const char hashFAlpha = 1;
+const char hashFBeta = 2;
 
 struct hashElement {
     U64 key;
-    int depth, flags, value;
+    short depth;
+    char flags;
+    int value;
     Move best;
 };
 
@@ -121,13 +123,6 @@ const int tableSize = (1 << 19);
 const int valUnknown = -1e9;
 
 hashElement hashTable[tableSize];
-
-void clearTT() {
-    hashElement newElement = {0, 0, 0, 0, noMove};
-    for(int i = 0; i < tableSize; i++) {
-        hashTable[i] = newElement;
-    }
-}
 
 // get the best move from the tt
 Move retrieveBestMove() {
@@ -140,7 +135,7 @@ Move retrieveBestMove() {
 }
 
 // check if the stored hash element corresponds to the current position and if it was searched at a good enough depth
-int ProbeHash(int depth, int alpha, int beta) {
+int ProbeHash(short depth, int alpha, int beta) {
     int index = (board.hashKey & (tableSize-1));
     hashElement *h = &hashTable[index];
 
@@ -155,7 +150,7 @@ int ProbeHash(int depth, int alpha, int beta) {
 }
 
 // replace hashed element if replacement conditions are met
-void RecordHash(int depth, int val, int hashF, Move best) {
+void RecordHash(short depth, int val, char hashF, Move best) {
     if(timeOver) return;
 
     int index = (board.hashKey & (tableSize-1));
@@ -174,7 +169,7 @@ void RecordHash(int depth, int val, int hashF, Move best) {
     h->depth = depth;
 }
 
-void showPV(int depth) {
+void showPV(short depth) {
     vector<Move> moves;
     cout << "pv ";
     while(retrieveBestMove().from != noMove.from && depth) {
@@ -188,5 +183,41 @@ void showPV(int depth) {
     while(moves.size()) {
         board.unmakeMove(moves.back());
         moves.pop_back();
+    }
+}
+
+struct pawnHashElement {
+    U64 bb;
+    int eval;
+};
+
+pawnHashElement pawnHashTable[tableSize];
+
+// get hashed value from map
+int retrievePawnEval(U64 pawns) {
+    int idx = (board.hashKey & (tableSize-1));
+
+    if(pawnHashTable[idx].bb == pawns) {
+        return pawnHashTable[idx].eval;
+    }
+
+    return valUnknown;
+}
+
+void recordPawnEval(U64 pawns, int eval) {
+    int idx = (board.hashKey & (tableSize-1));
+
+    // always replace
+    if(pawnHashTable[idx].bb != pawns) {
+        pawnHashTable[idx] = {pawns, eval};
+    }
+}
+
+void clearTT() {
+    hashElement newElement = {0, 0, 0, 0, noMove};
+    pawnHashElement newPawnElement = {0, 0};
+    for(int i = 0; i < tableSize; i++) {
+        hashTable[i] = newElement;
+        pawnHashTable[i] = newPawnElement;
     }
 }

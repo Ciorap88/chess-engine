@@ -4,14 +4,16 @@
 #define TRANSPOSITIONTABLE_H_
 
 Move retrieveBestMove();
-int ProbeHash(int depth, int alpha, int beta);
-void RecordHash(int depth, int val, int hashF, Move best);
+int ProbeHash(short depth, int alpha, int beta);
+void RecordHash(short depth, int val, char hashF, Move best);
+int retrievePawnEval(U64 pawns);
+void recordPawnEval(U64 pawns, int eval);
 void generateZobristHashNumbers();
 U64 getZobristHashFromCurrPos();
-void showPV(int depth);
+void showPV(short depth);
 void clearTT();
 
 extern const int valUnknown;
-extern const int hashFAlpha, hashFBeta, hashFExact;
+extern const char hashFAlpha, hashFBeta, hashFExact;
 
 #endif

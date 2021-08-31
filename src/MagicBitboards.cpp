@@ -14,7 +14,7 @@ typedef unsigned long long U64;
 typedef const U64 C64;
 
 // number of bits we need to shift when computing magic attacks
-const int rookBits[64] = {
+const char rookBits[64] = {
     12, 11, 11, 11, 11, 11, 11, 12,
     11, 10, 10, 10, 10, 10, 10, 11,
     11, 10, 10, 10, 10, 10, 10, 11,
@@ -25,7 +25,7 @@ const int rookBits[64] = {
     12, 11, 11, 11, 11, 11, 11, 12
 };
 
-const int bishopBits[64] = {
+const char bishopBits[64] = {
     6, 5, 5, 5, 5, 5, 5, 6,
     5, 5, 5, 5, 5, 5, 5, 5,
     5, 5, 7, 7, 7, 7, 5, 5,
@@ -88,9 +88,7 @@ const int BitTable[64] = {
 
 // number of set bits
 int popcount(U64 bb) {
-    int res = 0;
-    for( ; bb; res++, bb &= bb - 1);
-    return res;
+    return __builtin_popcountll(bb);
 }
 
 // pop the ms1b fron a number
@@ -114,22 +112,22 @@ U64 indexToU64(int index, int bits, U64 m) {
 
 // manually calculated rook attacks
 // we go in every direction until we find another piece
-U64 rookAttacks(int sq, U64 blockers) {
+U64 rookAttacks(char sq, U64 blockers) {
     U64 res = 0;
-    int Rank = sq/8, File = sq%8;
-    for(int r = Rank+1; r <= 7; r++) {
+    char Rank = sq/8, File = sq%8;
+    for(char r = Rank+1; r <= 7; r++) {
         res |= (1ULL << (File + r*8));
         if(blockers & (1ULL << (File + r*8))) break;
     }
-    for(int r = Rank-1; r >= 0; r--) {
+    for(char r = Rank-1; r >= 0; r--) {
         res |= (1ULL << (File + r*8));
         if(blockers & (1ULL << (File + r*8))) break;
     }
-    for(int f = File+1; f <= 7; f++) {
+    for(char f = File+1; f <= 7; f++) {
         res |= (1ULL << (f + Rank*8));
         if(blockers & (1ULL << (f + Rank*8))) break;
     }
-    for(int f = File-1; f >= 0; f--) {
+    for(char f = File-1; f >= 0; f--) {
         res |= (1ULL << (f + Rank*8));
         if(blockers & (1ULL << (f + Rank*8))) break;
     }
@@ -137,22 +135,22 @@ U64 rookAttacks(int sq, U64 blockers) {
 }
 
 // manually calculated bishop attacks
-U64 bishopAttacks(int sq, U64 blockers) {
+U64 bishopAttacks(char sq, U64 blockers) {
     U64 res = 0;
-    int Rank = sq/8, File = sq%8;
-    for(int r = Rank+1, f = File+1; r <= 7 && f <= 7; r++, f++) {
+    char Rank = sq/8, File = sq%8;
+    for(char r = Rank+1, f = File+1; r <= 7 && f <= 7; r++, f++) {
         res |= (1ULL << (f + r*8));
         if(blockers & (1ULL << (f + r * 8))) break;
     }
-    for(int r = Rank+1, f = File-1; r <= 7 && f >= 0; r++, f--) {
+    for(char r = Rank+1, f = File-1; r <= 7 && f >= 0; r++, f--) {
         res |= (1ULL << (f + r*8));
         if(blockers & (1ULL << (f + r * 8))) break;
     }
-    for(int r = Rank-1, f = File+1; r >= 0 && f <= 7; r--, f++) {
+    for(char r = Rank-1, f = File+1; r >= 0 && f <= 7; r--, f++) {
         res |= (1ULL << (f + r*8));
         if(blockers & (1ULL << (f + r * 8))) break;
     }
-    for(int r = Rank-1, f = File-1; r >= 0 && f >= 0; r--, f--) {
+    for(char r = Rank-1, f = File-1; r >= 0 && f >= 0; r--, f--) {
         res |= (1ULL << (f + r*8));
         if(blockers & (1ULL << (f + r * 8))) break;
     }
@@ -161,7 +159,7 @@ U64 bishopAttacks(int sq, U64 blockers) {
 
 // populate the mBishopAttacks and mRookAttacks arrays with the correct attack bitboards 
 // according to the current magic numbers
-void populateSlidingAttacks(int sq, int m, int bishop) {
+void populateSlidingAttacks(char sq, int m, bool bishop) {
     U64 magic = (bishop ? bishopMagics[sq] : rookMagics[sq]);
     U64 mask = (bishop ? bishopMasks[sq] : rookMasks[sq]);
     int n = popcount(mask);
@@ -186,7 +184,7 @@ void populateSlidingAttacks(int sq, int m, int bishop) {
 // function that finds good magic numbers, using trial and error
 // it is too slow so I don't use it every time the engine starts
 // I used it once and copied the magic numbers into the arrays
-U64 findMagic(int sq, int m, int bishop) {
+U64 findMagic(char sq, int m, int bishop) {
     U64 blockers[4096], a[4096], used[4096];
 
     U64 mask = (bishop ? bishopMasks[sq] : rookMasks[sq]);
@@ -226,14 +224,14 @@ U64 findMagic(int sq, int m, int bishop) {
 // the actual functions that return the attack bitboards
 // we first & the occupancy bb with the correct mask, so we only get the blockers in the attack directions
 // after that, we multiply the result with the corresponding magic number and then we right shift it
-U64 magicBishopAttacks(U64 occ, int sq) {
+U64 magicBishopAttacks(U64 occ, char sq) {
     occ &= bishopMasks[sq];
     occ *= bishopMagics[sq];
     occ >>= 64-bishopBits[sq];
     return mBishopAttacks[sq][occ];
 }
 
-U64 magicRookAttacks(U64 occ, int sq) {
+U64 magicRookAttacks(U64 occ, char sq) {
     occ &= rookMasks[sq];
     occ *= rookMagics[sq];
     occ >>= 64-rookBits[sq];
@@ -242,7 +240,7 @@ U64 magicRookAttacks(U64 occ, int sq) {
 
 // the function we will call when initializing the engine
 void initMagics() {
-    for(int i = 0; i < 64; i++) {
+    for(char i = 0; i < 64; i++) {
         populateSlidingAttacks(i, bishopBits[i], 1);
         populateSlidingAttacks(i, rookBits[i], 0); 
     }
@@ -251,14 +249,14 @@ void initMagics() {
 // function for generating magic numbers
 void generateMagicNumbers() {
     cout << "bishopMagics[64] = {";
-    for(int i = 0; i <64; i++) {
+    for(char i = 0; i <64; i++) {
         if(i%8 == 7) cout << '\n';
         cout << findMagic(i, bishopBits[i], 1);
         if(i < 63) cout << ", ";
     }
     cout << "};\n";
     cout << "rookMagics[64] = {";
-    for(int i = 0; i <64; i++) {
+    for(char i = 0; i <64; i++) {
         if(i%8 == 7) cout << '\n';
         cout << findMagic(i, rookBits[i], 0);
         if(i < 63) cout << ", ";

@@ -9,7 +9,6 @@
 
 using namespace std;
 
-unordered_map<U64, int> repetitionMap;
 Move killerMoves[200][2];
 
 const int inf = 1000000;
@@ -21,7 +20,7 @@ const int mateEval = inf-1;
 const int MATE_THRESHOLD = mateEval/2;
 
 int startTime, stopTime;
-int maxDepth = 200;
+short maxDepth = 200;
 bool infiniteTime;
 
 int nodesSearched = 0;
@@ -34,7 +33,7 @@ bool areEqual(Move a, Move b) {
 }
 
 // store unique killer moves
-void storeKiller(int ply, Move m) {
+void storeKiller(short ply, Move m) {
     if(m.capture || m.ep) return; // killer moves are by definition quiet moves
 
     // make sure the moves are different
@@ -48,7 +47,7 @@ void storeKiller(int ply, Move m) {
 int captureScore(Move m) {
     int score = 0;
 
-    int otherColor = (board.turn ^ (Black | White));
+    char otherColor = (board.turn ^ (Black | White));
 
     // captured piece value - capturing piece value
     if(m.capture) score += (pieceValues[(m.capture ^ otherColor)]-
@@ -69,14 +68,15 @@ bool cmpCapturesAsc(Move a, Move b) {
 }
 
 // ---move ordering---
-void sortMoves(vector<Move> &moves, int ply) {
+void sortMoves(Move *moves, unsigned char num, short ply) {
     // sorting in quiescence search
       if(ply == -1) {
-          sort(moves.begin(), moves.end(), cmpCapturesAsc);
+          sort(moves, moves+num, cmpCapturesAsc);
           return;
       }
 
-    vector<Move> sorted, captures, nonCaptures;
+    Move captures[256], nonCaptures[256];
+    unsigned char nCaptures = 0, nNonCaptures = 0;
 
     // find pv move
     Move pvMove = noMove;
@@ -85,48 +85,46 @@ void sortMoves(vector<Move> &moves, int ply) {
 
     // check legality of killer moves
     bool killerLegal[2] = {false, false};
-    for(int i = 0; i < 2; i++)
-        for(auto m: moves)
-            if(areEqual(killerMoves[ply][i], m))
+    for(char i = 0; i < 2; i++)
+        for(unsigned char idx = 0; idx < num; idx++)
+            if(areEqual(killerMoves[ply][i], moves[idx]))
                 killerLegal[i] = true;
 
     // split the other moves into captures and non captures for easier sorting
-    for(Move m: moves) {
-        if(areEqual(m, pvMove) || areEqual(m, killerMoves[ply][0]) || areEqual(m, killerMoves[ply][1]))
+    for(unsigned char idx = 0; idx < num; idx++) {
+        if(areEqual(moves[idx], pvMove) || areEqual(moves[idx], killerMoves[ply][0]) || areEqual(moves[idx], killerMoves[ply][1]))
             continue;
 
-        if(m.capture) captures.push_back(m);
-        else nonCaptures.push_back(m);
+        if(moves[idx].capture) captures[nCaptures++] = moves[idx];
+        else nonCaptures[nNonCaptures++] = moves[idx];
     }
 
+    unsigned char newNum = 0; // size of sorted array
+
     // 1: add pv move
-    if(!areEqual(pvMove, noMove)) sorted.push_back(pvMove);
+    if(!areEqual(pvMove, noMove)) moves[newNum++] = pvMove;
     
     // 2: add captures sorted by MVV-LVA (only winning / equal captures first)
-    sort(captures.begin(), captures.end(), cmpCapturesDesc);
-    while(captures.size() && captureScore(captures.back()) >= 0) {
-        sorted.push_back(captures.back());
-        captures.pop_back();
+    sort(captures, captures+nCaptures, cmpCapturesDesc);
+    while(nCaptures && captureScore(captures[nCaptures-1]) >= 0) {
+        moves[newNum++] = captures[--nCaptures];
     }
 
     // 3: add killer moves
-    for(int i = 0; i < 2; i++)
+    for(char i = 0; i < 2; i++)
         if(killerLegal[i] && !areEqual(killerMoves[ply][i], noMove) && !areEqual(killerMoves[ply][i], pvMove)) 
-            sorted.push_back(killerMoves[ply][i]);
+            moves[newNum++] = killerMoves[ply][i];
 
     // 4: add other quiet moves
-    for(Move m: nonCaptures)
-        sorted.push_back(m);
+    for(unsigned char idx = 0; idx < nNonCaptures; idx++)
+        moves[newNum++] = nonCaptures[idx];
 
     // 5: add losing captures
-    while(captures.size()) {
-        sorted.push_back(captures.back());
-        captures.pop_back();
+    while(nCaptures) {
+        moves[newNum++] = captures[--nCaptures];
     }
 
-    assert(moves.size() == sorted.size());
-
-    moves = sorted;
+    assert(num == newNum);
 }
 
 // ---quiescence search---
@@ -141,7 +139,8 @@ int quiesce(int alpha, int beta) {
 
     if(board.isDraw()) return 0;
 
-    vector<Move> moves = board.GenerateLegalMoves();
+    Move moves[256];
+    unsigned char num = board.GenerateLegalMoves(moves);
 
     int standPat = Evaluate();
     if(standPat >= beta)
@@ -155,13 +154,13 @@ int quiesce(int alpha, int beta) {
 
     alpha = max(alpha, standPat);
 
-    sortMoves(moves, -1);
-    for(Move m : moves)  {
-        if(!m.capture && !m.prom) continue;
+    sortMoves(moves, num, -1);
+    for(unsigned char idx = 0; idx < num; idx++)  {
+        if(!moves[idx].capture && !moves[idx].prom) continue;
 
-        board.makeMove(m);
+        board.makeMove(moves[idx]);
         int score = -quiesce(-beta, -alpha);
-        board.unmakeMove(m);
+        board.unmakeMove(moves[idx]);
 
         if(timeOver) return 0;
 
@@ -174,7 +173,7 @@ int quiesce(int alpha, int beta) {
 }
 
 // alpha-beta algorithm with a lot of enhancements
-int alphaBeta(int alpha, int beta, int depth, int ply, bool doNull, bool isPV) {
+int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isPV) {
     assert(depth >= 0);
 
     if(!(nodesSearched & 4095) && !infiniteTime) {
@@ -184,7 +183,7 @@ int alphaBeta(int alpha, int beta, int depth, int ply, bool doNull, bool isPV) {
     if(timeOver) return 0;
     nodesSearched++;
 
-    int hashFlag = hashFAlpha;
+    char hashFlag = hashFAlpha;
 
     bool isInCheck = board.isInCheck();
 
@@ -200,8 +199,10 @@ int alphaBeta(int alpha, int beta, int depth, int ply, bool doNull, bool isPV) {
     if(alpha >= beta) return alpha;
 
     if(board.isDraw()) return 0;
-    vector<Move> moves = board.GenerateLegalMoves();
-    if(moves.size() == 0) {
+
+    Move moves[256];
+    unsigned char num = board.GenerateLegalMoves(moves);
+    if(num == 0) {
         if(isInCheck)
             return -mateScore; //checkmate
         return 0; //stalemate
@@ -228,7 +229,7 @@ int alphaBeta(int alpha, int beta, int depth, int ply, bool doNull, bool isPV) {
     if((!isPV) && (isInCheck == false) && ply && (depth >= 3) && (Evaluate() >= beta) && doNull && (gamePhase >= endgameMaterial)) {
         board.makeMove(noMove);
 
-        int R = (depth > 6 ? 3 : 2);
+        short R = (depth > 6 ? 3 : 2);
         int score = -alphaBeta(-beta, -beta+1, depth-R-1, ply+1, false, false);
 
         board.unmakeMove(noMove);
@@ -243,20 +244,20 @@ int alphaBeta(int alpha, int beta, int depth, int ply, bool doNull, bool isPV) {
     if (depth <= 3 && !isPV && !isInCheck && abs(alpha) < 9000 && Evaluate() + fMargin[depth] <= alpha)
         fPrune = true;
 
-    int movesSearched = 0;
+    char movesSearched = 0;
     bool raisedAlpha = false;
 
-    sortMoves(moves, ply);
-    for(Move m: moves) {
+    sortMoves(moves, num, ply);
+    for(unsigned char idx = 0; idx < num; idx++) {
         if(alpha >= beta) return alpha;
 
-        board.makeMove(m);
+        board.makeMove(moves[idx]);
 
         // ---futility pruning---
         // if a move is bad enough that it wouldn't be able to raise alpha, we just skip it
         // this only applies close to the horizon depth
-        if(fPrune && !m.capture && !m.prom && !board.isInCheck()) {
-            board.unmakeMove(m);
+        if(fPrune && !moves[idx].capture && !moves[idx].prom && !board.isInCheck()) {
+            board.unmakeMove(moves[idx]);
             continue;
         }
 
@@ -265,11 +266,11 @@ int alphaBeta(int alpha, int beta, int depth, int ply, bool doNull, bool isPV) {
         // ---late move reduction---
         // we do full searches only for the first moves, and then do a reduced search
         // if the move is potentially good, we do a full search instead
-        int reductionDepth = 0;
-        if(movesSearched > 3 && !m.capture && !m.prom && !isInCheck && depth > 4 && !board.isInCheck()) {
-            reductionDepth = int(sqrt(double(depth-1)) + sqrt(double(movesSearched-1))); 
+        short reductionDepth = 0;
+        if(movesSearched > 3 && !moves[idx].capture && !moves[idx].prom && !isInCheck && depth > 4 && !board.isInCheck()) {
+            reductionDepth = short(sqrt(double(depth-1)) + sqrt(double(movesSearched-1))); 
             if(isPV) reductionDepth /= 3;
-            reductionDepth = min(reductionDepth, depth-1);
+            reductionDepth = (reductionDepth < depth-1 ? reductionDepth : depth-1);
 
             depth -= reductionDepth;
         } 
@@ -295,7 +296,7 @@ int alphaBeta(int alpha, int beta, int depth, int ply, bool doNull, bool isPV) {
             goto pvSearch;
         }
 
-        board.unmakeMove(m);
+        board.unmakeMove(moves[idx]);
         movesSearched++;
 
         if(timeOver) return 0;
@@ -304,7 +305,7 @@ int alphaBeta(int alpha, int beta, int depth, int ply, bool doNull, bool isPV) {
             RecordHash(depth, beta, hashFBeta, currBestMove);
 
             // killer moves are quiet moves that cause a beta cutoff and are used for sorting purposes
-            storeKiller(ply, m);
+            storeKiller(ply, moves[idx]);
 
             return beta;
         }
@@ -314,7 +315,7 @@ int alphaBeta(int alpha, int beta, int depth, int ply, bool doNull, bool isPV) {
             alpha = score;
             raisedAlpha = true;
 
-            currBestMove = m;
+            currBestMove = moves[idx];
         }
         
     }
@@ -332,7 +333,7 @@ pair<Move, int> Search() {
     int alpha = -inf, beta = inf;
     int eval = 0;
 
-    for(int i = 0; i < 200; i++)
+    for(short i = 0; i < 200; i++)
         killerMoves[i][0] = killerMoves[i][1] = noMove;
 
     //---iterative deepening---
@@ -340,7 +341,7 @@ pair<Move, int> Search() {
     // this helps manage the time because at any point the engine can return the best move found so far
     // also it helps improve move ordering by memorizing the best move that we can search first in the next iteration
     int currStartTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-    for(int depth = 1; depth <= maxDepth; ) {
+    for(short depth = 1; depth <= maxDepth; ) {
         nodesSearched = nodesQ = 0;
 
         int curEval = alphaBeta(alpha, beta, depth, 0, false, true);
