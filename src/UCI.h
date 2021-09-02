@@ -20,6 +20,7 @@ public:
 
     static void showSearchInfo(short depth, int nodes, int startTime, int score);
     static int moveGenTest(short depth, bool show);
+    static void printBoard();
 };
 
 #endif

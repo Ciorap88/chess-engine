@@ -145,7 +145,7 @@ const int rookPawnConstant = 3;
 const int rookOnSeventh = 50;
 const int rooksDefendingEachOther = 5;
 const int rookMobilityConstant = 3;
-const int blockedRookPenalty = 30;
+const int blockedRookPenalty = 50;
 
 const int earlyQueenDevelopment = 10;
 const int queenMobilityConstant = 3;

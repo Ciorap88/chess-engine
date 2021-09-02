@@ -4,6 +4,7 @@
 #include "MagicBitboards.h"
 #include "TranspositionTable.h"
 #include "Search.h"
+#include "Moves.h"
 
 using namespace std;
 
@@ -21,19 +22,23 @@ char castleEndSq[4] = {g1,c1,g8,c8};
 
 stack<char> castleStk, epStk;
 
-string moveToString(Move m) {
-    if(m.from == -1 || m.from == m.to) return "0000";
+string moveToString(int move) {
+    char from = getFromSq(move);
+    char to = getToSq(move);
+    char prom = getPromotionPiece(move);
+
+    if(move == noMove) return "0000";
 
     string s;
-    s += (m.from%8)+'a';
-    s += (m.from/8)+'1';
-    s += (m.to%8)+'a';
-    s += (m.to/8)+'1';
+    s += (from%8)+'a';
+    s += (from/8)+'1';
+    s += (to%8)+'a';
+    s += (to/8)+'1';
 
-    if(m.prom == Knight) s += 'n';
-    if(m.prom == Bishop) s += 'b';
-    if(m.prom == Rook) s += 'r';
-    if(m.prom == Queen) s += 'q';
+    if(prom == Knight) s += 'n';
+    if(prom == Bishop) s += 'b';
+    if(prom == Rook) s += 'r';
+    if(prom == Queen) s += 'q';
 
     return s;
 }
@@ -370,12 +375,12 @@ void Board::loadFenPos(string input) {
     this->hashKey = getZobristHashFromCurrPos();
 }
 
-static Move pseudoLegalMoves[512];
+static int pseudoLegalMoves[512];
 short Board::GeneratePseudoLegalMoves() {
     short numberOfMoves = 0;
 
     char color = this->turn;
-    char otherColor = (color ^ (Black | White));
+    char otherColor = (color ^ 8);
 
     U64 ourPiecesBB = (color == White ? this->whitePiecesBB : this->blackPiecesBB);
     U64 opponentPiecesBB = (color == White ? this->blackPiecesBB : this->whitePiecesBB);
@@ -395,12 +400,12 @@ short Board::GeneratePseudoLegalMoves() {
         if((allPiecesBB & bits[sq+pawnDir]) == 0) {
 
             if((sq >> 3) == pawnStartRank && (allPiecesBB & bits[sq+2*pawnDir]) == 0)
-                pseudoLegalMoves[numberOfMoves++] = {sq, (char)(sq+2*pawnDir), 0, 0, 0, 0};
+                pseudoLegalMoves[numberOfMoves++] = getMove(sq, sq+2*pawnDir, color, Pawn, 0, 0, 0, 0);
 
             if(isPromoting) {
                 for(char piece: {Knight, Bishop, Rook, Queen})
-                    pseudoLegalMoves[numberOfMoves++] = {sq, (char)(sq+pawnDir), 0, 0, 0, piece};
-            } else pseudoLegalMoves[numberOfMoves++] = {sq, (char)(sq+pawnDir), 0, 0, 0, 0};
+                    pseudoLegalMoves[numberOfMoves++] = getMove(sq, sq+pawnDir, color, Pawn, 0, piece, 0, 0);
+            } else pseudoLegalMoves[numberOfMoves++] = getMove(sq, sq+pawnDir, color, Pawn, 0, 0, 0, 0);
 
         }
 
@@ -411,8 +416,8 @@ short Board::GeneratePseudoLegalMoves() {
             char to = bitscanForward(pawnCapturesBB);
             if(isPromoting) {
                 for(char piece: {Knight, Bishop, Rook, Queen})
-                    pseudoLegalMoves[numberOfMoves++] = {sq, to, this->squares[to], 0, 0, piece};
-            } else pseudoLegalMoves[numberOfMoves++] = {sq, to, this->squares[to], 0, 0, 0};
+                    pseudoLegalMoves[numberOfMoves++] = getMove(sq, to, color, Pawn, (this->squares[to] & (char)(~8)), piece, 0, 0);
+            } else pseudoLegalMoves[numberOfMoves++] = getMove(sq, to, color, Pawn, (this->squares[to] & (char)(~8)), 0, 0, 0);
 
             pawnCapturesBB &= (pawnCapturesBB-1);
 
@@ -430,7 +435,7 @@ short Board::GeneratePseudoLegalMoves() {
         U64 knightMoves = (knightAttacksBB[sq] & ~ourPiecesBB);
         while(knightMoves) {
             char to = bitscanForward(knightMoves);
-            pseudoLegalMoves[numberOfMoves++] = {sq, to, this->squares[to], 0, 0, 0};
+            pseudoLegalMoves[numberOfMoves++] = getMove(sq, to, color, Knight, (this->squares[to] & (char)(~8)), 0, 0, 0);
             knightMoves &= (knightMoves-1);
         }
 
@@ -443,7 +448,7 @@ short Board::GeneratePseudoLegalMoves() {
 
     while(ourKingMoves) {
         char to = bitscanForward(ourKingMoves);
-        pseudoLegalMoves[numberOfMoves++] = {kingSquare, to, this->squares[to], 0, 0, 0};
+        pseudoLegalMoves[numberOfMoves++] = getMove(kingSquare, to, color, King, (this->squares[to] & (char)(~8)), 0, 0, 0);
         ourKingMoves &= (ourKingMoves-1);
     }
 
@@ -455,7 +460,7 @@ short Board::GeneratePseudoLegalMoves() {
         U64 rookMoves = (magicRookAttacks(allPiecesBB, sq) & ~ourPiecesBB);
         while(rookMoves) {
             char to = bitscanForward(rookMoves);
-            pseudoLegalMoves[numberOfMoves++] = {sq, to, this->squares[to], 0, 0, 0};
+            pseudoLegalMoves[numberOfMoves++] = getMove(sq, to, color, (this->squares[sq] & (char)(~8)), (this->squares[to] & (char)(~8)), 0, 0, 0);
             rookMoves &= (rookMoves-1);
         }
 
@@ -469,7 +474,7 @@ short Board::GeneratePseudoLegalMoves() {
         U64 bishopMoves = (magicBishopAttacks(allPiecesBB, sq) & ~ourPiecesBB);
         while(bishopMoves) {
             char to = bitscanForward(bishopMoves);
-            pseudoLegalMoves[numberOfMoves++] = {sq, to, this->squares[to], 0, 0, 0};
+            pseudoLegalMoves[numberOfMoves++] = getMove(sq, to, color, (char)(this->squares[sq] & (~8)), (char)(this->squares[to] & (~8)), 0, 0, 0);
             bishopMoves &= (bishopMoves-1);
         }
 
@@ -480,7 +485,7 @@ short Board::GeneratePseudoLegalMoves() {
     char allowedCastles = (color == White ? 3 : 12);
     for(char i = 0; i < 4; i++)
         if((this->castleRights & bits[i]) && ((allPiecesBB & castleMask[i]) == 0) && (allowedCastles & bits[i]))
-            pseudoLegalMoves[numberOfMoves++] = {castleStartSq[i], castleEndSq[i], 0, 0, 1, 0};
+            pseudoLegalMoves[numberOfMoves++] = getMove(castleStartSq[i], castleEndSq[i], color, King, 0, 0, 1, 0);
 
 
     // -----en passant-----
@@ -489,7 +494,7 @@ short Board::GeneratePseudoLegalMoves() {
         U64 epBB = ((color == White ? blackPawnAttacksBB[ep] : whitePawnAttacksBB[ep]) & ourPawnsBB);
         while(epBB) {
             char sq = bitscanForward(epBB);
-            pseudoLegalMoves[numberOfMoves++] = {sq, ep, (char)(Pawn | otherColor), 1, 0, 0};
+            pseudoLegalMoves[numberOfMoves++] = getMove(sq, ep, color, Pawn, Pawn, 0, 0, 1);
             epBB &= (epBB-1);
         }
     }
@@ -554,9 +559,9 @@ U64 Board::attacksTo(char sq) {
     return res;
 }
 
-unsigned char Board::GenerateLegalMoves(Move *moves) {
+unsigned char Board::GenerateLegalMoves(int *moves) {
     char color = this->turn;
-    char otherColor = (color ^ (Black | White));
+    char otherColor = (color ^ 8);
     char kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
     char otherKingSquare = (otherColor == White ? this->whiteKingSquare : this->blackKingSquare);
 
@@ -616,59 +621,63 @@ unsigned char Board::GenerateLegalMoves(Move *moves) {
     }
 
     for(int idx = 0; idx < pseudoNum; idx++) {
-        Move m = pseudoLegalMoves[idx];
+        char from = getFromSq(pseudoLegalMoves[idx]);
+        char to = getToSq(pseudoLegalMoves[idx]);
 
         // we can always move the king to a safe square
-        if(m.from == kingSquare) {
-            if(this->isAttacked(m.to) == false) moves[num++] = m;
+        if(from == kingSquare) {
+            if(this->isAttacked(to) == false) moves[num++] = pseudoLegalMoves[idx];
             continue;
         }
 
         // single check, can capture the attacker or intercept the check only if the moving piece is not pinned
-        if(checkingPiecesCnt == 1 && ((pinnedBB & bits[m.from]) == 0)) {
+        if(checkingPiecesCnt == 1 && ((pinnedBB & bits[from]) == 0)) {
 
             // capturing the checking pawn by en passant (special case)
-            if(m.ep && checkingPieceIndex == m.to + (color == White ? South: North))
-                moves[num++] = m;
+            if(isEP(pseudoLegalMoves[idx]) && checkingPieceIndex == to + (color == White ? South: North))
+                moves[num++] = pseudoLegalMoves[idx];
 
             // check ray includes interception or capturing the attacker
-            else if(checkRayBB & bits[m.to]) {
-                moves[num++] = m;
+            else if(checkRayBB & bits[to]) {
+                moves[num++] = pseudoLegalMoves[idx];
             }
         }
 
         // no checks, every piece can move if it is not pinned or it moves in the direction of the pin
         if(checkingPiecesCnt == 0) {
             // not pinned
-            if((pinnedBB & bits[m.from]) == 0)
-                moves[num++] = m;
+            if((pinnedBB & bits[from]) == 0)
+                moves[num++] = pseudoLegalMoves[idx];
 
             // pinned, can only move in the pin direction
-            else if(abs(direction(m.from, m.to)) == abs(direction(m.from, kingSquare)))
-                moves[num++] = m;
+            else if(abs(direction(from, to)) == abs(direction(from, kingSquare)))
+                moves[num++] = pseudoLegalMoves[idx];
         }
     }
 
     // en passant are the last added pseudo legal moves
-    Move epMoves[2];
+    int epMoves[2];
     int numEp = 0;
-    while(num && moves[num-1].ep) {
+    while(num && isEP(moves[num-1])) {
         epMoves[numEp++] = moves[--num];
     }
     assert(numEp <= 2);
 
     // before ep there are the castle moves so we do the same
-    Move castleMoves[2];
+    int castleMoves[2];
     int numCastles = 0;
-    while(num && moves[num-1].castle) {
+    while(num && isCastle(moves[num-1])) {
         castleMoves[numCastles++] = moves[--num];
     }
     assert(numCastles <= 2);
 
     // manual check for the legality of castle moves
     for(char idx = 0; idx < numCastles; idx++) {
-        char first = min(castleMoves[idx].from, castleMoves[idx].to);
-        char second = max(castleMoves[idx].from, castleMoves[idx].to);
+        char from = getFromSq(castleMoves[idx]);
+        char to = getToSq(castleMoves[idx]);
+
+        char first = min(from, to);
+        char second = max(from, to);
 
         bool ok = true;
 
@@ -677,17 +686,19 @@ unsigned char Board::GenerateLegalMoves(Move *moves) {
                 ok = false;
 
         if(ok) moves[num++] = castleMoves[idx];
-            // moves.push_back(m);
     }
 
     // ep horizontal pin
     for(char idx = 0; idx < numEp; idx++) {
-        char epRank = (epMoves[idx].from >> 3);
-        char otherPawnSquare = (epRank << 3) | (epMoves[idx].to & 7);
+        char from = getFromSq(epMoves[idx]);
+        char to = getToSq(epMoves[idx]);
+
+        char epRank = (from >> 3);
+        char otherPawnSquare = (epRank << 3) | (to & 7);
         U64 rooksQueens = (opponentPiecesBB & (this->rooksBB | this->queensBB) & ranksBB[epRank]);
 
         // remove the 2 pawns and compute attacks from rooks/queens on king square
-        U64 removeWhite = bits[epMoves[idx].from], removeBlack = bits[otherPawnSquare];
+        U64 removeWhite = bits[from], removeBlack = bits[otherPawnSquare];
         if(color == Black) swap(removeWhite, removeBlack);
 
         this->whitePiecesBB ^= removeWhite;
@@ -695,7 +706,6 @@ unsigned char Board::GenerateLegalMoves(Move *moves) {
 
         U64 attacks = this->attacksTo(kingSquare);
         if((rooksQueens & attacks) == 0) moves[num++] = epMoves[idx];
-            // moves.push_back(enPassant);
 
         this->whitePiecesBB ^= removeWhite;
         this->blackPiecesBB ^= removeBlack;
@@ -708,13 +718,13 @@ unsigned char Board::GenerateLegalMoves(Move *moves) {
     return num;
 }
 
-void Board::makeMove(Move m) {
-    this->updateHashKey(m);
+void Board::makeMove(int move) {
+    this->updateHashKey(move);
 
-    if(m.from == -1) { // null move
+    if(move == noMove) { // null move
         epStk.push(this->ep);
         this->ep = -1;
-        this->turn ^= (Black | White);
+        this->turn ^= 8;
 
         return;
     }
@@ -724,23 +734,32 @@ void Board::makeMove(Move m) {
     castleStk.push(this->castleRights);
     epStk.push(this->ep);
 
-    char color = (this->squares[m.from] & (Black | White));
-    char piece = (this->squares[m.from] ^ color);
-    char otherColor = (color ^ (Black | White));
-    char otherPiece = (m.capture ^ otherColor);
+    // get move info
+    char from = getFromSq(move);
+    char to = getToSq(move);
+
+    char color = getColor(move);
+    char piece = getPiece(move);
+    char otherColor = (color ^ 8);
+    char otherPiece = getCapturedPiece(move);
+    char promotionPiece = getPromotionPiece(move);
+
+    bool isMoveEP = isEP(move);
+    bool isMoveCapture = isCapture(move);
+    bool isMoveCastle = isCastle(move);
 
     // update bitboards
-    this->updatePieceInBB(piece, color, m.from);
-    if(!m.ep && m.capture) this->updatePieceInBB(otherPiece, otherColor, m.to);
-    if(!m.prom) this->updatePieceInBB(piece, color, m.to);
+    this->updatePieceInBB(piece, color, from);
+    if(!isMoveEP && isMoveCapture) this->updatePieceInBB(otherPiece, otherColor, to);
+    if(!promotionPiece) this->updatePieceInBB(piece, color, to);
 
-    this->squares[m.to] = this->squares[m.from];
-    this->squares[m.from] = Empty;
+    this->squares[to] = this->squares[from];
+    this->squares[from] = Empty;
 
     // promote pawn
-    if(m.prom) {
-        this->updatePieceInBB(m.prom, color, m.to);
-        this->squares[m.to] = (m.prom | color);
+    if(promotionPiece) {
+        this->updatePieceInBB(promotionPiece, color, to);
+        this->squares[to] = (promotionPiece | color);
     }
 
     if(piece == King) {
@@ -748,62 +767,72 @@ void Board::makeMove(Move m) {
         char mask = (color == White ? 12 : 3);
         this->castleRights &= mask;
 
-        if(color == White) this->whiteKingSquare = m.to;
-        else this->blackKingSquare = m.to;
+        if(color == White) this->whiteKingSquare = to;
+        else this->blackKingSquare = to;
     }
 
     // remove the respective castling right if a rook moves or gets captured
-    if((this->castleRights & bits[1]) && (m.from == a1 || m.to == a1))
+    if((this->castleRights & bits[1]) && (from == a1 || to == a1))
         this->castleRights ^= bits[1];
-    if((this->castleRights & bits[0]) && (m.from == h1 || m.to == h1))
+    if((this->castleRights & bits[0]) && (from == h1 || to == h1))
         this->castleRights ^= bits[0];
-    if((this->castleRights & bits[3]) && (m.from == a8 || m.to == a8))
+    if((this->castleRights & bits[3]) && (from == a8 || to == a8))
         this->castleRights ^= bits[3];
-    if((this->castleRights & bits[2]) && (m.from == h8 || m.to == h8))
+    if((this->castleRights & bits[2]) && (from == h8 || to == h8))
         this->castleRights ^= bits[2];
 
     // move the rook if castle
-    if(m.castle) {
-        char Rank = (m.to >> 3), File = (m.to & 7);
+    if(isMoveCastle) {
+        char Rank = (to >> 3), File = (to & 7);
         char rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
         char rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
 
         this->movePieceInBB(Rook, color, rookStartSquare, rookEndSquare);
         swap(this->squares[rookStartSquare], this->squares[rookEndSquare]);
     }
+
     // remove the captured pawn if en passant
-    if(m.ep) {
-        char capturedPawnSquare = m.to+(color == White ? South : North);
+    if(isMoveEP) {
+        char capturedPawnSquare = to+(color == White ? South : North);
 
         this->updatePieceInBB(Pawn, otherColor, capturedPawnSquare);
         this->squares[capturedPawnSquare] = Empty;
     }
 
     this->ep = -1;
-    if(piece == Pawn && abs(m.from-m.to) == 16)
-        this->ep = m.to+(color == White ? -8 : 8);
+    if(piece == Pawn && abs(from-to) == 16)
+        this->ep = to+(color == White ? -8 : 8);
 
     // switch turn
     this->turn ^= (Black | White);
 }
 
 // basically the inverse of makeMove but we need to memorize the castling right and ep square before the move
-void Board::unmakeMove(Move m) {
-    if(m.from == -1) { // null move
+void Board::unmakeMove(int move) {
+    if(move == noMove) { // null move
         this->ep = epStk.top();
         epStk.pop();
-        this->turn ^= (Black | White);
+        this->turn ^= 8;
 
-        this->updateHashKey(m);
+        this->updateHashKey(move);
 
         return;
     }
     repetitionMap[this->hashKey]--;
 
-    char color = (this->squares[m.to] & (Black | White));
-    char otherColor = (color ^ (Black | White));
-    char piece = (this->squares[m.to] ^ color);
-    char otherPiece = (m.capture ^ otherColor);
+    // get move info
+    char from = getFromSq(move);
+    char to = getToSq(move);
+
+    char color = getColor(move);
+    char piece = getPiece(move);
+    char otherColor = (color ^ 8);
+    char otherPiece = getCapturedPiece(move);
+    char promotionPiece = getPromotionPiece(move);
+
+    bool isMoveEP = isEP(move);
+    bool isMoveCapture = isCapture(move);
+    bool isMoveCastle = isCastle(move);
 
     // retrieve previous castle and ep info
     this->ep = epStk.top();
@@ -812,22 +841,22 @@ void Board::unmakeMove(Move m) {
     castleStk.pop();
 
     if(piece == King) {
-        if(color == White) this->whiteKingSquare = m.from;
-        if(color == Black) this->blackKingSquare = m.from;
+        if(color == White) this->whiteKingSquare = from;
+        if(color == Black) this->blackKingSquare = from;
     }
 
-    this->updatePieceInBB(piece, color, m.to);
+    this->updatePieceInBB((this->squares[to] ^ color), color, to);
 
-    if(m.prom) this->squares[m.to] = (Pawn | color);
+    if(promotionPiece) this->squares[to] = (Pawn | color);
 
-    this->updatePieceInBB((this->squares[m.to] ^ color), color, m.from);
-    if(m.capture && !m.ep) this->updatePieceInBB(otherPiece, otherColor, m.to);
+    this->updatePieceInBB(piece, color, from);
+    if(isMoveCapture && !isMoveEP) this->updatePieceInBB(otherPiece, otherColor, to);
 
-    this->squares[m.from] = this->squares[m.to];
-    this->squares[m.to] = m.capture;
+    this->squares[from] = this->squares[to];
+    this->squares[to] = (otherPiece | otherColor);
 
-    if(m.castle) {
-        char Rank = (m.to >> 3), File = (m.to & 7);
+    if(isMoveCastle) {
+        char Rank = (to >> 3), File = (to & 7);
         char rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
         char rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
 
@@ -835,17 +864,17 @@ void Board::unmakeMove(Move m) {
         swap(this->squares[rookStartSquare], this->squares[rookEndSquare]);
     }
 
-    if(m.ep) {
-        char capturedPawnSquare = m.to+(color == White ? South : North);
+    if(isMoveEP) {
+        char capturedPawnSquare = to+(color == White ? South : North);
 
         this->updatePieceInBB(Pawn, otherColor, capturedPawnSquare);
         this->squares[capturedPawnSquare] = (otherColor | Pawn);
-        this->squares[m.to] = Empty;
+        this->squares[to] = Empty;
     }
 
     this->turn ^= (Black | White);
 
-    this->updateHashKey(m);
+    this->updateHashKey(move);
 }
 
 // draw by insufficient material or repetition

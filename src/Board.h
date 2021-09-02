@@ -17,9 +17,11 @@ enum Piece {
     Rook = 4,
     Queen = 5,
     King = 6,
+};
 
-    White = 8,
-    Black = 16
+enum Color {
+    Black = 0,
+    White = 8
 };
 
 enum Directions {
@@ -45,12 +47,6 @@ enum squares {
     a8, b8, c8, d8, e8, f8, g8, h8
 };
 
-struct Move {
-    char from, to, capture;
-    bool ep, castle;
-    char prom;
-};
-
 class Board {
 public:
     char squares[64], turn;
@@ -68,7 +64,7 @@ public:
 
     void initZobristHashFromCurrPos();
 
-    void updateHashKey(Move m);
+    void updateHashKey(int move);
     void updatePieceInBB(char piece, char color, char sq);
     void movePieceInBB(char piece, char color, char from, char to);
 
@@ -81,10 +77,10 @@ public:
     bool isDraw();
 
     short GeneratePseudoLegalMoves();
-    unsigned char GenerateLegalMoves(Move *moves);
+    unsigned char GenerateLegalMoves(int *moves);
 
-    void makeMove(Move m);
-    void unmakeMove(Move m);
+    void makeMove(int move);
+    void unmakeMove(int move);
 };
 
 extern unordered_map<U64, char> repetitionMap;
@@ -102,6 +98,6 @@ bool isInBoard(char sq, char dir);
 void Init();
 
 string square(char x);
-string moveToString(Move m);
+string moveToString(int move);
 
 #endif

@@ -46,6 +46,8 @@ void UCI::UCICommunication() {
             inputPosition(inputString);
         } else if(inputString.substr(0, 2) == "go") {
             inputGo(inputString);
+        } else if(inputString == "print") {
+            printBoard();
         } else if(inputString == "stop") {
             // timeOver = true?
         } else if(inputString == "quit") {
@@ -90,7 +92,7 @@ void UCI::inputPosition(string input) {
 
     // make the moves
     for(int i = movesIdx+1; i < parsedInput.size(); i++) {
-        Move moves[256];
+        int moves[256];
         unsigned char num = board.GenerateLegalMoves(moves);
         for(unsigned char idx = 0; idx < num; idx++) 
             if(moveToString(moves[idx]) == parsedInput[i]) {
@@ -104,7 +106,7 @@ void UCI::inputPosition(string input) {
 int UCI::moveGenTest(short depth, bool show) {
     if(depth == 0) return 1;
 
-    Move moves[256];
+    int moves[256];
     unsigned char num = board.GenerateLegalMoves(moves);
 
     if(depth == 1) return num;
@@ -142,6 +144,20 @@ void UCI::showSearchInfo(short depth, int nodes, int startTime, int score) {
     showPV(depth);
 }
 
+// function that prints the current board
+void UCI::printBoard() {
+    unordered_map<char, char> pieceSymbols = {{Pawn, 'p'}, {Knight, 'n'},
+    {Bishop, 'b'}, {Rook, 'r'}, {Queen, 'q'}, {King, 'k'}};
+    
+    for(int i = 0; i < 64; i++) {
+        if(board.squares[i] == Empty) cout << ". ";
+        else if(board.squares[i] & 8) cout << char(toupper(pieceSymbols[board.squares[i] ^ 8])) << ' ';
+        else cout << pieceSymbols[board.squares[i]] << ' ';
+
+        if(i%8 == 7) cout << '\n';
+    }
+}
+
 void UCI::inputGo(string input) {
     int time = -1, inc = 0, movesToGo = 30, moveTime = -1;
     short depth = 200;
@@ -154,8 +170,13 @@ void UCI::inputGo(string input) {
         
         // do a perft and then return if it is requested
         if(parsedInput[i] == "perft") {
+            int startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
             int num = moveGenTest(stoi(parsedInput[i+1]), true);
-            cout << "Total nodes: " << num << '\n';
+            int endTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+            int time = max(1, endTime-startTime);
+            long long nps = 1000LL*num/time;
+
+            cout << "nodes " << num << " time " << time << " nps " << nps << '\n';
             return;
         }
 

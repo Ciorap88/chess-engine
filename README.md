@@ -1,16 +1,14 @@
 # chess-engine
 
-As it became really hard to improve at chess, I decided to make and enigne that would hopefully beat me.
+This is a UCI-compatible chess engine with ~1800 elo rating (just an estimation, I can't know for sure until it will be tested).
 
-Update: it just beat a chess.com 1000 rated bot. 
-Link to the game: https://www.chess.com/game/computer/1016249
-
-Another update: almost beat the 1500 bot, but it messed up at the end when it didn't find mate and repeated moves instead. I need to fix this...
-https://www.chess.com/game/computer/1360145 (edit: fixed it now)
-
-Update 3: it just destroyed the 1600 bot, I'm actually really proud of that 
-https://www.chess.com/analysis/game/computer/1399789
-
-Update 4: the engine beat the 1800 bot but I still don't feel like it's good enough against humans. I have to figure out a way to improve it.
-game: https://www.chess.com/game/computer/1601063 
+Features: 
+     - Pseudo-legal and legal move generation using bitboards
+     - Position evaluation using independent piece evaluation
+     - Minimax algorithm with Alpha-Beta pruning and Principal Variation Search
+     - Transposition table using Zobrist hash
+     - Other pruning techniques such as null move pruning or futility pruning
+     - Quiescence search
+     - Move ordering using MVV-LVA and killer move heuristics
+     - Iterative deepening and aspiration windows
 

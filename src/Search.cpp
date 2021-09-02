@@ -6,15 +6,16 @@
 #include "TranspositionTable.h"
 #include "MagicBitboards.h"
 #include "UCI.h"
+#include "Moves.h"
 
 using namespace std;
 
-Move killerMoves[200][2];
+int killerMoves[200][2];
 
 const int inf = 1000000;
-const Move noMove = {-1,-1,0,0,0,0};
+const int noMove = -1;
 
-Move bestMove = noMove;
+int bestMove = noMove;
 
 const int mateEval = inf-1;
 const int MATE_THRESHOLD = mateEval/2;
@@ -27,82 +28,75 @@ int nodesSearched = 0;
 int nodesQ = 0;
 bool timeOver = false;
 
-bool areEqual(Move a, Move b) {
-    return ((a.from == b.from) && (a.to == b.to) && (a.capture == b.capture) &&
-     (a.ep == b.ep) && (a.prom == b.prom) && (a.castle == b.castle));
-}
-
 // store unique killer moves
-void storeKiller(short ply, Move m) {
-    if(m.capture || m.ep) return; // killer moves are by definition quiet moves
+void storeKiller(short ply, int move) {
+    if(isCapture(move) || isPromotion(move)) return; // killer moves are by definition quiet moves
 
     // make sure the moves are different
-    if(!areEqual(killerMoves[ply][0], m)) 
+    if(killerMoves[ply][0] != move) 
         killerMoves[ply][1] = killerMoves[ply][0];
 
-    killerMoves[ply][0] = m;
+    killerMoves[ply][0] = move;
 }
 
 // evaluating moves by material gain
-int captureScore(Move m) {
+int captureScore(int move) {
     int score = 0;
 
-    char otherColor = (board.turn ^ (Black | White));
-
     // captured piece value - capturing piece value
-    if(m.capture) score += (pieceValues[(m.capture ^ otherColor)]-
-                  pieceValues[(board.squares[m.from] ^ board.turn)]);
+    if(isCapture(move)) score += (pieceValues[getCapturedPiece(move)]-
+                  pieceValues[getPiece(move)]);
 
     // material gained by promotion
-    if(m.prom) score += pieceValues[m.prom] - pieceValues[Pawn];
+    if(isPromotion(move)) score += pieceValues[getPromotionPiece(move)] - pieceValues[Pawn];
 
     return score;
 }
 
-bool cmpCapturesDesc(Move a, Move b) {
+bool cmpCapturesDesc(int a, int b) {
     return (captureScore(a) < captureScore(b));
 }
 
-bool cmpCapturesAsc(Move a, Move b) {
+bool cmpCapturesAsc(int a, int b) {
     return  (captureScore(a) > captureScore(b));
 }
 
 // ---move ordering---
-void sortMoves(Move *moves, unsigned char num, short ply) {
+void sortMoves(int *moves, unsigned char num, short ply) {
     // sorting in quiescence search
       if(ply == -1) {
           sort(moves, moves+num, cmpCapturesAsc);
           return;
       }
 
-    Move captures[256], nonCaptures[256];
+    int captures[256], nonCaptures[256];
     unsigned char nCaptures = 0, nNonCaptures = 0;
 
     // find pv move
-    Move pvMove = noMove;
+    int pvMove = noMove;
     if(ply == 0) pvMove = bestMove;
-    if(areEqual(pvMove, noMove)) pvMove = retrieveBestMove();
+    if(pvMove == noMove) pvMove = retrieveBestMove();
 
     // check legality of killer moves
     bool killerLegal[2] = {false, false};
     for(char i = 0; i < 2; i++)
         for(unsigned char idx = 0; idx < num; idx++)
-            if(areEqual(killerMoves[ply][i], moves[idx]))
+            if(killerMoves[ply][i] == moves[idx])
                 killerLegal[i] = true;
 
     // split the other moves into captures and non captures for easier sorting
     for(unsigned char idx = 0; idx < num; idx++) {
-        if(areEqual(moves[idx], pvMove) || areEqual(moves[idx], killerMoves[ply][0]) || areEqual(moves[idx], killerMoves[ply][1]))
+        if((moves[idx] == pvMove) || (moves[idx] == killerMoves[ply][0]) || (moves[idx] == killerMoves[ply][1]))
             continue;
 
-        if(moves[idx].capture) captures[nCaptures++] = moves[idx];
+        if(isCapture(moves[idx])) captures[nCaptures++] = moves[idx];
         else nonCaptures[nNonCaptures++] = moves[idx];
     }
 
     unsigned char newNum = 0; // size of sorted array
 
     // 1: add pv move
-    if(!areEqual(pvMove, noMove)) moves[newNum++] = pvMove;
+    if(pvMove != noMove) moves[newNum++] = pvMove;
     
     // 2: add captures sorted by MVV-LVA (only winning / equal captures first)
     sort(captures, captures+nCaptures, cmpCapturesDesc);
@@ -112,7 +106,7 @@ void sortMoves(Move *moves, unsigned char num, short ply) {
 
     // 3: add killer moves
     for(char i = 0; i < 2; i++)
-        if(killerLegal[i] && !areEqual(killerMoves[ply][i], noMove) && !areEqual(killerMoves[ply][i], pvMove)) 
+        if(killerLegal[i] && (killerMoves[ply][i] != noMove) && (killerMoves[ply][i] != pvMove)) 
             moves[newNum++] = killerMoves[ply][i];
 
     // 4: add other quiet moves
@@ -139,7 +133,7 @@ int quiesce(int alpha, int beta) {
 
     if(board.isDraw()) return 0;
 
-    Move moves[256];
+    int moves[256];
     unsigned char num = board.GenerateLegalMoves(moves);
 
     int standPat = Evaluate();
@@ -156,7 +150,7 @@ int quiesce(int alpha, int beta) {
 
     sortMoves(moves, num, -1);
     for(unsigned char idx = 0; idx < num; idx++)  {
-        if(!moves[idx].capture && !moves[idx].prom) continue;
+        if(!isCapture(moves[idx]) && !isPromotion(moves[idx])) continue;
 
         board.makeMove(moves[idx]);
         int score = -quiesce(-beta, -alpha);
@@ -200,7 +194,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
 
     if(board.isDraw()) return 0;
 
-    Move moves[256];
+    int moves[256];
     unsigned char num = board.GenerateLegalMoves(moves);
     if(num == 0) {
         if(isInCheck)
@@ -221,7 +215,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
         if(timeOver) return 0;
         return q;
     }
-    Move currBestMove = noMove;
+    int currBestMove = noMove;
 
     // ---null move pruning---
     // if our position is good, we can pass the turn to the opponent
@@ -256,7 +250,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
         // ---futility pruning---
         // if a move is bad enough that it wouldn't be able to raise alpha, we just skip it
         // this only applies close to the horizon depth
-        if(fPrune && !moves[idx].capture && !moves[idx].prom && !board.isInCheck()) {
+        if(fPrune && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !board.isInCheck()) {
             board.unmakeMove(moves[idx]);
             continue;
         }
@@ -267,7 +261,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
         // we do full searches only for the first moves, and then do a reduced search
         // if the move is potentially good, we do a full search instead
         short reductionDepth = 0;
-        if(movesSearched > 3 && !moves[idx].capture && !moves[idx].prom && !isInCheck && depth > 4 && !board.isInCheck()) {
+        if(movesSearched > 3 && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !isInCheck && depth > 4 && !board.isInCheck()) {
             reductionDepth = short(sqrt(double(depth-1)) + sqrt(double(movesSearched-1))); 
             if(isPV) reductionDepth /= 3;
             reductionDepth = (reductionDepth < depth-1 ? reductionDepth : depth-1);
@@ -326,7 +320,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
 }
 
 const int aspIncrease = 50;
-pair<Move, int> Search() {
+pair<int, int> Search() {
     bestMove = noMove;
     timeOver = false;
 

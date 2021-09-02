@@ -8,11 +8,11 @@
 #include "Board.h"
 #include "Evaluate.h"
 
-pair<Move, int> Search();
+pair<int, int> Search();
 
 extern bool timeOver;
-extern Move bestMove;
-extern const Move noMove;
+extern int bestMove;
+extern const int noMove;
 extern const int MATE_THRESHOLD;
 extern const int mateEval;
 
