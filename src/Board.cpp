@@ -22,12 +22,13 @@ char castleEndSq[4] = {g1,c1,g8,c8};
 
 stack<char> castleStk, epStk;
 
+// returns the algebraic notation for a move
 string moveToString(int move) {
     char from = getFromSq(move);
     char to = getToSq(move);
     char prom = getPromotionPiece(move);
 
-    if(move == noMove) return "0000";
+    if(move == NO_MOVE) return "0000";
 
     string s;
     s += (from%8)+'a';
@@ -43,6 +44,7 @@ string moveToString(int move) {
     return s;
 }
 
+// returns the name of the square in algebraic notation
 string square(char x) {
     string s;
     s += ('a'+x%8);
@@ -50,7 +52,7 @@ string square(char x) {
     return s;
 }
 
-
+// functions that return the board shifted in a direction
 U64 eastOne(U64 bb) {
     return ((bb << 1) & (~filesBB[0]));
 }
@@ -66,24 +68,26 @@ U64 southOne(U64 bb) {
     return (bb >> 8);
 }
 
+// returns true if we can go in a specific direction from a square and not go outside the board
 bool isInBoard(char sq, char dir) {
-    char File = (sq & 7);
-    char Rank = (sq >> 3);
+    char file = (sq & 7);
+    char rank = (sq >> 3);
 
-    if(dir == North) return Rank < 7;
-    if(dir == South) return Rank > 0;
-    if(dir == East) return File < 7;
-    if(dir == West) return File > 0;
+    if(dir == north) return rank < 7;
+    if(dir == south) return rank > 0;
+    if(dir == east) return file < 7;
+    if(dir == west) return file > 0;
 
-    if(dir == NorthEast) return Rank < 7 && File < 7;
-    if(dir == SouthEast) return Rank > 0 && File < 7;
-    if(dir == NorthWest) return Rank < 7 && File > 0;
-    if(dir == SouthWest) return Rank > 0 && File > 0;
+    if(dir == northEast) return rank < 7 && file < 7;
+    if(dir == southEast) return rank > 0 && file < 7;
+    if(dir == northWest) return rank < 7 && file > 0;
+    if(dir == southWest) return rank > 0 && file > 0;
 
     return false;
 }
 
-void Init() {
+// initialize all the variables before starting the actual engine
+void init() {
     // bitmasks for every bit from 0 to 63
     for(char i = 0; i < 64; i++)
         bits[i] = (1LL << i);
@@ -99,21 +103,21 @@ void Init() {
 
     // create file and rank masks
     for(char i = 0; i < 64; i++) {
-        char File = (i & 7), Rank = (i >> 3);
+        char file = (i & 7), rank = (i >> 3);
 
-        filesBB[File] |= bits[i];
-        ranksBB[Rank] |= bits[i];
+        filesBB[file] |= bits[i];
+        ranksBB[rank] |= bits[i];
     }
 
     // create pawn attacks masks and vectors
     for(char i = 0; i < 64; i++) {
-        char File = (i & 7), Rank = (i >> 3);
+        char file = (i & 7), rank = (i >> 3);
 
-        if(File > 0) {
+        if(file > 0) {
             if(i+7 < 64) whitePawnAttacksBB[i] |= bits[i+7];
             if(i-9 >= 0) blackPawnAttacksBB[i] |= bits[i-9];
         }
-        if(File < 7) {
+        if(file < 7) {
             if(i+9 < 64) whitePawnAttacksBB[i] |= bits[i+9];
             if(i-7 >= 0) blackPawnAttacksBB[i] |= bits[i-7];
         }
@@ -121,29 +125,29 @@ void Init() {
 
     // create knight attacks masks and vectors
     for(char i = 0; i < 64; i++) {
-        char File = (i & 7), Rank = (i >> 3);
+        char file = (i & 7), rank = (i >> 3);
 
-        if(File > 1) {
-            if(Rank > 0) knightAttacksBB[i] |= bits[i-10];
-            if(Rank < 7) knightAttacksBB[i] |= bits[i+6];
+        if(file > 1) {
+            if(rank > 0) knightAttacksBB[i] |= bits[i-10];
+            if(rank < 7) knightAttacksBB[i] |= bits[i+6];
         }
-        if(File < 6) {
-            if(Rank > 0) knightAttacksBB[i] |= bits[i-6];
-            if(Rank < 7) knightAttacksBB[i] |= bits[i+10];
+        if(file < 6) {
+            if(rank > 0) knightAttacksBB[i] |= bits[i-6];
+            if(rank < 7) knightAttacksBB[i] |= bits[i+10];
         }
-        if(Rank > 1) {
-            if(File > 0) knightAttacksBB[i] |= bits[i-17];
-            if(File < 7) knightAttacksBB[i] |= bits[i-15];
+        if(rank > 1) {
+            if(file > 0) knightAttacksBB[i] |= bits[i-17];
+            if(file < 7) knightAttacksBB[i] |= bits[i-15];
         }
-        if(Rank < 6) {
-            if(File > 0) knightAttacksBB[i] |= bits[i+15];
-            if(File < 7) knightAttacksBB[i] |= bits[i+17];
+        if(rank < 6) {
+            if(file > 0) knightAttacksBB[i] |= bits[i+15];
+            if(file < 7) knightAttacksBB[i] |= bits[i+17];
         }
     }
 
     // create bishop masks
     for(char i = 0; i < 64; i++) {
-        for(auto dir: {NorthEast, NorthWest, SouthEast, SouthWest}) {
+        for(auto dir: {northEast, northWest, southEast, southWest}) {
             char sq = i;
             while(isInBoard(sq, dir)) {
                 bishopMasks[i] |= bits[sq];
@@ -155,7 +159,7 @@ void Init() {
 
     // create rook masks
     for(char i = 0; i < 64; i++) {
-        for(auto dir: {East, West, North, South}) {
+        for(auto dir: {east, west, north, south}) {
             char sq = i;
             while(isInBoard(sq, dir)) {
                 rookMasks[i] |= bits[sq];
@@ -175,8 +179,8 @@ void Init() {
     // squares near king are squares that a king can move to and the squares in front of his 'forward' moves
     for(char i = 0; i < 64; i++) {
         squaresNearWhiteKing[i] = squaresNearBlackKing[i] = (kingAttacksBB[i] | bits[i]);
-        if(i+South >= 0) squaresNearBlackKing[i] |= kingAttacksBB[i+South];
-        if(i+North < 64) squaresNearWhiteKing[i] |= kingAttacksBB[i+North];
+        if(i+south >= 0) squaresNearBlackKing[i] |= kingAttacksBB[i+south];
+        if(i+north < 64) squaresNearWhiteKing[i] |= kingAttacksBB[i+north];
     }
 
     // create light and dark squares masks
@@ -194,16 +198,16 @@ char direction(char from, char to) {
     char toRank = (to >> 3), toFile = (to & 7);
 
     if(fromRank == toRank)
-        return (to > from ? East : West);
+        return (to > from ? east : west);
 
     if(fromFile == toFile)
-        return (to > from ? North : South);
+        return (to > from ? north : south);
 
     if(fromRank-toRank == fromFile-toFile)
-        return (to > from ? NorthEast : SouthWest);
+        return (to > from ? northEast : southWest);
 
     if(fromRank-toRank == toFile-fromFile)
-        return (to > from ? NorthWest : SouthEast);
+        return (to > from ? northWest : southEast);
 
     return 0;
 }
@@ -233,6 +237,7 @@ U64 knightAttacks(U64 knights) {
     return attacks;
 }
 
+// updates the bitboards when a piece is moved
 void Board::updatePieceInBB(char piece, char color, char sq) {
     if(color == White) this->whitePiecesBB ^= bits[sq];
     else this->blackPiecesBB ^= bits[sq];
@@ -256,12 +261,13 @@ string Board::getFenFromCurrPos() {
     string fen;
 
     char emptySquares = 0;
-    for(char Rank = 7; Rank >= 0; Rank--)
-        for(char File = 0; File < 8; File++) {
-            char color = (this->squares[Rank*8 + File] & (Black | White));
-            char piece = (this->squares[Rank*8 + File] ^ color);
+    // loop through squares
+    for(char rank = 7; rank >= 0; rank--)
+        for(char file = 0; file < 8; file++) {
+            char color = (this->squares[rank*8 + file] & (Black | White));
+            char piece = (this->squares[rank*8 + file] ^ color);
 
-            if(this->squares[Rank*8 + File] == Empty) {
+            if(this->squares[rank*8 + file] == Empty) {
                 emptySquares++;
             } else {
                 if(emptySquares) {
@@ -271,16 +277,18 @@ string Board::getFenFromCurrPos() {
                 fen += (color == White ? toupper(pieceSymbols[piece]) : pieceSymbols[piece]);
             }
 
-            if(File == 7) {
+            if(file == 7) {
                 if(emptySquares) fen += (emptySquares+'0');
                 emptySquares = 0;
 
-                if(Rank > 0) fen += '/';
+                if(rank > 0) fen += '/';
             }
         }
 
+    // add turn
     fen += (this->turn == White ? " w " : " b ");
 
+    // add castle rights
     string castles;
     if(this->castleRights & bits[0]) castles += 'K';
     if(this->castleRights & bits[1]) castles += 'Q';
@@ -291,14 +299,14 @@ string Board::getFenFromCurrPos() {
     fen += castles;
     fen += ' ';
 
+    // add en passant square
     if(this->ep == -1) fen += '-';
     else fen += square(this->ep);
-
-    // add halfmove clock and fullmove number when I need them
 
     return fen;
 }
 
+// loads the squares array and the bitboards according to the fen position
 void Board::loadFenPos(string input) {
     this->blackPiecesBB = this->whitePiecesBB = 0;
     this->pawnsBB = this->knightsBB = 0;
@@ -327,33 +335,33 @@ void Board::loadFenPos(string input) {
     unordered_map<char, char> pieceSymbols = {{'p', Pawn}, {'n', Knight},
     {'b', Bishop}, {'r', Rook}, {'q', Queen}, {'k', King}};
 
-    // iterate through squares
-    char File = 0, Rank = 7;
+    // loop through squares
+    char file = 0, rank = 7;
     for(char p: pieces) {
         if(p == '/') {
-            Rank--;
-            File = 0;
+            rank--;
+            file = 0;
         } else {
             // if it is a digit skip the squares
             if(p-'0' >= 1 && p-'0' <= 8) {
                 for(char i = 0; i < (p-'0'); i++) {
-                    this->squares[Rank*8 + File] = 0;
-                    File++;
+                    this->squares[rank*8 + file] = 0;
+                    file++;
                 }
             } else {
                 char color = ((p >= 'A' && p <= 'Z') ? White : Black);
                 char type = pieceSymbols[tolower(p)];
 
-                U64 currBit = bits[Rank*8 + File];
+                U64 currBit = bits[rank*8 + file];
 
-                this->updatePieceInBB(type, color, Rank*8 + File);
+                this->updatePieceInBB(type, color, rank*8 + file);
                 if(type == King) {
-                    if(color == White) this->whiteKingSquare = Rank*8 + File;
-                    if(color == Black) this->blackKingSquare = Rank*8 + File;
+                    if(color == White) this->whiteKingSquare = rank*8 + file;
+                    if(color == Black) this->blackKingSquare = rank*8 + file;
                 }
 
-                this->squares[Rank*8 + File] = (color | type);
-                File++;
+                this->squares[rank*8 + file] = (color | type);
+                file++;
             }
         }
     }
@@ -375,8 +383,9 @@ void Board::loadFenPos(string input) {
     this->hashKey = getZobristHashFromCurrPos();
 }
 
+// pseudo legal moves are moves that can be made but might leave the king in check
 static int pseudoLegalMoves[512];
-short Board::GeneratePseudoLegalMoves() {
+short Board::generatePseudoLegalMoves() {
     short numberOfMoves = 0;
 
     char color = this->turn;
@@ -388,7 +397,7 @@ short Board::GeneratePseudoLegalMoves() {
 
     // -----pawns-----
     U64 ourPawnsBB = (ourPiecesBB & this->pawnsBB);
-    char pawnDir = (color == White ? North : South);
+    char pawnDir = (color == White ? north : south);
     char pawnStartRank = (color == White ? 1 : 6);
     char pawnPromRank = (color == White ? 7 : 0);
 
@@ -501,6 +510,7 @@ short Board::GeneratePseudoLegalMoves() {
     return numberOfMoves;
 }
 
+// returns true if the square sq is attacked by enemy pieces
 bool Board::isAttacked(char sq) {
     char color = this->turn;
     char otherColor = (color ^ (Black | White));
@@ -533,12 +543,14 @@ bool Board::isAttacked(char sq) {
     return false;
 }
 
+// returns true if the current player is in check
 bool Board::isInCheck() {
     char color = this->turn;
     char kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
     return this->isAttacked(kingSquare);
 }
 
+// returns the bitboard that contains all the attackers on the square sq
 U64 Board::attacksTo(char sq) {
     char color = (this->turn ^ (Black | White));
 
@@ -559,7 +571,8 @@ U64 Board::attacksTo(char sq) {
     return res;
 }
 
-unsigned char Board::GenerateLegalMoves(int *moves) {
+// takes the pseudo legal moves and checks if they don't leave the king in check
+unsigned char Board::generateLegalMoves(int *moves) {
     char color = this->turn;
     char otherColor = (color ^ 8);
     char kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
@@ -569,7 +582,7 @@ unsigned char Board::GenerateLegalMoves(int *moves) {
     U64 opponentPiecesBB = (color == White ? this->blackPiecesBB : this->whitePiecesBB);
     U64 ourPiecesBB = (color == White ? this->whitePiecesBB : this->blackPiecesBB);
 
-    short pseudoNum = this->GeneratePseudoLegalMoves();
+    short pseudoNum = this->generatePseudoLegalMoves();
     unsigned char num = 0;
 
     // remove the king so we can correctly find all squares attacked by sliding pieces, where the king can't go
@@ -588,7 +601,7 @@ unsigned char Board::GenerateLegalMoves(int *moves) {
         char dir = direction(checkingPieceIndex, kingSquare);
 
         // check direction is a straight line
-        if(abs(dir) == North || abs(dir) == East)
+        if(abs(dir) == north || abs(dir) == east)
             checkRayBB |= (magicRookAttacks(allPiecesBB, kingSquare) & magicRookAttacks(allPiecesBB, checkingPieceIndex));
 
         // check direction is a diagonal
@@ -634,7 +647,7 @@ unsigned char Board::GenerateLegalMoves(int *moves) {
         if(checkingPiecesCnt == 1 && ((pinnedBB & bits[from]) == 0)) {
 
             // capturing the checking pawn by en passant (special case)
-            if(isEP(pseudoLegalMoves[idx]) && checkingPieceIndex == to + (color == White ? South: North))
+            if(isEP(pseudoLegalMoves[idx]) && checkingPieceIndex == to + (color == White ? south: north))
                 moves[num++] = pseudoLegalMoves[idx];
 
             // check ray includes interception or capturing the attacker
@@ -718,10 +731,11 @@ unsigned char Board::GenerateLegalMoves(int *moves) {
     return num;
 }
 
+// make a move, updating the squares and bitboards
 void Board::makeMove(int move) {
     this->updateHashKey(move);
 
-    if(move == noMove) { // null move
+    if(move == NO_MOVE) { // null move
         epStk.push(this->ep);
         this->ep = -1;
         this->turn ^= 8;
@@ -783,9 +797,9 @@ void Board::makeMove(int move) {
 
     // move the rook if castle
     if(isMoveCastle) {
-        char Rank = (to >> 3), File = (to & 7);
-        char rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
-        char rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
+        char rank = (to >> 3), file = (to & 7);
+        char rookStartSquare = (rank << 3) + (file == 6 ? 7 : 0);
+        char rookEndSquare = (rank << 3) + (file == 6 ? 5 : 3);
 
         this->movePieceInBB(Rook, color, rookStartSquare, rookEndSquare);
         swap(this->squares[rookStartSquare], this->squares[rookEndSquare]);
@@ -793,7 +807,7 @@ void Board::makeMove(int move) {
 
     // remove the captured pawn if en passant
     if(isMoveEP) {
-        char capturedPawnSquare = to+(color == White ? South : North);
+        char capturedPawnSquare = to+(color == White ? south : north);
 
         this->updatePieceInBB(Pawn, otherColor, capturedPawnSquare);
         this->squares[capturedPawnSquare] = Empty;
@@ -807,9 +821,9 @@ void Board::makeMove(int move) {
     this->turn ^= (Black | White);
 }
 
-// basically the inverse of makeMove but we need to memorize the castling right and ep square before the move
+// basically the inverse of makeMove but we take the previous en passan square and castling rights from the stacks
 void Board::unmakeMove(int move) {
-    if(move == noMove) { // null move
+    if(move == NO_MOVE) { // null move
         this->ep = epStk.top();
         epStk.pop();
         this->turn ^= 8;
@@ -856,16 +870,16 @@ void Board::unmakeMove(int move) {
     this->squares[to] = (otherPiece | otherColor);
 
     if(isMoveCastle) {
-        char Rank = (to >> 3), File = (to & 7);
-        char rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
-        char rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
+        char rank = (to >> 3), file = (to & 7);
+        char rookStartSquare = (rank << 3) + (file == 6 ? 7 : 0);
+        char rookEndSquare = (rank << 3) + (file == 6 ? 5 : 3);
 
         this->movePieceInBB(Rook, color, rookEndSquare, rookStartSquare);
         swap(this->squares[rookStartSquare], this->squares[rookEndSquare]);
     }
 
     if(isMoveEP) {
-        char capturedPawnSquare = to+(color == White ? South : North);
+        char capturedPawnSquare = to+(color == White ? south : north);
 
         this->updatePieceInBB(Pawn, otherColor, capturedPawnSquare);
         this->squares[capturedPawnSquare] = (otherColor | Pawn);

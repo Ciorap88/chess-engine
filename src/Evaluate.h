@@ -7,12 +7,10 @@
 
 #include "Board.h"
 
-extern int pieceValues[7];
+extern const int PIECE_VALUES[7];
 extern int gamePhase;
-extern const int endgameMaterial;
 
-void initTables();
-int Evaluate();
+int evaluate();
 
 #endif
 

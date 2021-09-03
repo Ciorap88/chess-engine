@@ -16,7 +16,7 @@ string scoreToStr(int score) {
     if(abs(score) <= MATE_THRESHOLD) return "cp " + to_string(score);
 
     // if it is a mate, we print "mate" + the number of plies until mate
-    return "mate " + to_string((score > 0 ? mateEval - score + 1 : -mateEval - score) / 2);
+    return "mate " + to_string((score > 0 ? MATE_EVAL - score + 1 : -MATE_EVAL - score) / 2);
 }
 
 // function to split string into words
@@ -93,7 +93,7 @@ void UCI::inputPosition(string input) {
     // make the moves
     for(int i = movesIdx+1; i < parsedInput.size(); i++) {
         int moves[256];
-        unsigned char num = board.GenerateLegalMoves(moves);
+        unsigned char num = board.generateLegalMoves(moves);
         for(unsigned char idx = 0; idx < num; idx++) 
             if(moveToString(moves[idx]) == parsedInput[i]) {
                 board.makeMove(moves[idx]);
@@ -107,7 +107,7 @@ int UCI::moveGenTest(short depth, bool show) {
     if(depth == 0) return 1;
 
     int moves[256];
-    unsigned char num = board.GenerateLegalMoves(moves);
+    unsigned char num = board.generateLegalMoves(moves);
 
     if(depth == 1) return num;
 
@@ -229,6 +229,6 @@ void UCI::inputGo(string input) {
         stopTime = startTime + time + inc - 50;
     }
 
-    auto result = Search();
+    auto result = search();
     cout << "bestmove " << moveToString(result.first) << '\n';
 }

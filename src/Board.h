@@ -25,15 +25,15 @@ enum Color {
 };
 
 enum Directions {
-    North = 8,
-    South = -8,
-    East = 1,
-    West = -1,
+    north = 8,
+    south = -8,
+    east = 1,
+    west = -1,
 
-    SouthEast = South+East,
-    SouthWest = South+West,
-    NorthEast = North+East,
-    NorthWest = North+West
+    southEast = south+east,
+    southWest = south+west,
+    northEast = north+east,
+    northWest = north+west
 };
 
 enum squares {
@@ -76,8 +76,8 @@ public:
     bool isInCheck();
     bool isDraw();
 
-    short GeneratePseudoLegalMoves();
-    unsigned char GenerateLegalMoves(int *moves);
+    short generatePseudoLegalMoves();
+    unsigned char generateLegalMoves(int *moves);
 
     void makeMove(int move);
     void unmakeMove(int move);
@@ -95,7 +95,7 @@ U64 pawnAttacks(U64 pawns, char color);
 U64 knightAttacks(U64 knights);
 
 bool isInBoard(char sq, char dir);
-void Init();
+void init();
 
 string square(char x);
 string moveToString(int move);

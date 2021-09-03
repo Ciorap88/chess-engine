@@ -5,19 +5,14 @@
 
 #include <bits/stdc++.h>
 
-#include "Board.h"
-#include "Evaluate.h"
+using namespace std;
 
-pair<int, int> Search();
+pair<int, int> search();
 
-extern bool timeOver;
-extern int bestMove;
-extern const int noMove;
-extern const int MATE_THRESHOLD;
-extern const int mateEval;
+extern const int NO_MOVE, MATE_THRESHOLD, MATE_EVAL;
 
 extern short maxDepth;
-extern int startTime, stopTime;
-extern bool infiniteTime;
+extern int startTime, stopTime, bestMove;
+extern bool infiniteTime, timeOver;
 
 #endif

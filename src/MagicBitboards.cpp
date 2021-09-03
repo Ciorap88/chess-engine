@@ -14,7 +14,7 @@ typedef unsigned long long U64;
 typedef const U64 C64;
 
 // number of bits we need to shift when computing magic attacks
-const char rookBits[64] = {
+const char ROOK_BITS[64] = {
     12, 11, 11, 11, 11, 11, 11, 12,
     11, 10, 10, 10, 10, 10, 10, 11,
     11, 10, 10, 10, 10, 10, 10, 11,
@@ -25,7 +25,7 @@ const char rookBits[64] = {
     12, 11, 11, 11, 11, 11, 11, 12
 };
 
-const char bishopBits[64] = {
+const char BISHOP_BITS[64] = {
     6, 5, 5, 5, 5, 5, 5, 6,
     5, 5, 5, 5, 5, 5, 5, 5,
     5, 5, 7, 7, 7, 7, 5, 5,
@@ -37,7 +37,7 @@ const char bishopBits[64] = {
 };
 
 // precalculated values for the magic numbers
-C64 bishopMagics[64] = {577322812503966336, 2270049134510085, 38289964190400650, 158769899958174800, 565217696222208, 581529844573028484, 4036387455024235520,
+C64 BISHOP_MAGICS[64] = {577322812503966336, 2270049134510085, 38289964190400650, 158769899958174800, 565217696222208, 581529844573028484, 4036387455024235520,
 581034909873737735, 1152926211925100032, 7219360397122405076, 18594945514614800, 4677221482548, 2379030914224099330, 75437566601986049, 2017614866464133392,
 37154838677037057, 361415798805365248, 55204288533234706, 288793602392342658, 18577365878833152, 295003440814227600, 18084775848838144, 584343159787553905,
 149182288558164096, 2490543513319768324, 1227530799180683298, 2534383697937920, 38289393498325024, 4521260549685264, 4613953211559199244, 36310560044222516,
@@ -47,7 +47,7 @@ C64 bishopMagics[64] = {577322812503966336, 2270049134510085, 38289964190400650,
 2328363309472161793, 74768267218944, 2891311257527783936, 1163617970535338272, 4613937844619182592, 90423983978136576, 1139163907769376, 638954298933377,
 306262375445569664};
 
-C64 rookMagics[64] = {72075324745056513, 18031991769276424, 648553543602538512, 4827894603405330436, 144117387368072224, 144117387233591696, 2377936887437328532,
+C64 ROOK_MAGICS[64] = {72075324745056513, 18031991769276424, 648553543602538512, 4827894603405330436, 144117387368072224, 144117387233591696, 2377936887437328532,
 3494804722568675456, 1688988448522752, 216243426004312064, 281754151682064, 2814784664895556, 18295890951276546, 281483701125376, 148900271274131524,
 2306405960794767490, 35734136307724, 36312471564320848, 580964902097657859, 630513843974439168, 38280872784560640, 36592296770143232, 39582452248648,
 2253998845403220, 180144269636411392, 306280513088260352, 1153506741147664640, 36288179474432, 378311169088161024, 5911288043798594, 1297599651226584065,
@@ -160,7 +160,7 @@ U64 bishopAttacks(char sq, U64 blockers) {
 // populate the mBishopAttacks and mRookAttacks arrays with the correct attack bitboards 
 // according to the current magic numbers
 void populateSlidingAttacks(char sq, int m, bool bishop) {
-    U64 magic = (bishop ? bishopMagics[sq] : rookMagics[sq]);
+    U64 magic = (bishop ? BISHOP_MAGICS[sq] : ROOK_MAGICS[sq]);
     U64 mask = (bishop ? bishopMasks[sq] : rookMasks[sq]);
     int n = popcount(mask);
     U64 blockers[4096], a[4096], used[4096];
@@ -226,39 +226,39 @@ U64 findMagic(char sq, int m, int bishop) {
 // after that, we multiply the result with the corresponding magic number and then we right shift it
 U64 magicBishopAttacks(U64 occ, char sq) {
     occ &= bishopMasks[sq];
-    occ *= bishopMagics[sq];
-    occ >>= 64-bishopBits[sq];
+    occ *= BISHOP_MAGICS[sq];
+    occ >>= 64-BISHOP_BITS[sq];
     return mBishopAttacks[sq][occ];
 }
 
 U64 magicRookAttacks(U64 occ, char sq) {
     occ &= rookMasks[sq];
-    occ *= rookMagics[sq];
-    occ >>= 64-rookBits[sq];
+    occ *= ROOK_MAGICS[sq];
+    occ >>= 64-ROOK_BITS[sq];
     return mRookAttacks[sq][occ];
 }
 
 // the function we will call when initializing the engine
 void initMagics() {
     for(char i = 0; i < 64; i++) {
-        populateSlidingAttacks(i, bishopBits[i], 1);
-        populateSlidingAttacks(i, rookBits[i], 0); 
+        populateSlidingAttacks(i, BISHOP_BITS[i], 1);
+        populateSlidingAttacks(i, ROOK_BITS[i], 0); 
     }
 }
 
 // function for generating magic numbers
 void generateMagicNumbers() {
-    cout << "bishopMagics[64] = {";
+    cout << "BISHOP_MAGICS[64] = {";
     for(char i = 0; i <64; i++) {
         if(i%8 == 7) cout << '\n';
-        cout << findMagic(i, bishopBits[i], 1);
+        cout << findMagic(i, BISHOP_BITS[i], 1);
         if(i < 63) cout << ", ";
     }
     cout << "};\n";
-    cout << "rookMagics[64] = {";
+    cout << "ROOK_MAGICS[64] = {";
     for(char i = 0; i <64; i++) {
         if(i%8 == 7) cout << '\n';
-        cout << findMagic(i, rookBits[i], 0);
+        cout << findMagic(i, ROOK_BITS[i], 0);
         if(i < 63) cout << ", ";
     }
     cout << "};\n";

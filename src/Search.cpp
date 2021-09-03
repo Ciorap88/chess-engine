@@ -12,13 +12,13 @@ using namespace std;
 
 int killerMoves[200][2];
 
-const int inf = 1000000;
-const int noMove = -1;
+const int INF = 1000000;
+const int NO_MOVE = -1;
 
-int bestMove = noMove;
+int bestMove = NO_MOVE;
 
-const int mateEval = inf-1;
-const int MATE_THRESHOLD = mateEval/2;
+const int MATE_EVAL = INF-1;
+const int MATE_THRESHOLD = MATE_EVAL/2;
 
 int startTime, stopTime;
 short maxDepth = 200;
@@ -44,11 +44,11 @@ int captureScore(int move) {
     int score = 0;
 
     // captured piece value - capturing piece value
-    if(isCapture(move)) score += (pieceValues[getCapturedPiece(move)]-
-                  pieceValues[getPiece(move)]);
+    if(isCapture(move)) score += (PIECE_VALUES[getCapturedPiece(move)]-
+                  PIECE_VALUES[getPiece(move)]);
 
     // material gained by promotion
-    if(isPromotion(move)) score += pieceValues[getPromotionPiece(move)] - pieceValues[Pawn];
+    if(isPromotion(move)) score += PIECE_VALUES[getPromotionPiece(move)] - PIECE_VALUES[Pawn];
 
     return score;
 }
@@ -73,9 +73,9 @@ void sortMoves(int *moves, unsigned char num, short ply) {
     unsigned char nCaptures = 0, nNonCaptures = 0;
 
     // find pv move
-    int pvMove = noMove;
+    int pvMove = NO_MOVE;
     if(ply == 0) pvMove = bestMove;
-    if(pvMove == noMove) pvMove = retrieveBestMove();
+    if(pvMove == NO_MOVE) pvMove = retrieveBestMove();
 
     // check legality of killer moves
     bool killerLegal[2] = {false, false};
@@ -96,7 +96,7 @@ void sortMoves(int *moves, unsigned char num, short ply) {
     unsigned char newNum = 0; // size of sorted array
 
     // 1: add pv move
-    if(pvMove != noMove) moves[newNum++] = pvMove;
+    if(pvMove != NO_MOVE) moves[newNum++] = pvMove;
     
     // 2: add captures sorted by MVV-LVA (only winning / equal captures first)
     sort(captures, captures+nCaptures, cmpCapturesDesc);
@@ -106,7 +106,7 @@ void sortMoves(int *moves, unsigned char num, short ply) {
 
     // 3: add killer moves
     for(char i = 0; i < 2; i++)
-        if(killerLegal[i] && (killerMoves[ply][i] != noMove) && (killerMoves[ply][i] != pvMove)) 
+        if(killerLegal[i] && (killerMoves[ply][i] != NO_MOVE) && (killerMoves[ply][i] != pvMove)) 
             moves[newNum++] = killerMoves[ply][i];
 
     // 4: add other quiet moves
@@ -134,9 +134,9 @@ int quiesce(int alpha, int beta) {
     if(board.isDraw()) return 0;
 
     int moves[256];
-    unsigned char num = board.GenerateLegalMoves(moves);
+    unsigned char num = board.generateLegalMoves(moves);
 
-    int standPat = Evaluate();
+    int standPat = evaluate();
     if(standPat >= beta)
         return beta;
 
@@ -177,7 +177,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
     if(timeOver) return 0;
     nodesSearched++;
 
-    char hashFlag = hashFAlpha;
+    char hashFlag = HASH_F_ALPHA;
 
     bool isInCheck = board.isInCheck();
 
@@ -186,7 +186,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
 
     // ---mate distance pruning---
     // if we find mate, we shouldn't look for a better move
-    int mateScore = mateEval-ply;
+    int mateScore = MATE_EVAL-ply;
 
     if(alpha < -mateScore) alpha = -mateScore;
     if(beta > mateScore) beta = mateScore;
@@ -195,7 +195,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
     if(board.isDraw()) return 0;
 
     int moves[256];
-    unsigned char num = board.GenerateLegalMoves(moves);
+    unsigned char num = board.generateLegalMoves(moves);
     if(num == 0) {
         if(isInCheck)
             return -mateScore; //checkmate
@@ -203,8 +203,8 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
     }
 
     // retrieving the hashed move and evaluation if there is any
-    int hashScore = ProbeHash(depth, alpha, beta);
-    if(hashScore != valUnknown) {
+    int hashScore = probeHash(depth, alpha, beta);
+    if(hashScore != VAL_UNKNOWN) {
         // we return hashed info only if it is an exact hit in pv nodes
         if(!isPV || (hashScore > alpha && hashScore < beta))
             return hashScore;
@@ -215,18 +215,19 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
         if(timeOver) return 0;
         return q;
     }
-    int currBestMove = noMove;
+    int currBestMove = NO_MOVE;
 
     // ---null move pruning---
     // if our position is good, we can pass the turn to the opponent
     // and if that doesn't wreck our position, we don't need to search further
-    if((!isPV) && (isInCheck == false) && ply && (depth >= 3) && (Evaluate() >= beta) && doNull && (gamePhase >= endgameMaterial)) {
-        board.makeMove(noMove);
+    const int ENDGAME_MATERIAL = 10;
+    if((!isPV) && (isInCheck == false) && ply && (depth >= 3) && (evaluate() >= beta) && doNull && (gamePhase >= ENDGAME_MATERIAL)) {
+        board.makeMove(NO_MOVE);
 
         short R = (depth > 6 ? 3 : 2);
         int score = -alphaBeta(-beta, -beta+1, depth-R-1, ply+1, false, false);
 
-        board.unmakeMove(noMove);
+        board.unmakeMove(NO_MOVE);
 
         if(timeOver) return 0;
         if(score >= beta) return beta;
@@ -234,8 +235,8 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
 
     // decide if we can apply futility pruning
     bool fPrune = false;
-    int fMargin[4] = { 0, 200, 300, 500 };
-    if (depth <= 3 && !isPV && !isInCheck && abs(alpha) < 9000 && Evaluate() + fMargin[depth] <= alpha)
+    const int F_MARGIN[4] = { 0, 200, 300, 500 };
+    if (depth <= 3 && !isPV && !isInCheck && abs(alpha) < 9000 && evaluate() + F_MARGIN[depth] <= alpha)
         fPrune = true;
 
     char movesSearched = 0;
@@ -296,7 +297,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
         if(timeOver) return 0;
 
         if(score >= beta) {
-            RecordHash(depth, beta, hashFBeta, currBestMove);
+            recordHash(depth, beta, HASH_F_BETA, currBestMove);
 
             // killer moves are quiet moves that cause a beta cutoff and are used for sorting purposes
             storeKiller(ply, moves[idx]);
@@ -305,7 +306,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
         }
 
         if(score > alpha) {
-            hashFlag = hashFExact;
+            hashFlag = HASH_F_EXACT;
             alpha = score;
             raisedAlpha = true;
 
@@ -315,20 +316,20 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
     }
 
     if(!timeOver && ply == 0) bestMove = currBestMove;
-    RecordHash(depth, alpha, hashFlag, currBestMove);
+    recordHash(depth, alpha, hashFlag, currBestMove);
     return alpha;
 }
 
-const int aspIncrease = 50;
-pair<int, int> Search() {
-    bestMove = noMove;
+const int ASP_INCREASE = 50;
+pair<int, int> search() {
+    bestMove = NO_MOVE;
     timeOver = false;
 
-    int alpha = -inf, beta = inf;
+    int alpha = -INF, beta = INF;
     int eval = 0;
 
     for(short i = 0; i < 200; i++)
-        killerMoves[i][0] = killerMoves[i][1] = noMove;
+        killerMoves[i][0] = killerMoves[i][1] = NO_MOVE;
 
     //---iterative deepening---
     // we start with a depth 1 search and then we increase the depth by 1 every time
@@ -349,14 +350,14 @@ pair<int, int> Search() {
         // if we fall outside the current window, we do a full width search with the same depth
         // and if we stay inside the window, we only increase it by a small number, so that we can achieve more cutoffs
         if(curEval <= alpha || curEval >= beta) {
-            alpha = -inf;
-            beta = inf;
+            alpha = -INF;
+            beta = INF;
             continue;
         }
 
         eval = curEval;
-        alpha = eval-aspIncrease; // increase window for next iteration
-        beta = eval+aspIncrease;
+        alpha = eval-ASP_INCREASE; // increase window for next iteration
+        beta = eval+ASP_INCREASE;
 
         UCI::showSearchInfo(depth, nodesSearched+nodesQ, currStartTime, eval);
         currStartTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();

@@ -9,8 +9,6 @@
 #include "UCI.h"
 
 int main() {
-    Init();
+    init();
     UCI::UCICommunication();
-    // UCI::inputPosition("position startpos");
-    // UCI::inputGo("go depth 10");
 }
