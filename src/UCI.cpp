@@ -156,6 +156,7 @@ void UCI::printBoard() {
 
         if(i%8 == 7) cout << '\n';
     }
+    cout << '\n';
 }
 
 void UCI::inputGo(string input) {

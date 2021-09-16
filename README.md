@@ -1,6 +1,6 @@
 # chess-engine
 
-This is a UCI-compatible chess engine with ~1800 elo rating (just an estimation, I can't know for sure until it will be tested).
+This is a UCI-compatible chess engine with ~2000 elo rating (just an estimation, I can't know for sure until it will be tested).
 
 ### Features: 
 - Pseudo-legal and legal move generation using bitboards
