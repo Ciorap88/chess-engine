@@ -143,8 +143,8 @@ int quiesce(int alpha, int beta) {
     // ---delta pruning---
     // we test if the greatest material swing is enough to raise alpha
     // if it isn't, then the position is hopeless so searching deeper won't improve it
-    int delta = 975 + 875 + 200; // capturing a queen + promoting a pawn to a queen + safety margin
-    if(delta + standPat < alpha) return alpha;
+    const int DELTA = 975 + 875 + 200; // capturing a queen + promoting a pawn to a queen + safety margin
+    if(DELTA + standPat < alpha) return alpha;
 
     alpha = max(alpha, standPat);
 
@@ -270,26 +270,30 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
             depth -= reductionDepth;
         } 
 
-    pvSearch:
-        // ---principal variation search---
-        // we do a full search only until we find a move that raises alpha and we consider it to be the best
-        // for the rest of the moves we start with a quick (null window - beta = alpha+1) search
-        // and only if the move has potential to be the best, we do a full search
-        if(!raisedAlpha) {
-            score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true, true);
-        } else {
-            score = -alphaBeta(-alpha-1, -alpha, depth-1, ply+1, true, false);
-            if(score > alpha && score < beta)
+        bool repeatPVSearch;
+        do {
+            repeatPVSearch = false;
+            
+            // ---principal variation search---
+            // we do a full search only until we find a move that raises alpha and we consider it to be the best
+            // for the rest of the moves we start with a quick (null window - beta = alpha+1) search
+            // and only if the move has potential to be the best, we do a full search
+            if(!raisedAlpha) {
                 score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true, true);
-        }
+            } else {
+                score = -alphaBeta(-alpha-1, -alpha, depth-1, ply+1, true, false);
+                if(score > alpha && score < beta)
+                    score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true, true);
+            }
 
-        // move can be good, we do a full depth search
-        if(reductionDepth && score > alpha) {
-            depth += reductionDepth;
-            reductionDepth = 0;
-
-            goto pvSearch;
-        }
+            // move can be good, we do a full depth search
+            if(reductionDepth && score > alpha) {
+                depth += reductionDepth;
+                reductionDepth = 0;
+                
+                repeatPVSearch = true;
+            }
+        } while(repeatPVSearch);
 
         board.unmakeMove(moves[idx]);
         movesSearched++;
