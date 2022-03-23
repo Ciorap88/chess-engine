@@ -19,7 +19,7 @@ public:
     static void inputGo(string input);
 
     static void showSearchInfo(short depth, int nodes, int startTime, int score);
-    static int moveGenTest(short depth, bool show);
+    static long long moveGenTest(short depth, bool show);
     static void printBoard();
 };
 

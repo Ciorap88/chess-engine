@@ -103,7 +103,7 @@ void UCI::inputPosition(string input) {
 }
 
 // perft function that returns the number of positions reached from an initial position after a certain depth
-int UCI::moveGenTest(short depth, bool show) {
+long long UCI::moveGenTest(short depth, bool show) {
     if(depth == 0) return 1;
 
     int moves[256];
@@ -115,7 +115,7 @@ int UCI::moveGenTest(short depth, bool show) {
 
     for(unsigned char idx = 0; idx < num; idx++) {
         board.makeMove(moves[idx]);
-        int mv = moveGenTest(depth-1, false);
+        long long mv = moveGenTest(depth-1, false);
 
         if(show) cout << moveToString(moves[idx]) << ": " << mv << '\n';
 
@@ -172,7 +172,7 @@ void UCI::inputGo(string input) {
         // do a perft and then return if it is requested
         if(parsedInput[i] == "perft") {
             int startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-            int num = moveGenTest(stoi(parsedInput[i+1]), true);
+            long long num = moveGenTest(stoi(parsedInput[i+1]), true);
             int endTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
             int time = max(1, endTime-startTime);
             long long nps = 1000LL*num/time;
