@@ -711,7 +711,8 @@ unsigned char Board::generateLegalMoves(int *moves) {
         U64 rooksQueens = (opponentPiecesBB & (this->rooksBB | this->queensBB) & ranksBB[epRank]);
 
         // remove the 2 pawns and compute attacks from rooks/queens on king square
-        U64 removeWhite = bits[from], removeBlack = bits[otherPawnSquare];
+        U64 removeWhite = bits[from], 
+            removeBlack = bits[otherPawnSquare];
         if(color == Black) swap(removeWhite, removeBlack);
 
         this->whitePiecesBB ^= removeWhite;
@@ -821,7 +822,7 @@ void Board::makeMove(int move) {
     this->turn ^= (Black | White);
 }
 
-// basically the inverse of makeMove but we take the previous en passan square and castling rights from the stacks
+// basically the inverse of makeMove but we take the previous en passant square and castling rights from the stacks
 void Board::unmakeMove(int move) {
     if(move == NO_MOVE) { // null move
         this->ep = epStk.top();

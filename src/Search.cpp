@@ -166,7 +166,7 @@ int quiesce(int alpha, int beta) {
     return alpha;
 }
 
-// alpha-beta algorithm with a lot of enhancements
+// alpha-beta algorithm with a fail-hard framework and PVS
 int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isPV) {
     assert(depth >= 0);
 
@@ -270,14 +270,15 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
             depth -= reductionDepth;
         } 
 
+            
+        // ---principal variation search---
+        // we do a full search only until we find a move that raises alpha and we consider it to be the best
+        // for the rest of the moves we start with a quick (null window - beta = alpha+1) search
+        // and only if the move has potential to be the best, we do a full search
         bool repeatPVSearch;
         do {
             repeatPVSearch = false;
-            
-            // ---principal variation search---
-            // we do a full search only until we find a move that raises alpha and we consider it to be the best
-            // for the rest of the moves we start with a quick (null window - beta = alpha+1) search
-            // and only if the move has potential to be the best, we do a full search
+
             if(!raisedAlpha) {
                 score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true, true);
             } else {

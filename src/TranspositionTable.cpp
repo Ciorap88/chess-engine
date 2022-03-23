@@ -108,8 +108,9 @@ void Board::updateHashKey(int move) {
 
     // update ep square
     char nextEp = -1;
-    if(piece == Pawn && abs(from-to) == 16)
+    if(piece == Pawn && abs(from-to) == 16) {
         nextEp = to + (color == White ? south : north);
+    }
 
     if(this->ep != -1) this->hashKey ^= zobristNumbers[Z_EP_FILE_INDEX + (this->ep & 7)];
     if(nextEp != -1) this->hashKey ^= zobristNumbers[Z_EP_FILE_INDEX + (nextEp & 7)];
