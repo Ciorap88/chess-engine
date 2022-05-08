@@ -167,7 +167,7 @@ int quiesce(int alpha, int beta) {
 }
 
 // alpha-beta algorithm with a fail-hard framework and PVS
-int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isPV) {
+int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     assert(depth >= 0);
 
     if(!(nodesSearched & 4095) && !infiniteTime) {
@@ -202,6 +202,8 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
         return 0; //stalemate
     }
 
+    bool isPV = (beta - alpha > 1);
+
     // retrieving the hashed move and evaluation if there is any
     int hashScore = probeHash(depth, alpha, beta);
     if(hashScore != VAL_UNKNOWN) {
@@ -225,7 +227,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
         board.makeMove(NO_MOVE);
 
         short R = (depth > 6 ? 3 : 2);
-        int score = -alphaBeta(-beta, -beta+1, depth-R-1, ply+1, false, false);
+        int score = -alphaBeta(-beta, -beta+1, depth-R-1, ply+1, false);
 
         board.unmakeMove(NO_MOVE);
 
@@ -275,16 +277,16 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
         // we do a full search only until we find a move that raises alpha and we consider it to be the best
         // for the rest of the moves we start with a quick (null window - beta = alpha+1) search
         // and only if the move has potential to be the best, we do a full search
-        bool repeatPVSearch;
+        bool repeatSearch;
         do {
-            repeatPVSearch = false;
+            repeatSearch = false;
 
             if(!raisedAlpha) {
-                score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true, true);
+                score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true);
             } else {
-                score = -alphaBeta(-alpha-1, -alpha, depth-1, ply+1, true, false);
+                score = -alphaBeta(-alpha-1, -alpha, depth-1, ply+1, true);
                 if(score > alpha && score < beta)
-                    score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true, true);
+                    score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true);
             }
 
             // move can be good, we do a full depth search
@@ -292,9 +294,9 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull, bool isP
                 depth += reductionDepth;
                 reductionDepth = 0;
                 
-                repeatPVSearch = true;
+                repeatSearch = true;
             }
-        } while(repeatPVSearch);
+        } while(repeatSearch);
 
         board.unmakeMove(moves[idx]);
         movesSearched++;
@@ -344,7 +346,7 @@ pair<int, int> search() {
     for(short depth = 1; depth <= maxDepth; ) {
         nodesSearched = nodesQ = 0;
 
-        int curEval = alphaBeta(alpha, beta, depth, 0, false, true);
+        int curEval = alphaBeta(alpha, beta, depth, 0, false);
 
         if(timeOver) {
             break;
