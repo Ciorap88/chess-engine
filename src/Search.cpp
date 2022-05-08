@@ -186,9 +186,10 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
 
     // ---mate distance pruning---
     // if we find mate, we shouldn't look for a better move
-    int mateScore = MATE_EVAL-ply;
+    int mateScore = MATE_EVAL - ply - 1;
+    int matedScore = - MATE_EVAL + ply;
 
-    if(alpha < -mateScore) alpha = -mateScore;
+    if(alpha < matedScore) alpha = matedScore;
     if(beta > mateScore) beta = mateScore;
     if(alpha >= beta) return alpha;
 
