@@ -133,20 +133,20 @@ int quiesce(int alpha, int beta) {
 
     if(board.isDraw()) return 0;
 
-    int moves[256];
-    unsigned char num = board.generateLegalMoves(moves);
-
     int standPat = evaluate();
-    if(standPat >= beta)
-        return beta;
+    if(standPat >= beta) return beta;
 
     // ---delta pruning---
     // we test if the greatest material swing is enough to raise alpha
     // if it isn't, then the position is hopeless so searching deeper won't improve it
     const int DELTA = 975 + 875 + 200; // capturing a queen + promoting a pawn to a queen + safety margin
-    if(DELTA + standPat < alpha) return alpha;
+    const int ENDGAME_MATERIAL = 10;
+    if(DELTA + standPat < alpha && gamePhase >= ENDGAME_MATERIAL) return alpha;
 
     alpha = max(alpha, standPat);
+
+    int moves[256];
+    unsigned char num = board.generateLegalMoves(moves);
 
     sortMoves(moves, num, -1);
     for(unsigned char idx = 0; idx < num; idx++)  {
@@ -265,7 +265,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
         // we do full searches only for the first moves, and then do a reduced search
         // if the move is potentially good, we do a full search instead
         short reductionDepth = 0;
-        if(movesSearched > 3 && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !isInCheck && depth > 4 && !board.isInCheck()) {
+        if(movesSearched >= 4 && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !isInCheck && depth >= 3 && !board.isInCheck()) {
             reductionDepth = short(sqrt(double(depth-1)) + sqrt(double(movesSearched-1))); 
             if(isPV) reductionDepth /= 3;
             reductionDepth = (reductionDepth < depth-1 ? reductionDepth : depth-1);
