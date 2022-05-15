@@ -868,7 +868,8 @@ void Board::unmakeMove(int move) {
     if(isMoveCapture && !isMoveEP) this->updatePieceInBB(otherPiece, otherColor, to);
 
     this->squares[from] = this->squares[to];
-    this->squares[to] = (otherPiece | otherColor);
+    if(isMoveCapture) this->squares[to] = (otherPiece | otherColor);
+    else this->squares[to] = Empty;
 
     if(isMoveCastle) {
         char rank = (to >> 3), file = (to & 7);

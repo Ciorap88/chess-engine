@@ -8,8 +8,9 @@
 #include "Board.h"
 
 extern const int PIECE_VALUES[7];
-extern int gamePhase;
+extern const int MG_WEIGHT[7];
 
+int gamePhase();
 int evaluate();
 
 #endif
