@@ -136,13 +136,6 @@ int quiesce(int alpha, int beta) {
     int standPat = evaluate();
     if(standPat >= beta) return beta;
 
-    // ---delta pruning---
-    // we test if the greatest material swing is enough to raise alpha
-    // if it isn't, then the position is hopeless so searching deeper won't improve it
-    const int DELTA = 975 + 875 + 200; // capturing a queen + promoting a pawn to a queen + safety margin
-    const int ENDGAME_MATERIAL = 10;
-    if(DELTA + standPat < alpha && gamePhase >= ENDGAME_MATERIAL) return alpha;
-
     alpha = max(alpha, standPat);
 
     int moves[256];
@@ -151,6 +144,14 @@ int quiesce(int alpha, int beta) {
     sortMoves(moves, num, -1);
     for(unsigned char idx = 0; idx < num; idx++)  {
         if(!isCapture(moves[idx]) && !isPromotion(moves[idx])) continue;
+
+
+        // ---delta pruning---
+        // we test if each move has the potential to raise alpha
+        // if it doesn't, then the position is hopeless so searching deeper won't improve it
+        const int ENDGAME_MATERIAL = 10;
+        const int DELTA = standPat +  PIECE_VALUES[getCapturedPiece(moves[idx])] + 200;
+        if((DELTA < alpha) && (gamePhase() - MG_WEIGHT[getCapturedPiece(moves[idx])] >= ENDGAME_MATERIAL) && !isPromotion(moves[idx])) continue;
 
         board.makeMove(moves[idx]);
         int score = -quiesce(-beta, -alpha);
@@ -224,7 +225,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     // if our position is good, we can pass the turn to the opponent
     // and if that doesn't wreck our position, we don't need to search further
     const int ENDGAME_MATERIAL = 10;
-    if((!isPV) && (isInCheck == false) && ply && (depth >= 3) && (evaluate() >= beta) && doNull && (gamePhase >= ENDGAME_MATERIAL)) {
+    if((!isPV) && (isInCheck == false) && ply && (depth >= 3) && (evaluate() >= beta) && doNull && (gamePhase() >= ENDGAME_MATERIAL)) {
         board.makeMove(NO_MOVE);
 
         short R = (depth > 6 ? 3 : 2);

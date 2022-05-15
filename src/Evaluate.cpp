@@ -161,8 +161,10 @@ const int C_PAWN_PENALTY = 25;
 const int TEMPO_BONUS = 10;
 
 
-int gamePhase, whiteAttackersCnt, blackAttackersCnt, whiteAttackWeight, blackAttackWeight;
+int whiteAttackersCnt, blackAttackersCnt, whiteAttackWeight, blackAttackWeight;
 int pawnCntWhite, pawnCntBlack, pieceMaterialWhite, pieceMaterialBlack;
+
+int gamePhase();
 
 int evalPawn(char sq, char color);
 int evalKnight(char sq, char color);
@@ -175,7 +177,6 @@ int whiteKingShield(), blackKingShield();
 int evaluate() {
 
     // reset everything
-    gamePhase = 0;
     whiteAttackersCnt = blackAttackersCnt = 0;
     whiteAttackWeight = blackAttackWeight = 0;
     pawnCntWhite = pawnCntBlack = 0;
@@ -196,7 +197,7 @@ int evaluate() {
     res += evalPawnStructure();
 
     // evaluate kings based on the current game phase (king centralization becomes more important than safety as pieces disappear from the board)
-    int MG_WEIGHT = min(gamePhase, 24);
+    int MG_WEIGHT = min(gamePhase(), 24);
     int egWeight = 24-MG_WEIGHT;
 
     int mgKingScore = whiteKingShield() - blackKingShield();
@@ -265,7 +266,6 @@ int evalKnight(char sq, char color) {
     U64 ourPawnAttacksBB = pawnAttacks(ourPawnsBB, color);
     U64 opponentPawnAttacksBB = pawnAttacks(opponentPawnsBB, (color ^ (White | Black)));
 
-    gamePhase += MG_WEIGHT[Knight];
     if(color == White) pieceMaterialWhite += PIECE_VALUES[Knight];
     else pieceMaterialBlack += PIECE_VALUES[Knight];
 
@@ -342,7 +342,6 @@ int evalBishop(char sq, char color) {
 
     char opponentKingSquare = (color == White ? board.blackKingSquare : board.whiteKingSquare);
 
-    gamePhase += MG_WEIGHT[Bishop];
     if(color == White) pieceMaterialWhite += PIECE_VALUES[Bishop];
     else pieceMaterialBlack += PIECE_VALUES[Bishop];
 
@@ -416,7 +415,6 @@ int evalRook(char sq, char color) {
     char seventhRank = (color == White ? 6 : 1);
     char eighthRank = (color == White ? 7 : 0);
 
-    gamePhase += MG_WEIGHT[Rook];
     if(color == White) pieceMaterialWhite += PIECE_VALUES[Rook];
     else pieceMaterialBlack += PIECE_VALUES[Rook];
 
@@ -490,7 +488,6 @@ int evalQueen(char sq, char color) {
 
     char opponentKingSquare = (color == Black ? board.whiteKingSquare : board.blackKingSquare);
 
-    gamePhase += MG_WEIGHT[Knight];
     if(color == White) pieceMaterialWhite += PIECE_VALUES[Queen];
     else pieceMaterialBlack += PIECE_VALUES[Queen];
 
@@ -697,4 +694,11 @@ int evalPawn(char sq, char color) {
         eval -= C_PAWN_PENALTY;
 
     return eval;
+}
+
+int gamePhase() {
+    return popcount(board.knightsBB) * MG_WEIGHT[Knight] 
+         + popcount(board.bishopsBB) * MG_WEIGHT[Bishop] 
+         + popcount(board.rooksBB) * MG_WEIGHT[Rook]
+         + popcount(board.queensBB) * MG_WEIGHT[Queen]; 
 }
