@@ -10,40 +10,42 @@ using namespace std;
 
 typedef unsigned long long U64;
 
-
-// indices in zobristNumbers vector
-const int Z_BLACK_TURN_INDEX = 12*64;
-const int Z_CASTLE_RIGHTS_INDEX = 12*64+1;
-const int Z_EP_FILE_INDEX = 12*64+17;
-
-vector<U64> zobristNumbers;
+U64 pieceZobristNumbers[7][2][64];
+U64 castleZobristNumbers[16];
+U64 epZobristNumbers[8];
+U64 blackTurnZobristNumber;
 
 void generateZobristHashNumbers() {
-    for(int i = 0; i < 793; i++) {
-        zobristNumbers.push_back(randomULL());
-  }
-}
-
-int zPieceSquareIndex(char piece, char color, char square) {
-    int idx = (2*(piece-1) + (int)(color == Black))*64 + square;
-    return idx;
+    for(int pc = 0; pc < 7; pc++) {
+        for(int c = 0; c < 2; c++) {
+            for(int sq = 0; sq < 64; sq++) {
+                pieceZobristNumbers[pc][c][sq] = randomULL();
+            }
+        }
+    }
+    for(int castle = 0; castle < 16; castle++) {
+        castleZobristNumbers[castle] = randomULL();
+    }
+    for(int col = 0; col < 8; col++) {
+        epZobristNumbers[col] = randomULL();
+    }
+    blackTurnZobristNumber = randomULL();
 }
 
 // xor zobrist numbers corresponding to all features of the current position
 U64 getZobristHashFromCurrPos() {
     U64 key = 0;
     for(char i = 0; i < 64; i++) {
+        if(board.squares[i] == Empty) continue;
         char color = (board.squares[i] & (Black | White));
         char piece = (board.squares[i] ^ color);
 
-        key ^= zobristNumbers[zPieceSquareIndex(piece, color, i)];
+        key ^= pieceZobristNumbers[piece][(int)(color == White)][i];
     }
 
-    key ^= zobristNumbers[Z_CASTLE_RIGHTS_INDEX + board.castleRights];
-    if(board.turn == Black) key ^= zobristNumbers[Z_BLACK_TURN_INDEX];
-
-    char epFile = board.ep % 8;
-    key ^= zobristNumbers[Z_EP_FILE_INDEX + epFile];
+    key ^= castleZobristNumbers[board.castleRights];
+    if(board.ep != -1) key ^= epZobristNumbers[board.ep % 8];
+    if(board.turn == Black) key ^= blackTurnZobristNumber;
 
     return key;
 }
@@ -51,8 +53,8 @@ U64 getZobristHashFromCurrPos() {
 // update the hash key after making a move
 void Board::updateHashKey(int move) {
     if(move == NO_MOVE) { // null move
-        this->hashKey ^= zobristNumbers[Z_EP_FILE_INDEX + (this->ep & 7)];
-        this->hashKey ^= zobristNumbers[Z_BLACK_TURN_INDEX];
+        if(this->ep != -1) this->hashKey ^= epZobristNumbers[this->ep % 8];
+        this->hashKey ^= blackTurnZobristNumber;
         return;
     }
 
@@ -73,11 +75,11 @@ void Board::updateHashKey(int move) {
     char capturedPieceSquare = (isMoveEP ? (to + (color == White ? south : north)) : to);
 
     // update pieces
-    this->hashKey ^= zobristNumbers[zPieceSquareIndex(piece, color, from)];
-    if(isMoveCapture) this->hashKey ^= zobristNumbers[zPieceSquareIndex(otherPiece, otherColor, capturedPieceSquare)];
+    this->hashKey ^= pieceZobristNumbers[piece][(int)(color == White)][from];
+    if(isMoveCapture) this->hashKey ^= pieceZobristNumbers[otherPiece][(int)(otherColor == White)][capturedPieceSquare];
 
-    if(!promotionPiece) this->hashKey ^= zobristNumbers[zPieceSquareIndex(piece, color, to)];
-    else this->hashKey ^= zobristNumbers[zPieceSquareIndex(promotionPiece, color, to)];
+    if(!promotionPiece) this->hashKey ^= pieceZobristNumbers[piece][(int)(color == White)][to];
+    else this->hashKey ^= pieceZobristNumbers[promotionPiece][(int)(color == White)][to];
 
     // castle stuff
     char newCastleRights = this->castleRights;
@@ -94,16 +96,16 @@ void Board::updateHashKey(int move) {
     if((newCastleRights & bits[2]) && (from == h8 || to == h8))
         newCastleRights ^= bits[2];
 
-    this->hashKey ^= zobristNumbers[Z_CASTLE_RIGHTS_INDEX + this->castleRights];
-    this->hashKey ^= zobristNumbers[Z_CASTLE_RIGHTS_INDEX + newCastleRights];
+    this->hashKey ^= castleZobristNumbers[this->castleRights];
+    this->hashKey ^= castleZobristNumbers[newCastleRights];
 
     if(isMoveCastle) {
         char Rank = (to >> 3), File = (to & 7);
         char rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
         char rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
 
-        this->hashKey ^= zobristNumbers[zPieceSquareIndex(Rook, color, rookStartSquare)];
-        this->hashKey ^= zobristNumbers[zPieceSquareIndex(Rook, color, rookEndSquare)];
+        this->hashKey ^= pieceZobristNumbers[Rook][(int)(color == White)][rookStartSquare];
+        this->hashKey ^= pieceZobristNumbers[Rook][(int)(color == White)][rookEndSquare];
     }
 
     // update ep square
@@ -112,11 +114,11 @@ void Board::updateHashKey(int move) {
         nextEp = to + (color == White ? south : north);
     }
 
-    if(this->ep != -1) this->hashKey ^= zobristNumbers[Z_EP_FILE_INDEX + (this->ep & 7)];
-    if(nextEp != -1) this->hashKey ^= zobristNumbers[Z_EP_FILE_INDEX + (nextEp & 7)];
+    if(this->ep != -1) this->hashKey ^= epZobristNumbers[this->ep % 8];
+    if(nextEp != -1) this->hashKey ^= epZobristNumbers[nextEp % 8];
 
     // switch turn
-    this->hashKey ^= zobristNumbers[Z_BLACK_TURN_INDEX];
+    this->hashKey ^= blackTurnZobristNumber;
 }
 
 const char HASH_F_EXACT = 0;
@@ -131,8 +133,10 @@ struct hashElement {
     int best;
 };
 
-const int TABLE_SIZE = (1 << 19);
+
+const int TABLE_SIZE = (1 << 25);
 const int VAL_UNKNOWN = -1e9;
+
 
 hashElement hashTable[TABLE_SIZE];
 
@@ -153,9 +157,9 @@ int probeHash(short depth, int alpha, int beta) {
 
     if(h->key == board.hashKey) {
         if(h->depth >= depth) {
-            if(h->flags == HASH_F_EXACT) return h->value;
-            if(h->flags == HASH_F_ALPHA && h->value <= alpha) return alpha;
-            if(h->flags == HASH_F_BETA && h->value >= beta) return beta;
+            if((h->flags == HASH_F_EXACT || h->flags == HASH_F_ALPHA) && h->value <= alpha) return alpha;
+            if((h->flags == HASH_F_EXACT || h->flags == HASH_F_BETA) && h->value >= beta) return beta;
+            if(h->flags == HASH_F_EXACT && h->value > alpha && h->value < beta) return h->value;
         }
     }
     return VAL_UNKNOWN;

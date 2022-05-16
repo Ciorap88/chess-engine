@@ -15,8 +15,6 @@ int killerMoves[200][2];
 const int INF = 1000000;
 const int NO_MOVE = -1;
 
-int bestMove = NO_MOVE;
-
 const int MATE_EVAL = INF-1;
 const int MATE_THRESHOLD = MATE_EVAL/2;
 
@@ -27,6 +25,7 @@ bool infiniteTime;
 int nodesSearched = 0;
 int nodesQ = 0;
 bool timeOver = false;
+
 
 // store unique killer moves
 void storeKiller(short ply, int move) {
@@ -70,22 +69,20 @@ void sortMoves(int *moves, unsigned char num, short ply) {
       }
 
     int captures[256], nonCaptures[256];
-    unsigned char nCaptures = 0, nNonCaptures = 0;
+    unsigned int nCaptures = 0, nNonCaptures = 0;
 
     // find pv move
-    int pvMove = NO_MOVE;
-    if(ply == 0) pvMove = bestMove;
-    if(pvMove == NO_MOVE) pvMove = retrieveBestMove();
+    int pvMove = retrieveBestMove();
 
     // check legality of killer moves
     bool killerLegal[2] = {false, false};
     for(char i = 0; i < 2; i++)
-        for(unsigned char idx = 0; idx < num; idx++)
+        for(unsigned int idx = 0; idx < num; idx++)
             if(killerMoves[ply][i] == moves[idx])
                 killerLegal[i] = true;
 
     // split the other moves into captures and non captures for easier sorting
-    for(unsigned char idx = 0; idx < num; idx++) {
+    for(unsigned int idx = 0; idx < num; idx++) {
         if((moves[idx] == pvMove) || (moves[idx] == killerMoves[ply][0]) || (moves[idx] == killerMoves[ply][1]))
             continue;
 
@@ -93,7 +90,7 @@ void sortMoves(int *moves, unsigned char num, short ply) {
         else nonCaptures[nNonCaptures++] = moves[idx];
     }
 
-    unsigned char newNum = 0; // size of sorted array
+    unsigned int newNum = 0; // size of sorted array
 
     // 1: add pv move
     if(pvMove != NO_MOVE) moves[newNum++] = pvMove;
@@ -110,7 +107,7 @@ void sortMoves(int *moves, unsigned char num, short ply) {
             moves[newNum++] = killerMoves[ply][i];
 
     // 4: add other quiet moves
-    for(unsigned char idx = 0; idx < nNonCaptures; idx++)
+    for(unsigned int idx = 0; idx < nNonCaptures; idx++)
         moves[newNum++] = nonCaptures[idx];
 
     // 5: add losing captures
@@ -159,9 +156,10 @@ int quiesce(int alpha, int beta) {
 
         if(timeOver) return 0;
 
-        if(score >= beta) return beta;
-
-        alpha = max(alpha, score);
+        if(score > alpha) {
+            if(score >= beta) return beta;
+            alpha = score;
+        }
     }
 
     return alpha;
@@ -228,6 +226,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     if((!isPV) && (isInCheck == false) && ply && (depth >= 3) && (evaluate() >= beta) && doNull && (gamePhase() >= ENDGAME_MATERIAL)) {
         board.makeMove(NO_MOVE);
 
+
         short R = (depth > 6 ? 3 : 2);
         int score = -alphaBeta(-beta, -beta+1, depth-R-1, ply+1, false);
 
@@ -259,79 +258,62 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
             board.unmakeMove(moves[idx]);
             continue;
         }
-
-        int score;
-
-        // ---late move reduction---
-        // we do full searches only for the first moves, and then do a reduced search
-        // if the move is potentially good, we do a full search instead
-        short reductionDepth = 0;
-        if(movesSearched >= 4 && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !isInCheck && depth >= 3 && !board.isInCheck()) {
-            reductionDepth = short(sqrt(double(depth-1)) + sqrt(double(movesSearched-1))); 
-            if(isPV) reductionDepth /= 3;
-            reductionDepth = (reductionDepth < depth-1 ? reductionDepth : depth-1);
-
-            depth -= reductionDepth;
-        } 
-
             
         // ---principal variation search---
         // we do a full search only until we find a move that raises alpha and we consider it to be the best
         // for the rest of the moves we start with a quick (null window - beta = alpha+1) search
         // and only if the move has potential to be the best, we do a full search
-        bool repeatSearch;
-        do {
-            repeatSearch = false;
+        int score;
+        if(!movesSearched) {
+            score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true);
+        } else {
 
-            if(!raisedAlpha) {
-                score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true);
+            // ---late move reduction---
+            // we do full searches only for the first moves, and then do a reduced search
+            // if the move is potentially good, we do a full search instead
+            if(movesSearched >= 4 && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !isInCheck && depth >= 3 && !board.isInCheck()) {
+                int reductionDepth = int(sqrt(double(depth-1)) + sqrt(double(movesSearched-1))); 
+                reductionDepth = (reductionDepth < depth-1 ? reductionDepth : depth-1);
+
+                score = -alphaBeta(-alpha-1, -alpha, depth - reductionDepth - 1, ply+1, true);
             } else {
+                score = alpha + 1; // hack to ensure that full-depth search is done
+            }
+
+            if(score > alpha) {
                 score = -alphaBeta(-alpha-1, -alpha, depth-1, ply+1, true);
                 if(score > alpha && score < beta)
                     score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true);
             }
-
-            // move can be good, we do a full depth search
-            if(reductionDepth && score > alpha) {
-                depth += reductionDepth;
-                reductionDepth = 0;
-                
-                repeatSearch = true;
-            }
-        } while(repeatSearch);
+        }
 
         board.unmakeMove(moves[idx]);
         movesSearched++;
 
         if(timeOver) return 0;
-
-        if(score >= beta) {
-            recordHash(depth, beta, HASH_F_BETA, currBestMove);
-
-            // killer moves are quiet moves that cause a beta cutoff and are used for sorting purposes
-            storeKiller(ply, moves[idx]);
-
-            return beta;
-        }
-
+        
         if(score > alpha) {
+            currBestMove = moves[idx];
+            if(score >= beta) {
+                recordHash(depth, beta, HASH_F_BETA, currBestMove);
+
+                // killer moves are quiet moves that cause a beta cutoff and are used for sorting purposes
+                storeKiller(ply, moves[idx]);
+
+                return beta;
+            }
             hashFlag = HASH_F_EXACT;
             alpha = score;
-            raisedAlpha = true;
-
-            currBestMove = moves[idx];
         }
-        
     }
+    if(timeOver) return 0;
 
-    if(!timeOver && ply == 0) bestMove = currBestMove;
     recordHash(depth, alpha, hashFlag, currBestMove);
     return alpha;
 }
 
 const int ASP_INCREASE = 50;
 pair<int, int> search() {
-    bestMove = NO_MOVE;
     timeOver = false;
 
     int alpha = -INF, beta = INF;

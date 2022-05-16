@@ -190,6 +190,8 @@ void init() {
     }
 
     initMagics();
+
+    clearTT();
 }
 
 // returns the direction of the move if any, or 0 otherwise
