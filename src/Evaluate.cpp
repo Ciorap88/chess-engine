@@ -128,7 +128,7 @@ const int PIECE_VALUES[7] = {0, 100, 325, 350, 500, 975, 0};
 const int PIECE_ATTACK_WEIGHT[6] = {0, 0, 2, 2, 3, 5};
 
 // bonuses and penalties according to various features of the position
-const int KNGIHT_MOBILITY = 3;
+const int KNGIHT_MOBILITY = 4;
 const int KNIGHT_PAWN_CONST = 3;
 const int TRAPPED_KNIGHT_PENALTY = 100;
 const int KNIGHT_DEF_BY_PAWN = 15;
@@ -136,21 +136,21 @@ const int BLOCKING_C_KNIGHT = 30;
 const int KNIGHT_PAIR_PENALTY = 20;
 
 const int BISHOP_PAIR = 50;
-const int TRAPPED_BISHOP_PENALTY = 150;
+const int TRAPPED_BISHOP_PENALTY = 100;
 const int FIANCHETTO_BONUS = 20;
-const int BISHOP_MOBILITY = 3;
-const int BLOCKED_BISHOP_PENALTY = 30;
+const int BISHOP_MOBILITY = 5;
+const int BLOCKED_BISHOP_PENALTY = 50;
 
 const int ROOK_ON_QUEEN_FILE = 10;
 const int ROOK_ON_OPEN_FILE = 20;
 const int ROOK_PAWN_CONST = 3;
-const int ROOK_ON_SEVENTH = 50;
+const int ROOK_ON_SEVENTH = 30;
 const int ROOKS_DEF_EACH_OTHER = 5;
 const int ROOK_MOBILITY = 3;
 const int BLOCKED_ROOK_PENALTY = 50;
 
 const int EARLY_QUEEN_DEVELOPMENT = 20;
-const int QUEEN_MOBILITY = 3;
+const int QUEEN_MOBILITY = 2;
 
 const int KING_SHIELD[3] = {5, 10, 5};
 
