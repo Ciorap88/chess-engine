@@ -30,7 +30,7 @@ vector<string> splitStr(string s) {
     return ans;
 }
 
-string UCI::engineName = "chess-engine v1";
+string UCI::engineName = "CiorapBot";
 
 void UCI::UCICommunication() {
     while(true) {
@@ -69,8 +69,9 @@ void UCI::inputIsReady() {
     std::cout << "readyok\n";
 }
 
-// prepare for a new game by clearing hash tables
+// prepare for a new game by clearing hash tables and history/killer tables
 void UCI::inputUCINewGame() {
+    clearHistory();
     clearTT();
     repetitionMap.clear();
 }

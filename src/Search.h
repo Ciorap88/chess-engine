@@ -8,6 +8,7 @@
 using namespace std;
 
 pair<int, int> search();
+void clearHistory();
 
 extern const int NO_MOVE, MATE_THRESHOLD, MATE_EVAL;
 
