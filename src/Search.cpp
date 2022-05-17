@@ -186,11 +186,21 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
 
     // ---mate distance pruning---
     // if we find mate, we shouldn't look for a better move
-    int mateScore = MATE_EVAL - ply - 1;
-    int matedScore = - MATE_EVAL + ply;
 
-    if(alpha < matedScore) alpha = matedScore;
-    if(beta > mateScore) beta = mateScore;
+    // lower bound
+    int matedScore = - MATE_EVAL + ply;
+    if(alpha < matedScore) {
+        alpha = matedScore;
+        if(beta <= matedScore) return matedScore;
+    }
+
+    // upper bound
+    int mateScore = MATE_EVAL - ply;
+    if(beta > mateScore) {
+        beta = mateScore;
+        if(alpha >= mateScore) return mateScore;
+    }
+
     if(alpha >= beta) return alpha;
 
     if(board.isDraw()) return 0;
@@ -227,7 +237,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
         board.makeMove(NO_MOVE);
 
         short R = (depth > 6 ? 3 : 2);
-        int score = -alphaBeta(-beta, -beta+1, depth-R-1, ply+1, false);
+        int score = -alphaBeta(-beta, -beta + 1, depth - R - 1, ply + 1, false);
 
         board.unmakeMove(NO_MOVE);
 
@@ -252,7 +262,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
         // ---futility pruning---
         // if a move is bad enough that it wouldn't be able to raise alpha, we just skip it
         // this only applies close to the horizon depth
-        if(fPrune && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !board.isInCheck()) {
+        if(fPrune && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !board.isInCheck() && alpha > -MATE_EVAL + 200 && beta < MATE_EVAL - 200) {
             board.unmakeMove(moves[idx]);
             continue;
         }
