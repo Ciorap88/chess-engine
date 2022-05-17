@@ -11,7 +11,7 @@
 using namespace std;
 
 int killerMoves[200][2];
-int history[2][64][64];
+int history[16][64];
 const int HISTORY_MAX = 1e8;
 
 const int INF = 1000000;
@@ -41,36 +41,37 @@ void storeKiller(short ply, int move) {
 
 // same as killer moves, but they are saved based on their squares and color
 void updateHistory(int move, int depth) {
-    history[(int)(getColor(move) == White)][getFromSq(move)][getToSq(move)] += depth * depth;
+    int bonus = depth * depth;
+
+    history[(getColor(move) | getPiece(move))][getToSq(move)] += 2 * bonus;
+    for(int pc = 0; pc < 16; pc++) {
+        for(int sq = 0; sq < 64; sq++) {
+            history[pc][sq] -= bonus;
+        }
+    }
 
     // cap history points at HISTORY_MAX
-    if(history[(int)(getColor(move) == White)][getFromSq(move)][getToSq(move)] > HISTORY_MAX) {
-        for(int color = 0; color < 2; color++) {
-            for(int from = 0; from < 64; from++) {
-                for(int to = 0; to < 64; to++) {
-                    history[color][from][to] /= 2;
-                }
+    if(history[(getColor(move) | getPiece(move))][getToSq(move)] > HISTORY_MAX) {
+        for(int pc = 0; pc < 16; pc++) {
+            for(int sq = 0; sq < 64; sq++) {
+                history[pc][sq] /= 2;
             }
         }
     }
 }
 
 void clearHistory() {
-    for(int color = 0; color < 2; color++) {
-        for(int from = 0; from < 64; from++) {
-            for(int to = 0; to < 64; to++) {
-                history[color][from][to] = 0;
-            }
+    for(int pc = 0; pc < 16; pc++) {
+        for(int sq = 0; sq < 64; sq++) {
+            history[pc][sq] = 0;
         }
     }
 }
 
 void ageHistory() {
-    for(int color = 0; color < 2; color++) {
-        for(int from = 0; from < 64; from++) {
-            for(int to = 0; to < 64; to++) {
-                history[color][from][to] /= 8;
-            }
+    for(int pc = 0; pc < 16; pc++) {
+        for(int sq = 0; sq < 64; sq++) {
+            history[pc][sq] /= 8;
         }
     }
 }
@@ -98,7 +99,7 @@ bool cmpCapturesAsc(int a, int b) {
 }
 
 bool cmpNonCaptures(int a, int b) {
-    return history[(int)(getColor(a) == White)][getFromSq(a)][getToSq(a)] > history[(int)(getColor(b) == White)][getFromSq(b)][getToSq(b)];
+    return history[(getColor(a) | getPiece(a))][getToSq(a)] > history[(getColor(b) | getPiece(b))][getToSq(b)];
 }
 
 // ---move ordering---
@@ -149,7 +150,7 @@ void sortMoves(int *moves, unsigned char num, short ply) {
         moves[newNum++] = killerMoves[ply][1];
 
     // 4: add other quiet moves sorted by history heuristic
-    // sort(nonCaptures, nonCaptures + nNonCaptures, cmpNonCaptures);
+    sort(nonCaptures, nonCaptures + nNonCaptures, cmpNonCaptures);
     for(unsigned int idx = 0; idx < nNonCaptures; idx++)
         moves[newNum++] = nonCaptures[idx];
 
@@ -353,7 +354,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
                     storeKiller(ply, moves[idx]);
 
                     // update move history
-                    // updateHistory(moves[idx], depth);
+                    updateHistory(moves[idx], depth);
                 }
 
                 return beta;
