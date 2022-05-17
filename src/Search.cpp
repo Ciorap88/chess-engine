@@ -11,6 +11,7 @@
 using namespace std;
 
 int killerMoves[200][2];
+int history[2][64][64];
 
 const int INF = 1000000;
 const int NO_MOVE = -1;
@@ -27,7 +28,7 @@ int nodesQ = 0;
 bool timeOver = false;
 
 
-// store unique killer moves
+// killer moves are quiet moves that cause a beta cutoff and are used for sorting purposes
 void storeKiller(short ply, int move) {
     if(isCapture(move) || isPromotion(move)) return; // killer moves are by definition quiet moves
 
@@ -36,6 +37,12 @@ void storeKiller(short ply, int move) {
         killerMoves[ply][1] = killerMoves[ply][0];
 
     killerMoves[ply][0] = move;
+}
+
+void updateHistory(int move, int depth) {
+    if(isCapture(move) || isPromotion(move)) return; // filter out non quiet moves
+
+    history[(int)(getColor(move) == White)][getFromSq(move)][getToSq(move)] += depth * depth;
 }
 
 // evaluating moves by material gain
@@ -305,8 +312,11 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
             if(score >= beta) {
                 recordHash(depth, beta, HASH_F_BETA, currBestMove);
 
-                // killer moves are quiet moves that cause a beta cutoff and are used for sorting purposes
+                // store killer moves
                 storeKiller(ply, moves[idx]);
+
+                // update move history
+                updateHistory(moves[idx], depth);
 
                 return beta;
             }
