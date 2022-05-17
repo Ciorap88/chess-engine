@@ -192,6 +192,7 @@ void init() {
     initMagics();
 
     clearTT();
+    clearHistory();
 }
 
 // returns the direction of the move if any, or 0 otherwise

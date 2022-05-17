@@ -11,6 +11,8 @@
 using namespace std;
 
 int killerMoves[200][2];
+int history[2][64][64];
+const int HISTORY_MAX = 1e8;
 
 const int INF = 1000000;
 const int NO_MOVE = -1;
@@ -27,15 +29,50 @@ int nodesQ = 0;
 bool timeOver = false;
 
 
-// store unique killer moves
+// killer moves are quiet moves that cause a beta cutoff and are used for sorting purposes
 void storeKiller(short ply, int move) {
-    if(isCapture(move) || isPromotion(move)) return; // killer moves are by definition quiet moves
-
     // make sure the moves are different
     if(killerMoves[ply][0] != move) 
         killerMoves[ply][1] = killerMoves[ply][0];
 
     killerMoves[ply][0] = move;
+}
+
+
+// same as killer moves, but they are saved based on their squares and color
+void updateHistory(int move, int depth) {
+    history[(int)(getColor(move) == White)][getFromSq(move)][getToSq(move)] += depth * depth;
+
+    // cap history points at HISTORY_MAX
+    if(history[(int)(getColor(move) == White)][getFromSq(move)][getToSq(move)] > HISTORY_MAX) {
+        for(int color = 0; color < 2; color++) {
+            for(int from = 0; from < 64; from++) {
+                for(int to = 0; to < 64; to++) {
+                    history[color][from][to] /= 2;
+                }
+            }
+        }
+    }
+}
+
+void clearHistory() {
+    for(int color = 0; color < 2; color++) {
+        for(int from = 0; from < 64; from++) {
+            for(int to = 0; to < 64; to++) {
+                history[color][from][to] = 0;
+            }
+        }
+    }
+}
+
+void ageHistory() {
+    for(int color = 0; color < 2; color++) {
+        for(int from = 0; from < 64; from++) {
+            for(int to = 0; to < 64; to++) {
+                history[color][from][to] /= 8;
+            }
+        }
+    }
 }
 
 // evaluating moves by material gain
@@ -58,6 +95,10 @@ bool cmpCapturesDesc(int a, int b) {
 
 bool cmpCapturesAsc(int a, int b) {
     return  (captureScore(a) > captureScore(b));
+}
+
+bool cmpNonCaptures(int a, int b) {
+    return history[(int)(getColor(a) == White)][getFromSq(a)][getToSq(a)] > history[(int)(getColor(b) == White)][getFromSq(b)][getToSq(b)];
 }
 
 // ---move ordering---
@@ -96,7 +137,7 @@ void sortMoves(int *moves, unsigned char num, short ply) {
     if(pvMove != NO_MOVE) moves[newNum++] = pvMove;
     
     // 2: add captures sorted by MVV-LVA (only winning / equal captures first)
-    sort(captures, captures+nCaptures, cmpCapturesDesc);
+    sort(captures, captures + nCaptures, cmpCapturesDesc);
     while(nCaptures && captureScore(captures[nCaptures-1]) >= 0) {
         moves[newNum++] = captures[--nCaptures];
     }
@@ -107,7 +148,8 @@ void sortMoves(int *moves, unsigned char num, short ply) {
     if(killerLegal[1] && (killerMoves[ply][1] != NO_MOVE) && (killerMoves[ply][1] != pvMove)) 
         moves[newNum++] = killerMoves[ply][1];
 
-    // 4: add other quiet moves
+    // 4: add other quiet moves sorted by history heuristic
+    // sort(nonCaptures, nonCaptures + nNonCaptures, cmpNonCaptures);
     for(unsigned int idx = 0; idx < nNonCaptures; idx++)
         moves[newNum++] = nonCaptures[idx];
 
@@ -281,6 +323,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
             // if the move is potentially good, we do a full search instead
             if(movesSearched >= 4 && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !isInCheck && depth >= 3 && !board.isInCheck()) {
                 int reductionDepth = int(sqrt(double(depth-1)) + sqrt(double(movesSearched-1))); 
+                if(isPV) reductionDepth = (reductionDepth * 2) / 3;
                 reductionDepth = (reductionDepth < depth-1 ? reductionDepth : depth-1);
 
                 score = -alphaBeta(-alpha-1, -alpha, depth - reductionDepth - 1, ply+1, true);
@@ -305,8 +348,13 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
             if(score >= beta) {
                 recordHash(depth, beta, HASH_F_BETA, currBestMove);
 
-                // killer moves are quiet moves that cause a beta cutoff and are used for sorting purposes
-                storeKiller(ply, moves[idx]);
+                if(!isCapture(moves[idx]) && !isPromotion(moves[idx])) {
+                    // store killer moves
+                    storeKiller(ply, moves[idx]);
+
+                    // update move history
+                    // updateHistory(moves[idx], depth);
+                }
 
                 return beta;
             }
@@ -327,6 +375,7 @@ pair<int, int> search() {
     int alpha = -INF, beta = INF;
     int eval = 0;
 
+    ageHistory();
     for(short i = 0; i < 200; i++)
         killerMoves[i][0] = killerMoves[i][1] = NO_MOVE;
 
