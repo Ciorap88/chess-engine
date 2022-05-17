@@ -76,10 +76,10 @@ void sortMoves(int *moves, unsigned char num, short ply) {
 
     // check legality of killer moves
     bool killerLegal[2] = {false, false};
-    for(char i = 0; i < 2; i++)
-        for(unsigned int idx = 0; idx < num; idx++)
-            if(killerMoves[ply][i] == moves[idx])
-                killerLegal[i] = true;
+    for(unsigned int idx = 0; idx < num; idx++) {
+        if(killerMoves[ply][0] == moves[idx]) killerLegal[0] = true;
+        if(killerMoves[ply][1] == moves[idx]) killerLegal[1] = true;
+    }
 
     // split the other moves into captures and non captures for easier sorting
     for(unsigned int idx = 0; idx < num; idx++) {
@@ -102,9 +102,10 @@ void sortMoves(int *moves, unsigned char num, short ply) {
     }
 
     // 3: add killer moves
-    for(char i = 0; i < 2; i++)
-        if(killerLegal[i] && (killerMoves[ply][i] != NO_MOVE) && (killerMoves[ply][i] != pvMove)) 
-            moves[newNum++] = killerMoves[ply][i];
+    if(killerLegal[0] && (killerMoves[ply][0] != NO_MOVE) && (killerMoves[ply][0] != pvMove)) 
+        moves[newNum++] = killerMoves[ply][0];
+    if(killerLegal[1] && (killerMoves[ply][1] != NO_MOVE) && (killerMoves[ply][1] != pvMove)) 
+        moves[newNum++] = killerMoves[ply][1];
 
     // 4: add other quiet moves
     for(unsigned int idx = 0; idx < nNonCaptures; idx++)
@@ -197,9 +198,8 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     int moves[256];
     unsigned char num = board.generateLegalMoves(moves);
     if(num == 0) {
-        if(isInCheck)
-            return -mateScore; //checkmate
-        return 0; //stalemate
+        if(isInCheck) return -mateScore; // checkmate
+        return 0; // stalemate
     }
 
     bool isPV = (beta - alpha > 1);
@@ -226,7 +226,6 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     if((!isPV) && (isInCheck == false) && ply && (depth >= 3) && (evaluate() >= beta) && doNull && (gamePhase() >= ENDGAME_MATERIAL)) {
         board.makeMove(NO_MOVE);
 
-
         short R = (depth > 6 ? 3 : 2);
         int score = -alphaBeta(-beta, -beta+1, depth-R-1, ply+1, false);
 
@@ -243,7 +242,6 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
         fPrune = true;
 
     char movesSearched = 0;
-    bool raisedAlpha = false;
 
     sortMoves(moves, num, ply);
     for(unsigned char idx = 0; idx < num; idx++) {
@@ -332,9 +330,7 @@ pair<int, int> search() {
 
         int curEval = alphaBeta(alpha, beta, depth, 0, false);
 
-        if(timeOver) {
-            break;
-        }
+        if(timeOver) break;
 
         // ---aspiration window---
         // we start with a full width search (alpha = -inf and beta = inf), modifying them accordingly
@@ -347,8 +343,8 @@ pair<int, int> search() {
         }
 
         eval = curEval;
-        alpha = eval-ASP_INCREASE; // increase window for next iteration
-        beta = eval+ASP_INCREASE;
+        alpha = eval - ASP_INCREASE; // increase window for next iteration
+        beta = eval + ASP_INCREASE;
 
         UCI::showSearchInfo(depth, nodesSearched+nodesQ, currStartTime, eval);
         currStartTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();

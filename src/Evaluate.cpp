@@ -154,7 +154,7 @@ const int QUEEN_MOBILITY = 3;
 
 const int KING_SHIELD[3] = {5, 10, 5};
 
-const int DOUBLED_PAWNS_PENALTY = 20;
+const int DOUBLED_PAWNS_PENALTY = 40;
 const int WEAK_PAWN_PENALTY = 15;
 const int C_PAWN_PENALTY = 25;
 
@@ -609,8 +609,7 @@ int evalPawnStructure() {
     U64 blackPawns = (board.pawnsBB & board.blackPiecesBB);
 
     int eval = retrievePawnEval(board.pawnsBB);
-    if(eval != VAL_UNKNOWN)
-        return eval;
+    if(eval != VAL_UNKNOWN) return eval;
 
     eval = 0;
     while(whitePawns) {
