@@ -1,14 +1,18 @@
-# chess-engine
+# ciorap-bot
 
-This is a UCI-compatible chess engine with ~2000 elo rating (just an estimation, I can't know for sure until it will be tested).
+This is a UCI-compatible chess engine with ~2000 Elo rating (only tested against [Snowy](https://github.com/JasonCreighton/snowy) so far).
 
-### Features: 
-- Pseudo-legal and legal move generation using bitboards
-- Position evaluation using independent piece evaluation
-- Minimax algorithm with Alpha-Beta pruning and Principal Variation Search
-- Transposition table using Zobrist hash
-- Other pruning techniques such as null move pruning or futility pruning
-- Quiescence search
-- Move ordering using MVV-LVA and killer move heuristics
+### Features
+
+- Hybrid move generation using bitboards and mailbox
+####
+- Piece evaluation using piece-square tables and mobility bonus
+- Pawn structure evaluation that recognizes passed / weak / doubled pawns
+- King safety evaluation
+#### 
+- Move searching using alpha-beta algorithm and Principal Variation Search
 - Iterative deepening and aspiration windows
-
+- Transposition table using Zobrist hash
+- Move ordering using PV-move and MVV-LVA, killer move and history heuristics
+- Null move pruning, Late move reductions, futility pruning
+- Quiescence search with delta-pruning

@@ -5,3 +5,5 @@
 *.txt
 
 src/engine
+src/.vscode
+src/script.py
