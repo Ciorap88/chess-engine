@@ -175,7 +175,7 @@ void UCI::printEval() {
 }
 
 void UCI::inputGo(string input) {
-    int time = -1, inc = 0, movesToGo = 30, moveTime = -1;
+    long long time = -1, inc = 0, movesToGo = -1, moveTime = -1;
     short depth = 200;
     infiniteTime = true;
 
@@ -186,10 +186,10 @@ void UCI::inputGo(string input) {
         
         // do a perft and then return if it is requested
         if(parsedInput[i] == "perft") {
-            int startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+            long long startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
             long long num = moveGenTest(stoi(parsedInput[i+1]), true);
-            int endTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-            int time = max(1, endTime-startTime);
+            long long endTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+            long long time = max(1LL, endTime-startTime);
             long long nps = 1000LL*num/time;
 
             std::cout << "nodes " << num << " time " << time << " nps " << nps << '\n';
@@ -225,25 +225,33 @@ void UCI::inputGo(string input) {
             depth = stoi(parsedInput[i+1]);
         }
     }
+
+    // if depth is specified, we change the max depth, otherwise we leave it at 200
+    maxDepth = depth;
+
+    if(movesToGo != -1) movesToGo += 2;
+    else movesToGo = 40;
+
+     // get current time;
+    startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
     
     // if move time is set, we can use it all for the current move
     if(moveTime != -1) {
         time = moveTime;
         movesToGo = 1;
+
+    // otherwise consider 
     }
-
-    // get current time;
-    startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-
-    // if depth is specified, we change the max depth, otherwise we leave it at 200
-    maxDepth = depth;
-
-    // set the stop time
     if(time != -1) {
         infiniteTime = false;
         time /= movesToGo;
-        stopTime = startTime + time + inc - 50;
     }
+
+    if(time > 1000) time -= 500;
+    else if(time > 100) time -= 50;
+
+    // set the stop time
+    stopTime = startTime + time + inc;
 
     auto result = search();
     std::cout << "bestmove " << moveToString(result.first) << '\n';

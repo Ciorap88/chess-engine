@@ -20,7 +20,7 @@ const int NO_MOVE = -1;
 const int MATE_EVAL = INF-1;
 const int MATE_THRESHOLD = MATE_EVAL/2;
 
-int startTime, stopTime;
+long long startTime, stopTime;
 short maxDepth = 200;
 bool infiniteTime;
 
@@ -166,7 +166,7 @@ void sortMoves(int *moves, unsigned char num, short ply) {
 // only searching for captures at the end of a regular search in order to ensure the engine won't miss obvious tactics
 int quiesce(int alpha, int beta) {
     if(!(nodesQ & 4095) && !infiniteTime) {
-        int currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+        long long currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
         if(currTime >= stopTime) timeOver = true;
     }
     if(timeOver) return 0;
@@ -214,7 +214,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     assert(depth >= 0);
 
     if(!(nodesSearched & 4095) && !infiniteTime) {
-        int currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+        long long currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
         if(currTime >= stopTime) timeOver = true;
     }
     if(timeOver) return 0;
@@ -322,7 +322,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
             // ---late move reduction---
             // we do full searches only for the first moves, and then do a reduced search
             // if the move is potentially good, we do a full search instead
-            if(movesSearched >= 4 && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !isInCheck && depth >= 3 && !board.isInCheck()) {
+            if(movesSearched >= 2 && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !isInCheck && depth >= 3 && !board.isInCheck()) {
                 int reductionDepth = int(sqrt(double(depth-1)) + sqrt(double(movesSearched-1))); 
                 if(isPV) reductionDepth = (reductionDepth * 2) / 3;
                 reductionDepth = (reductionDepth < depth-1 ? reductionDepth : depth-1);
@@ -384,7 +384,7 @@ pair<int, int> search() {
     // we start with a depth 1 search and then we increase the depth by 1 every time
     // this helps manage the time because at any point the engine can return the best move found so far
     // also it helps improve move ordering by memorizing the best move that we can search first in the next iteration
-    int currStartTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+    long long currStartTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
     for(short depth = 1; depth <= maxDepth; ) {
         nodesSearched = nodesQ = 0;
 

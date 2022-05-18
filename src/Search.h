@@ -13,7 +13,8 @@ void clearHistory();
 extern const int NO_MOVE, MATE_THRESHOLD, MATE_EVAL;
 
 extern short maxDepth;
-extern int startTime, stopTime, bestMove;
+extern long long startTime, stopTime;
+extern const int bestMove;
 extern bool infiniteTime, timeOver;
 
 #endif
