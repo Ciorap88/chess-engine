@@ -49,55 +49,55 @@ enum squares {
 
 class Board {
 public:
-    char squares[64], turn;
+    int squares[64], turn;
 
-    char whiteKingSquare, blackKingSquare;
+    int whiteKingSquare, blackKingSquare;
     U64 pawnsBB, knightsBB, bishopsBB, rooksBB, queensBB;
     U64 blackPiecesBB, whitePiecesBB;
 
     U64 hashKey;
 
-    char ep;
+    int ep;
 
     // bit 0 is white short, 1 is white long, 2 is black short and 3 is black long
-    char castleRights;
+    int castleRights;
 
     void initZobristHashFromCurrPos();
 
     void updateHashKey(int move);
-    void updatePieceInBB(char piece, char color, char sq);
-    void movePieceInBB(char piece, char color, char from, char to);
+    void updatePieceInBB(int piece, int color, int sq);
+    void movePieceInBB(int piece, int color, int from, int to);
 
     void loadFenPos(string input);
     string getFenFromCurrPos();
 
-    U64 attacksTo(char sq);
-    bool isAttacked(char sq);
+    U64 attacksTo(int sq);
+    bool isAttacked(int sq);
     bool isInCheck();
     bool isDraw();
 
     short generatePseudoLegalMoves();
-    unsigned char generateLegalMoves(int *moves);
+    int generateLegalMoves(int *moves);
 
     void makeMove(int move);
     void unmakeMove(int move);
 };
 
-extern unordered_map<U64, char> repetitionMap;
+extern unordered_map<U64, int> repetitionMap;
 
 extern Board board;
-extern U64 bits[64], filesBB[8], ranksBB[8], knightAttacksBB[64], kingAttacksBB[64];
+extern U64 bits[64], filesBB[8], ranksBB[8], knightAttacksBB[64], kingAttacksBB[64], whitePawnAttacksBB[64], blackPawnAttacksBB[64];
 extern U64 squaresNearWhiteKing[64], squaresNearBlackKing[64];
 extern U64 lightSquaresBB, darkSquaresBB;
 extern U64 bishopMasks[64], rookMasks[64];
 
-U64 pawnAttacks(U64 pawns, char color);
+U64 pawnAttacks(U64 pawns, int color);
 U64 knightAttacks(U64 knights);
 
-bool isInBoard(char sq, char dir);
+bool isInBoard(int sq, int dir);
 void init();
 
-string square(char x);
+string square(int x);
 string moveToString(int move);
 
 #endif

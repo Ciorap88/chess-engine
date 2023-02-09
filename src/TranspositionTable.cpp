@@ -35,10 +35,10 @@ void generateZobristHashNumbers() {
 // xor zobrist numbers corresponding to all features of the current position
 U64 getZobristHashFromCurrPos() {
     U64 key = 0;
-    for(char i = 0; i < 64; i++) {
+    for(int i = 0; i < 64; i++) {
         if(board.squares[i] == Empty) continue;
-        char color = (board.squares[i] & (Black | White));
-        char piece = (board.squares[i] ^ color);
+        int color = (board.squares[i] & (Black | White));
+        int piece = (board.squares[i] ^ color);
 
         key ^= pieceZobristNumbers[piece][(int)(color == White)][i];
     }
@@ -59,20 +59,20 @@ void Board::updateHashKey(int move) {
     }
 
     // get move info
-    char from = getFromSq(move);
-    char to = getToSq(move);
+    int from = getFromSq(move);
+    int to = getToSq(move);
 
-    char color = getColor(move);
-    char piece = getPiece(move);
-    char otherColor = (color ^ 8);
-    char otherPiece = getCapturedPiece(move);
+    int color = getColor(move);
+    int piece = getPiece(move);
+    int otherColor = (color ^ 8);
+    int otherPiece = getCapturedPiece(move);
 
     bool isMoveEP = isEP(move);
     bool isMoveCapture = isCapture(move);
     bool isMoveCastle = isCastle(move);
-    char promotionPiece = getPromotionPiece(move);
+    int promotionPiece = getPromotionPiece(move);
 
-    char capturedPieceSquare = (isMoveEP ? (to + (color == White ? south : north)) : to);
+    int capturedPieceSquare = (isMoveEP ? (to + (color == White ? south : north)) : to);
 
     // update pieces
     this->hashKey ^= pieceZobristNumbers[piece][(int)(color == White)][from];
@@ -82,9 +82,9 @@ void Board::updateHashKey(int move) {
     else this->hashKey ^= pieceZobristNumbers[promotionPiece][(int)(color == White)][to];
 
     // castle stuff
-    char newCastleRights = this->castleRights;
+    int newCastleRights = this->castleRights;
     if(piece == King) {
-        char mask = (color == White ? 12 : 3);
+        int mask = (color == White ? 12 : 3);
         newCastleRights &= mask;
     }
     if((newCastleRights & bits[1]) && (from == a1 || to == a1))
@@ -100,16 +100,16 @@ void Board::updateHashKey(int move) {
     this->hashKey ^= castleZobristNumbers[newCastleRights];
 
     if(isMoveCastle) {
-        char Rank = (to >> 3), File = (to & 7);
-        char rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
-        char rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
+        int Rank = (to >> 3), File = (to & 7);
+        int rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
+        int rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
 
         this->hashKey ^= pieceZobristNumbers[Rook][(int)(color == White)][rookStartSquare];
         this->hashKey ^= pieceZobristNumbers[Rook][(int)(color == White)][rookEndSquare];
     }
 
     // update ep square
-    char nextEp = -1;
+    int nextEp = -1;
     if(piece == Pawn && abs(from-to) == 16) {
         nextEp = to + (color == White ? south : north);
     }
@@ -121,14 +121,14 @@ void Board::updateHashKey(int move) {
     this->hashKey ^= blackTurnZobristNumber;
 }
 
-const char HASH_F_EXACT = 0;
-const char HASH_F_ALPHA = 1;
-const char HASH_F_BETA = 2;
+const int HASH_F_EXACT = 0;
+const int HASH_F_ALPHA = 1;
+const int HASH_F_BETA = 2;
 
 struct hashElement {
     U64 key;
     short depth;
-    char flags;
+    int flags;
     int value;
     int best;
 };
@@ -166,7 +166,7 @@ int probeHash(short depth, int alpha, int beta) {
 }
 
 // replace hashed element if replacement conditions are met
-void recordHash(short depth, int val, char hashF, int best) {
+void recordHash(short depth, int val, int hashF, int best) {
     if(timeOver) return;
 
     int index = (board.hashKey & (TABLE_SIZE-1));

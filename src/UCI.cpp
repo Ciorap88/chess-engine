@@ -88,7 +88,7 @@ void UCI::inputPosition(string input) {
         movesIdx = 2;
     } else {
         string fen;
-        for(char i = 2; i <= 7; i++)
+        for(int i = 2; i <= 7; i++)
             fen += parsedInput[i] + " ";
         board.loadFenPos(fen);
         movesIdx = 8;
@@ -97,8 +97,8 @@ void UCI::inputPosition(string input) {
     // make the moves
     for(int i = movesIdx+1; i < parsedInput.size(); i++) {
         int moves[256];
-        unsigned char num = board.generateLegalMoves(moves);
-        for(unsigned char idx = 0; idx < num; idx++) 
+        int num = board.generateLegalMoves(moves);
+        for(int idx = 0; idx < num; idx++) 
             if(moveToString(moves[idx]) == parsedInput[i]) {
                 board.makeMove(moves[idx]);
                 break;
@@ -111,13 +111,13 @@ long long UCI::moveGenTest(short depth, bool show) {
     if(depth == 0) return 1;
 
     int moves[256];
-    unsigned char num = board.generateLegalMoves(moves);
+    int num = board.generateLegalMoves(moves);
 
     if(depth == 1) return num;
 
     int numPos = 0;
 
-    for(unsigned char idx = 0; idx < num; idx++) {
+    for(int idx = 0; idx < num; idx++) {
         board.makeMove(moves[idx]);
         long long mv = moveGenTest(depth-1, false);
 
@@ -151,7 +151,7 @@ void UCI::showSearchInfo(short depth, int nodes, int startTime, int score) {
 // function that prints the current board
 void UCI::printBoard(bool chars) {
     if(chars) {
-        unordered_map<char, char> pieceSymbols = {{Pawn, 'p'}, {Knight, 'n'},
+        unordered_map<int, char> pieceSymbols = {{Pawn, 'p'}, {Knight, 'n'},
         {Bishop, 'b'}, {Rook, 'r'}, {Queen, 'q'}, {King, 'k'}};
         
         for(int i = 0; i < 64; i++) {

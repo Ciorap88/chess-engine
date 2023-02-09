@@ -3,18 +3,18 @@
 #ifndef MOVES_H_
 #define MOVES_H_
 
-int getMove(char from, char to, bool color, char fromPiece, char capturedPiece, char prom, bool castle, bool ep);
+int getMove(int from, int to, bool color, int fromPiece, int capturedPiece, int prom, bool castle, bool ep);
 
 bool isCastle(int move);
 bool isEP(int move);
 bool isCapture(int move);
 bool isPromotion(int move);
 
-char getFromSq(int move);
-char getToSq(int move);
-char getColor(int move);
-char getPiece(int move);
-char getCapturedPiece(int move);
-char getPromotionPiece(int move);
+int getFromSq(int move);
+int getToSq(int move);
+int getColor(int move);
+int getPiece(int move);
+int getCapturedPiece(int move);
+int getPromotionPiece(int move);
 
 #endif

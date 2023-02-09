@@ -7,6 +7,7 @@
 #include "MagicBitboards.h"
 #include "UCI.h"
 #include "Moves.h"
+// #include "See.h"
 
 using namespace std;
 
@@ -103,7 +104,7 @@ bool cmpNonCaptures(int a, int b) {
 }
 
 // ---move ordering---
-void sortMoves(int *moves, unsigned char num, short ply) {
+void sortMoves(int *moves, int num, short ply) {
     // sorting in quiescence search
       if(ply == -1) {
           sort(moves, moves+num, cmpCapturesAsc);
@@ -159,6 +160,11 @@ void sortMoves(int *moves, unsigned char num, short ply) {
         moves[newNum++] = captures[--nCaptures];
     }
 
+    // if(num != newNum) {
+    //     cout << "newNum=" << newNum << " and num=" << (int)num << " at position " << board.getFenFromCurrPos() << '\n';
+    //     for(int idx = 0; idx < newNum; idx++) cout << moveToString(moves[idx]) << ' ';
+    //     cout << '\n';
+    // }
     assert(num == newNum);
 }
 
@@ -180,19 +186,22 @@ int quiesce(int alpha, int beta) {
     alpha = max(alpha, standPat);
 
     int moves[256];
-    unsigned char num = board.generateLegalMoves(moves);
+    int num = board.generateLegalMoves(moves);
 
     sortMoves(moves, num, -1);
-    for(unsigned char idx = 0; idx < num; idx++)  {
+    for(int idx = 0; idx < num; idx++)  {
         if(!isCapture(moves[idx]) && !isPromotion(moves[idx])) continue;
 
+        // if(isCapture(moves[idx]) && (seeMove(moves[idx]) < 0)) continue;
 
         // ---delta pruning---
         // we test if each move has the potential to raise alpha
         // if it doesn't, then the position is hopeless so searching deeper won't improve it
+        int delta = standPat +  PIECE_VALUES[getCapturedPiece(moves[idx])] + 200;
+        if(isPromotion(moves[idx])) delta += PIECE_VALUES[getPromotionPiece(moves[idx])] - PIECE_VALUES[Pawn];
+
         const int ENDGAME_MATERIAL = 10;
-        const int DELTA = standPat +  PIECE_VALUES[getCapturedPiece(moves[idx])] + 200;
-        if((DELTA < alpha) && (gamePhase() - MG_WEIGHT[getCapturedPiece(moves[idx])] >= ENDGAME_MATERIAL) && !isPromotion(moves[idx])) continue;
+        if((delta <= alpha) && (gamePhase() - MG_WEIGHT[getCapturedPiece(moves[idx])] >= ENDGAME_MATERIAL)) continue;
 
         board.makeMove(moves[idx]);
         int score = -quiesce(-beta, -alpha);
@@ -220,7 +229,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     if(timeOver) return 0;
     nodesSearched++;
 
-    char hashFlag = HASH_F_ALPHA;
+    int hashFlag = HASH_F_ALPHA;
 
     bool isInCheck = board.isInCheck();
 
@@ -249,7 +258,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     if(board.isDraw()) return 0;
 
     int moves[256];
-    unsigned char num = board.generateLegalMoves(moves);
+    int num = board.generateLegalMoves(moves);
     if(num == 0) {
         if(isInCheck) return -mateScore; // checkmate
         return 0; // stalemate
@@ -294,10 +303,10 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     if (depth <= 3 && !isPV && !isInCheck && abs(alpha) < 9000 && evaluate() + F_MARGIN[depth] <= alpha)
         fPrune = true;
 
-    char movesSearched = 0;
+    int movesSearched = 0;
 
     sortMoves(moves, num, ply);
-    for(unsigned char idx = 0; idx < num; idx++) {
+    for(int idx = 0; idx < num; idx++) {
         if(alpha >= beta) return alpha;
 
         board.makeMove(moves[idx]);
