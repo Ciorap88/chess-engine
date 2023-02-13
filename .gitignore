@@ -1,9 +1,16 @@
-.DS_Store
+*.DS_Store
 
-*.exe
+# Ignore all
+*
+# Unignore all with extensions
+!*.*
+# Unignore all dirs
+!*/
+
 *.o
 *.txt
 
-src/engine
-src/.vscode
-src/script.py
+engine/.vscode
+engine/script.py
+engine/See.cpp
+engine/See.h
