@@ -3,7 +3,8 @@
 // there are too many different positions so we can't store a unique attack for every single one
 // so we compute some "magic" numbers that map positions with the same attack bitboards to the same key
 
-#include <bits/stdc++.h>
+#include <iostream>
+#include <unordered_map>
 
 using namespace std;
 

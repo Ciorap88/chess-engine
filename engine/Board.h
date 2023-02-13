@@ -3,7 +3,7 @@
 #ifndef BOARD_H_
 #define BOARD_H_
 
-#include <bits/stdc++.h>
+#include <string>
 
 using namespace std;
 

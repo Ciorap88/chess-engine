@@ -1,4 +1,7 @@
-#include <bits/stdc++.h>
+#include <algorithm>
+#include <chrono>
+#include <math.h>
+#include <unordered_map>
 
 #include "Evaluate.h"
 #include "Board.h"
@@ -7,7 +10,7 @@
 #include "MagicBitboards.h"
 #include "UCI.h"
 #include "Moves.h"
-// #include "See.h"
+#include "See.h"
 
 using namespace std;
 
@@ -103,7 +106,7 @@ bool cmpNonCaptures(int a, int b) {
     return history[(getColor(a) | getPiece(a))][getToSq(a)] > history[(getColor(b) | getPiece(b))][getToSq(b)];
 }
 
-// ---move ordering---
+// --- MOVE ORDERING --- 
 void sortMoves(int *moves, int num, short ply) {
     // sorting in quiescence search
       if(ply == -1) {
@@ -168,7 +171,7 @@ void sortMoves(int *moves, int num, short ply) {
     assert(num == newNum);
 }
 
-// ---quiescence search---
+// --- QUIESCENCE SEARCH --- 
 // only searching for captures at the end of a regular search in order to ensure the engine won't miss obvious tactics
 int quiesce(int alpha, int beta) {
     if(!(nodesQ & 4095) && !infiniteTime) {
@@ -194,7 +197,7 @@ int quiesce(int alpha, int beta) {
 
         // if(isCapture(moves[idx]) && (seeMove(moves[idx]) < 0)) continue;
 
-        // ---delta pruning---
+        // --- DELTA PRUNING --- 
         // we test if each move has the potential to raise alpha
         // if it doesn't, then the position is hopeless so searching deeper won't improve it
         int delta = standPat +  PIECE_VALUES[getCapturedPiece(moves[idx])] + 200;
@@ -236,7 +239,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     // increase the depth if king is in check
     if(isInCheck) depth++;
 
-    // ---mate distance pruning---
+    // --- MATE DISTANCE PRUNING --- 
     // if we find mate, we shouldn't look for a better move
 
     // lower bound
@@ -274,34 +277,34 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
             return hashScore;
     }
 
-    if(depth == 0) {
+    if(depth <= 0) {
         int q = quiesce(alpha, beta);
         if(timeOver) return 0;
         return q;
     }
     int currBestMove = NO_MOVE;
 
-    // ---null move pruning---
+    // --- NULL MOVE PRUNING --- 
     // if our position is good, we can pass the turn to the opponent
     // and if that doesn't wreck our position, we don't need to search further
-    const int ENDGAME_MATERIAL = 10;
-    if((!isPV) && (isInCheck == false) && ply && (depth >= 3) && (evaluate() >= beta) && doNull && (gamePhase() >= ENDGAME_MATERIAL)) {
-        board.makeMove(NO_MOVE);
+    // const int ENDGAME_MATERIAL = 10;
+    // if(doNull && (!isPV) && (isInCheck == false) && ply && (depth >= 3) && (gamePhase() >= ENDGAME_MATERIAL) && (evaluate() >= beta)) {
+    //     board.makeMove(NO_MOVE);
 
-        short R = (depth > 6 ? 3 : 2);
-        int score = -alphaBeta(-beta, -beta + 1, depth - R - 1, ply + 1, false);
+    //     short R = 3;
+    //     int score = -alphaBeta(-beta, -beta + 1, depth - R - 1, ply + 1, false);
 
-        board.unmakeMove(NO_MOVE);
+    //     board.unmakeMove(NO_MOVE);
 
-        if(timeOver) return 0;
-        if(score >= beta) return beta;
-    }
+    //     if(timeOver) return 0;
+    //     if(score >= beta) return beta;
+    // }
 
     // decide if we can apply futility pruning
-    bool fPrune = false;
-    const int F_MARGIN[4] = { 0, 200, 300, 500 };
-    if (depth <= 3 && !isPV && !isInCheck && abs(alpha) < 9000 && evaluate() + F_MARGIN[depth] <= alpha)
-        fPrune = true;
+    // bool fPrune = false;
+    // const int F_MARGIN[4] = { 0, 200, 300, 500 };
+    // if (depth <= 3 && !isPV && !isInCheck && abs(alpha) < 9000 && evaluate() + F_MARGIN[depth] <= alpha)
+    //     fPrune = true;
 
     int movesSearched = 0;
 
@@ -311,24 +314,23 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
 
         board.makeMove(moves[idx]);
 
-        // ---futility pruning---
+        // --- FUTILITY PRUNING --- 
         // if a move is bad enough that it wouldn't be able to raise alpha, we just skip it
         // this only applies close to the horizon depth
-        if(fPrune && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !board.isInCheck() && alpha > -MATE_EVAL + 200 && beta < MATE_EVAL - 200) {
-            board.unmakeMove(moves[idx]);
-            continue;
-        }
+        // if(fPrune && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !board.isInCheck()) {
+        //     board.unmakeMove(moves[idx]);
+        //     continue;
+        // }
             
-        // ---principal variation search---
+        // --- PRINCIPAL VARIATION SEARCH --- 
         // we do a full search only until we find a move that raises alpha and we consider it to be the best
-        // for the rest of the moves we start with a quick (null window - beta = alpha+1) search
+        // for the rest of the moves we start with a quick (null window -> beta = alpha+1) search
         // and only if the move has potential to be the best, we do a full search
         int score;
         if(!movesSearched) {
             score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true);
         } else {
-
-            // ---late move reduction---
+            // --- LATE MOVE REDUCTION --- 
             // we do full searches only for the first moves, and then do a reduced search
             // if the move is potentially good, we do a full search instead
             if(movesSearched >= 2 && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !isInCheck && depth >= 3 && !board.isInCheck()) {
@@ -343,8 +345,9 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
 
             if(score > alpha) {
                 score = -alphaBeta(-alpha-1, -alpha, depth-1, ply+1, true);
-                if(score > alpha && score < beta)
+                if(score > alpha && score < beta) {
                     score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true);
+                }
             }
         }
 
@@ -389,7 +392,7 @@ pair<int, int> search() {
     for(short i = 0; i < 200; i++)
         killerMoves[i][0] = killerMoves[i][1] = NO_MOVE;
 
-    //---iterative deepening---
+    // --- ITERATIVE DEEPENING --- 
     // we start with a depth 1 search and then we increase the depth by 1 every time
     // this helps manage the time because at any point the engine can return the best move found so far
     // also it helps improve move ordering by memorizing the best move that we can search first in the next iteration
@@ -401,7 +404,7 @@ pair<int, int> search() {
 
         if(timeOver) break;
 
-        // ---aspiration window---
+        // --- ASPIRATION WINDOW --- 
         // we start with a full width search (alpha = -inf and beta = inf), modifying them accordingly
         // if we fall outside the current window, we do a full width search with the same depth
         // and if we stay inside the window, we only increase it by a small number, so that we can achieve more cutoffs

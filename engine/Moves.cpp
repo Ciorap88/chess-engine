@@ -1,3 +1,5 @@
+#include <unordered_map>
+
 #include "Board.h"
 #include "Moves.h"
 

@@ -3,11 +3,10 @@
 #ifndef SEARCH_H_
 #define SEARCH_H_
 
-#include <bits/stdc++.h>
-
 using namespace std;
 
 pair<int, int> search();
+int quiesce(int alpha, int beta);
 void clearHistory();
 
 extern const int NO_MOVE, MATE_THRESHOLD, MATE_EVAL;

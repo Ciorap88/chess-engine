@@ -1,4 +1,7 @@
-#include <bits/stdc++.h>
+#include <unordered_map>
+#include <string>
+#include <stack>
+#include <iostream>
 
 #include "Board.h"
 #include "MagicBitboards.h"

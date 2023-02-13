@@ -3,7 +3,7 @@
 #ifndef UCI_H_
 #define UCI_H_
 
-#include <bits/stdc++.h>
+#include <string>
 
 using namespace std;
 

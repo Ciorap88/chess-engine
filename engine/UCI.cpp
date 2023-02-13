@@ -1,4 +1,8 @@
-#include <bits/stdc++.h>
+#include <vector>
+#include <string>
+#include <iostream>
+#include <chrono>
+#include <unordered_map>
 
 #include "Board.h"
 #include "Search.h"
@@ -30,7 +34,7 @@ vector<string> splitStr(string s) {
     return ans;
 }
 
-string UCI::engineName = "CiorapBot";
+string UCI::engineName = "CiorapBot Untrained";
 
 void UCI::UCICommunication() {
     while(true) {
@@ -182,7 +186,13 @@ void UCI::inputGo(string input) {
     vector<string> parsedInput = splitStr(input);
 
     // loop through words
-    for(int i = 0; i < parsedInput.size()-1; i++) {
+    for(int i = 0; i < parsedInput.size(); i++) {
+        // only do a quiescence search
+        if(parsedInput[i] == "quiescence") {
+            int score = quiesce(-1000000, 1000000);
+            std::cout << score * (board.turn == Black ? -1 : 1) << '\n';
+            return;
+        }
         
         // do a perft and then return if it is requested
         if(parsedInput[i] == "perft") {
