@@ -14,14 +14,14 @@ using namespace std;
 
 // for showing uci info
 string scoreToStr(int score) {
+    // if it is a mate, we print "mate" + the number of moves until mate
+    if (abs(score) > MATE_THRESHOLD) return "mate " + to_string((score > 0 ? MATE_EVAL - score + 1 : -MATE_EVAL - score) / 2);
+
     // the score is initially relative to the side to move, so we change it to be positive for white
     if(board.turn == Black) score *= -1;
 
     // if the score isn't a mate, we print it in centipawns
-    if(abs(score) <= MATE_THRESHOLD) return "cp " + to_string(score);
-
-    // if it is a mate, we print "mate" + the number of plies until mate
-    return "mate " + to_string((score > 0 ? MATE_EVAL - score + 1 : -MATE_EVAL - score) / 2);
+    return "cp " + to_string(score);
 }
 
 // function to split string into words
@@ -34,7 +34,7 @@ vector<string> splitStr(string s) {
     return ans;
 }
 
-string UCI::engineName = "CiorapBot Untrained";
+string UCI::engineName = "CiorapBot TriPV";
 
 void UCI::UCICommunication() {
     while(true) {
@@ -78,6 +78,7 @@ void UCI::inputUCINewGame() {
     clearHistory();
     clearTT();
     repetitionMap.clear();
+    board.clear();
 }
 
 void UCI::inputPosition(string input) {
@@ -136,6 +137,9 @@ long long UCI::moveGenTest(short depth, bool show) {
 
 // show information related to the search such as the depth, nodes, time etc.
 void UCI::showSearchInfo(short depth, int nodes, int startTime, int score) {
+    // reduce depth if mate is found
+    if(abs(score) > MATE_THRESHOLD) depth = MATE_EVAL - abs(score);
+
     // get current time
     int currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
 
@@ -154,6 +158,7 @@ void UCI::showSearchInfo(short depth, int nodes, int startTime, int score) {
 
 // function that prints the current board
 void UCI::printBoard(bool chars) {
+    std::cout << "FEN: " << board.getFenFromCurrPos() << '\n';
     if(chars) {
         unordered_map<int, char> pieceSymbols = {{Pawn, 'p'}, {Knight, 'n'},
         {Bishop, 'b'}, {Rook, 'r'}, {Queen, 'q'}, {King, 'k'}};

@@ -25,6 +25,22 @@ int castleEndSq[4] = {g1,c1,g8,c8};
 
 stack<int> castleStk, epStk;
 
+void Board::clear() {
+    for(int i = 0; i < 64; i++) this->squares[i] = Empty;
+    this->turn = White;
+    this->castleRights = 0;
+    this->ep = -1;
+    this->hashKey = 0;
+
+    // clear bitboards
+    this->whitePiecesBB = this->blackPiecesBB = 0;
+    this->pawnsBB = this->knightsBB = this->bishopsBB = this->rooksBB = this->queensBB = 0;
+
+    // clear stacks
+    while(!castleStk.empty()) castleStk.pop();
+    while(!epStk.empty()) epStk.pop();
+}
+
 // returns the algebraic notation for a move
 string moveToString(int move) {
     int from = getFromSq(move);
@@ -93,6 +109,7 @@ bool isInBoard(int sq, int dir) {
 
 // initialize all the variables before starting the actual engine
 void init() {
+    board.clear();
     // bitmasks for every bit from 0 to 63
     for(int i = 0; i < 64; i++)
         bits[i] = (1LL << i);
@@ -311,15 +328,15 @@ string Board::getFenFromCurrPos() {
     if(this->ep == -1) fen += '-';
     else fen += square(this->ep);
 
+    //TODO: add halfmove clock and full moves
+    fen += " 0 1";
+
     return fen;
 }
 
 // loads the squares array and the bitboards according to the fen position
 void Board::loadFenPos(string input) {
-    this->blackPiecesBB = this->whitePiecesBB = 0;
-    this->pawnsBB = this->knightsBB = 0;
-    this->bishopsBB = this->rooksBB = 0;
-    this->queensBB = 0;
+    board.clear();
 
     // parse the fen string
     string pieces;

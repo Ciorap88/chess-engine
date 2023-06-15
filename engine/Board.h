@@ -62,6 +62,8 @@ public:
     // bit 0 is white short, 1 is white long, 2 is black short and 3 is black long
     int castleRights;
 
+    void clear();
+
     void initZobristHashFromCurrPos();
 
     void updateHashKey(int move);
