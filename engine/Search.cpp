@@ -244,7 +244,6 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     assert(depth >= 0);
 
 
-
     int pvIndex = ply * (2 * N + 1 - ply) / 2;
     int pvNextIndex = pvIndex + N - ply;
 
@@ -386,15 +385,12 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
         if(score > alpha) {
             currBestMove = moves[idx];
 
-            if(isPV) {
                 pvArray[pvIndex] = moves[idx];
-
                 copyPv(pvArray + pvIndex + 1, pvArray + pvNextIndex, N - ply - 1);
 
                 assert(pvArray[pvIndex] != NO_MOVE);
                 assert(pvIndex < pvNextIndex);
                 assert(pvNextIndex < (N * N + N) / 2);
-            }
 
             if(score >= beta) {
                 recordHash(depth, beta, HASH_F_BETA, currBestMove);
