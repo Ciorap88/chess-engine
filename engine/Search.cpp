@@ -292,9 +292,6 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     if(hashScore != VAL_UNKNOWN) {
         // we return hashed info only if it is an exact hit in pv nodes
         if(!isPV || (hashScore > alpha && hashScore < beta)) {
-            int hashMove = retrieveBestMove();
-            if (hashMove != NO_MOVE) pvArray[pvIndex] = hashMove;
-
             return hashScore;
         }
     }
