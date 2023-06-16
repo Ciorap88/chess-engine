@@ -10,7 +10,6 @@ int retrievePawnEval(U64 pawns);
 void recordPawnEval(U64 pawns, int eval);
 void generateZobristHashNumbers();
 U64 getZobristHashFromCurrPos();
-void showPV(short depth);
 void clearTT();
 
 extern const int VAL_UNKNOWN;

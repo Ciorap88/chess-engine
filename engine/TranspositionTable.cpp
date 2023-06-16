@@ -187,23 +187,6 @@ void recordHash(short depth, int val, int hashF, int best) {
     h->depth = depth;
 }
 
-void showPV(short depth) {
-    vector<int> moves;
-    cout << "pv ";
-    while(retrieveBestMove() != NO_MOVE && depth) {
-        int m = retrieveBestMove();
-        cout << moveToString(m) << ' ';
-        board.makeMove(m);
-        moves.push_back(m);
-        depth--;
-    }
-    cout << '\n';
-    while(moves.size()) {
-        board.unmakeMove(moves.back());
-        moves.pop_back();
-    }
-}
-
 struct pawnHashElement {
     U64 bb;
     int eval;

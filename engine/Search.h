@@ -8,6 +8,7 @@ using namespace std;
 pair<int, int> search();
 int quiesce(int alpha, int beta);
 void clearHistory();
+void showPV(int depth);
 
 extern const int NO_MOVE, MATE_THRESHOLD, MATE_EVAL;
 

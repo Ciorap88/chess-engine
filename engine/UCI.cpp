@@ -34,7 +34,7 @@ vector<string> splitStr(string s) {
     return ans;
 }
 
-string UCI::engineName = "CiorapBot TriPV";
+string UCI::engineName = "CiorapBot 0.2";
 
 void UCI::UCICommunication() {
     while(true) {

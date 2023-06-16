@@ -2,6 +2,7 @@
 #include <chrono>
 #include <math.h>
 #include <unordered_map>
+#include <iostream>
 
 #include "Evaluate.h"
 #include "Board.h"
@@ -10,7 +11,7 @@
 #include "MagicBitboards.h"
 #include "UCI.h"
 #include "Moves.h"
-#include "See.h"
+// #include "See.h"
 
 using namespace std;
 
@@ -19,18 +20,36 @@ int history[16][64];
 const int HISTORY_MAX = 1e8;
 
 const int INF = 1000000;
-const int NO_MOVE = -1;
+const int NO_MOVE = 0;
 
 const int MATE_EVAL = INF-1;
 const int MATE_THRESHOLD = MATE_EVAL/2;
 
 long long startTime, stopTime;
-short maxDepth = 200;
+short maxDepth = 256;
 bool infiniteTime;
 
 int nodesSearched = 0;
 int nodesQ = 0;
 bool timeOver = false;
+
+const int N = 256;
+int pvArray[(N * N + N) / 2];
+
+void copyPv(int* dest, int* src, int n) {
+   while (n-- && (*dest++ = *src++));
+}
+
+void showPV(int depth) {
+    assert(depth <= N);
+
+    cout << "pv ";
+    for(int i = 0; i < depth; i++) {
+        if(pvArray[i] == NO_MOVE) break;
+        cout << moveToString(pvArray[i]) << ' ';
+    }
+    cout << '\n';
+}
 
 
 // killer moves are quiet moves that cause a beta cutoff and are used for sorting purposes
@@ -118,14 +137,18 @@ void sortMoves(int *moves, int num, short ply) {
     unsigned int nCaptures = 0, nNonCaptures = 0;
 
     // find pv move
-    int pvMove = retrieveBestMove();
+    int pvIndex = ply * (2 * N + 1 - ply) / 2;
+    int pvMoveLegal = false;
+    int pvMove = pvArray[pvIndex];
 
     // check legality of killer moves
     bool killerLegal[2] = {false, false};
     for(unsigned int idx = 0; idx < num; idx++) {
         if(killerMoves[ply][0] == moves[idx]) killerLegal[0] = true;
         if(killerMoves[ply][1] == moves[idx]) killerLegal[1] = true;
+        if(pvMove == moves[idx]) pvMoveLegal = true;
     }
+    assert(pvMoveLegal || pvMove == NO_MOVE);
 
     // split the other moves into captures and non captures for easier sorting
     for(unsigned int idx = 0; idx < num; idx++) {
@@ -163,11 +186,6 @@ void sortMoves(int *moves, int num, short ply) {
         moves[newNum++] = captures[--nCaptures];
     }
 
-    // if(num != newNum) {
-    //     cout << "newNum=" << newNum << " and num=" << (int)num << " at position " << board.getFenFromCurrPos() << '\n';
-    //     for(int idx = 0; idx < newNum; idx++) cout << moveToString(moves[idx]) << ' ';
-    //     cout << '\n';
-    // }
     assert(num == newNum);
 }
 
@@ -225,6 +243,13 @@ int quiesce(int alpha, int beta) {
 int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     assert(depth >= 0);
 
+
+
+    int pvIndex = ply * (2 * N + 1 - ply) / 2;
+    int pvNextIndex = pvIndex + N - ply;
+
+    memset(pvArray + pvIndex, NO_MOVE, sizeof(int) * (pvNextIndex - pvIndex));
+
     if(!(nodesSearched & 4095) && !infiniteTime) {
         long long currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
         if(currTime >= stopTime) timeOver = true;
@@ -260,6 +285,20 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
 
     if(board.isDraw()) return 0;
 
+    bool isPV = (beta - alpha > 1);
+
+    // retrieving the hashed move and evaluation if there is any
+    int hashScore = probeHash(depth, alpha, beta);
+    if(hashScore != VAL_UNKNOWN) {
+        // we return hashed info only if it is an exact hit in pv nodes
+        if(!isPV || (hashScore > alpha && hashScore < beta)) {
+            int hashMove = retrieveBestMove();
+            if (hashMove != NO_MOVE) pvArray[pvIndex] = hashMove;
+
+            return hashScore;
+        }
+    }
+
     int moves[256];
     int num = board.generateLegalMoves(moves);
     if(num == 0) {
@@ -267,15 +306,6 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
         return 0; // stalemate
     }
 
-    bool isPV = (beta - alpha > 1);
-
-    // retrieving the hashed move and evaluation if there is any
-    int hashScore = probeHash(depth, alpha, beta);
-    if(hashScore != VAL_UNKNOWN) {
-        // we return hashed info only if it is an exact hit in pv nodes
-        if(!isPV || (hashScore > alpha && hashScore < beta))
-            return hashScore;
-    }
 
     if(depth <= 0) {
         int q = quiesce(alpha, beta);
@@ -291,7 +321,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     // if(doNull && (!isPV) && (isInCheck == false) && ply && (depth >= 3) && (gamePhase() >= ENDGAME_MATERIAL) && (evaluate() >= beta)) {
     //     board.makeMove(NO_MOVE);
 
-    //     short R = 3;
+    //     short R = 3 + depth / 6;
     //     int score = -alphaBeta(-beta, -beta + 1, depth - R - 1, ply + 1, false);
 
     //     board.unmakeMove(NO_MOVE);
@@ -358,6 +388,17 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
         
         if(score > alpha) {
             currBestMove = moves[idx];
+
+            if(isPV) {
+                pvArray[pvIndex] = moves[idx];
+
+                copyPv(pvArray + pvIndex + 1, pvArray + pvNextIndex, N - ply - 1);
+
+                assert(pvArray[pvIndex] != NO_MOVE);
+                assert(pvIndex < pvNextIndex);
+                assert(pvNextIndex < (N * N + N) / 2);
+            }
+
             if(score >= beta) {
                 recordHash(depth, beta, HASH_F_BETA, currBestMove);
 
@@ -391,6 +432,8 @@ pair<int, int> search() {
     ageHistory();
     for(short i = 0; i < 200; i++)
         killerMoves[i][0] = killerMoves[i][1] = NO_MOVE;
+
+    memset(pvArray, NO_MOVE, sizeof(pvArray));
 
     // --- ITERATIVE DEEPENING --- 
     // we start with a depth 1 search and then we increase the depth by 1 every time
