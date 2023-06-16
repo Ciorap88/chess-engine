@@ -3,6 +3,8 @@
 #include <iostream>
 #include <chrono>
 #include <unordered_map>
+#include <mutex>
+#include <condition_variable>
 
 #include "Board.h"
 #include "Search.h"
@@ -10,7 +12,11 @@
 #include "TranspositionTable.h"
 #include "UCI.h"
 
-using namespace std;
+string UCI::engineName = "CiorapBot 0.2";
+string UCI::goCommand;
+std::condition_variable UCI::cv;
+std::mutex UCI::mtx;
+bool UCI::startFlag, UCI::quitFlag;
 
 // for showing uci info
 string scoreToStr(int score) {
@@ -34,8 +40,6 @@ vector<string> splitStr(string s) {
     return ans;
 }
 
-string UCI::engineName = "CiorapBot 0.2";
-
 void UCI::UCICommunication() {
     while(true) {
         string inputString;
@@ -50,14 +54,26 @@ void UCI::UCICommunication() {
         } else if(inputString.substr(0, 8) == "position") {
             inputPosition(inputString);
         } else if(inputString.substr(0, 2) == "go") {
-            inputGo(inputString);
+            {
+                std::lock_guard<std::mutex> lk(UCI::mtx);
+                UCI::goCommand = inputString;
+                UCI::startFlag = true;
+            }
+            UCI::cv.notify_one();
         } else if(inputString.substr(0, 5) == "print") {
             printBoard(inputString.length() <= 6 || inputString.substr(6, 3) != "num");
         } else if(inputString.substr(0, 4) == "eval") {
             printEval();
         } else if(inputString == "stop") {
-            // timeOver = true?
+            timeOver = true;
         } else if(inputString == "quit") {
+            timeOver = true;
+            {
+                std::lock_guard<std::mutex> lk(UCI::mtx);
+                UCI::goCommand = inputString;
+                UCI::quitFlag = true;
+            }
+            UCI::cv.notify_one();
             break;
         }
     }
@@ -183,91 +199,100 @@ void UCI::printEval() {
     std::cout << evaluate() * (board.turn == Black ? -1 : 1) << '\n';
 }
 
-void UCI::inputGo(string input) {
-    long long time = -1, inc = 0, movesToGo = -1, moveTime = -1;
-    short depth = 200;
-    infiniteTime = true;
+void UCI::inputGo() {
+    while(true) {
+        long long time = -1, inc = 0, movesToGo = -1, moveTime = -1;
+        short depth = 256;
+        infiniteTime = true;
 
-    vector<string> parsedInput = splitStr(input);
+        std::unique_lock<std::mutex> lk(UCI::mtx);
+        UCI::cv.wait(lk, []{ return UCI::startFlag || UCI::quitFlag; });
 
-    // loop through words
-    for(int i = 0; i < parsedInput.size(); i++) {
-        // only do a quiescence search
-        if(parsedInput[i] == "quiescence") {
-            int score = quiesce(-1000000, 1000000);
-            std::cout << score * (board.turn == Black ? -1 : 1) << '\n';
-            return;
+        if(UCI::quitFlag) return;
+
+        UCI::startFlag = false;
+
+        vector<string> parsedInput = splitStr(UCI::goCommand);
+
+        // loop through words
+        for(int i = 0; i < parsedInput.size(); i++) {
+            // only do a quiescence search
+            if(parsedInput[i] == "quiescence") {
+                int score = quiesce(-1000000, 1000000);
+                std::cout << score * (board.turn == Black ? -1 : 1) << '\n';
+                return;
+            }
+            
+            // do a perft and then return if it is requested
+            if(parsedInput[i] == "perft") {
+                long long startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+                long long num = moveGenTest(stoi(parsedInput[i+1]), true);
+                long long endTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+                long long time = max(1LL, endTime-startTime);
+                long long nps = 1000LL*num/time;
+
+                std::cout << "nodes " << num << " time " << time << " nps " << nps << '\n';
+                return;
+            }
+
+            // get time and increment according to our color 
+            if(parsedInput[i] == "wtime" && board.turn == White) {
+                time = stoi(parsedInput[i+1]);
+            }
+            if(parsedInput[i] == "btime" && board.turn == Black) {
+                time = stoi(parsedInput[i+1]);
+            }
+            if(parsedInput[i] == "winc" && board.turn == White) {
+                inc = stoi(parsedInput[i+1]);
+            }
+            if(parsedInput[i] == "binc" && board.turn == Black) {
+                inc = stoi(parsedInput[i+1]);
+            }
+
+            // get moves to go
+            if(parsedInput[i] == "movestogo") {
+                movesToGo = stoi(parsedInput[i+1]);
+            }
+            
+            // get move time if any
+            if(parsedInput[i] == "movetime") {
+                moveTime = stoi(parsedInput[i+1]);
+            }
+
+            // get max depth
+            if(parsedInput[i] == "depth") {
+                depth = stoi(parsedInput[i+1]);
+            }
         }
+
+        // if depth is specified, we change the max depth, otherwise we leave it at 200
+        maxDepth = depth;
+
+        if(movesToGo != -1) movesToGo += 2;
+        else movesToGo = 40;
+
+        // get current time;
+        startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
         
-        // do a perft and then return if it is requested
-        if(parsedInput[i] == "perft") {
-            long long startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-            long long num = moveGenTest(stoi(parsedInput[i+1]), true);
-            long long endTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-            long long time = max(1LL, endTime-startTime);
-            long long nps = 1000LL*num/time;
+        // if move time is set, we can use it all for the current move
+        if(moveTime != -1) {
+            time = moveTime;
+            movesToGo = 1;
 
-            std::cout << "nodes " << num << " time " << time << " nps " << nps << '\n';
-            return;
+        // otherwise consider 
         }
-
-        // get time and increment according to our color 
-        if(parsedInput[i] == "wtime" && board.turn == White) {
-            time = stoi(parsedInput[i+1]);
-        }
-        if(parsedInput[i] == "btime" && board.turn == Black) {
-            time = stoi(parsedInput[i+1]);
-        }
-        if(parsedInput[i] == "winc" && board.turn == White) {
-            inc = stoi(parsedInput[i+1]);
-        }
-        if(parsedInput[i] == "binc" && board.turn == Black) {
-            inc = stoi(parsedInput[i+1]);
+        if(time != -1) {
+            infiniteTime = false;
+            time /= movesToGo;
         }
 
-        // get moves to go
-        if(parsedInput[i] == "movestogo") {
-            movesToGo = stoi(parsedInput[i+1]);
-        }
-        
-        // get move time if any
-        if(parsedInput[i] == "movetime") {
-            moveTime = stoi(parsedInput[i+1]);
-        }
+        if(time > 1000) time -= 500;
+        else if(time > 100) time -= 50;
 
-        // get max depth
-        if(parsedInput[i] == "depth") {
-            depth = stoi(parsedInput[i+1]);
-        }
+        // set the stop time
+        stopTime = startTime + time + inc;
+
+        auto result = search();
+        std::cout << "bestmove " << moveToString(result.first) << '\n';
     }
-
-    // if depth is specified, we change the max depth, otherwise we leave it at 200
-    maxDepth = depth;
-
-    if(movesToGo != -1) movesToGo += 2;
-    else movesToGo = 40;
-
-     // get current time;
-    startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-    
-    // if move time is set, we can use it all for the current move
-    if(moveTime != -1) {
-        time = moveTime;
-        movesToGo = 1;
-
-    // otherwise consider 
-    }
-    if(time != -1) {
-        infiniteTime = false;
-        time /= movesToGo;
-    }
-
-    if(time > 1000) time -= 500;
-    else if(time > 100) time -= 50;
-
-    // set the stop time
-    stopTime = startTime + time + inc;
-
-    auto result = search();
-    std::cout << "bestmove " << moveToString(result.first) << '\n';
 }

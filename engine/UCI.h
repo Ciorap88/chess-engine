@@ -4,19 +4,25 @@
 #define UCI_H_
 
 #include <string>
-
-using namespace std;
+#include <mutex>
+#include <condition_variable>
 
 class UCI {
 public:
-    static string engineName;
+    static std::condition_variable cv;
+    static std::mutex mtx;
+    static bool startFlag, quitFlag;
+
+    static std::string goCommand;
+
+    static std::string engineName;
 
     static void UCICommunication();
     static void inputUCI();
     static void inputIsReady();
     static void inputUCINewGame();
-    static void inputPosition(string input);
-    static void inputGo(string input);
+    static void inputPosition(std::string input);
+    static void inputGo();
 
     static void showSearchInfo(short depth, int nodes, int startTime, int score);
     static long long moveGenTest(short depth, bool show);

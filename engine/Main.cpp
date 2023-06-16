@@ -1,4 +1,5 @@
 #include <unordered_map>
+#include <thread>
 
 #include "Search.h"
 #include "Evaluate.h"
@@ -9,5 +10,12 @@
 
 int main() {
     init();
-    UCI::UCICommunication();
+
+    std::thread communicationThread(UCI::UCICommunication);
+    std::thread searchThread(UCI::inputGo);
+
+    communicationThread.join();       
+    searchThread.join(); 
+
+    return 0;
 }
