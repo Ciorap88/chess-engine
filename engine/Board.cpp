@@ -720,10 +720,7 @@ int Board::generateLegalMoves(int *moves) {
     while(num && isEP(moves[num-1])) {
         epMoves[numEp++] = moves[--num];
     }
-    // if(numEp > 2) {
-    //     cout << this->getFenFromCurrPos() << '\n';
-    //     cout << numEp << '\n';
-    // }
+
     assert(numEp <= 2);
 
     // before ep there are the castle moves so we do the same
