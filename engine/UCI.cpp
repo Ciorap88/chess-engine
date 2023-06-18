@@ -167,6 +167,7 @@ void UCI::showSearchInfo(short depth, int nodes, int startTime, int score) {
 
     std::cout << "info score " << scoreToStr(score) << " depth " << depth << " nodes " 
          << nodes << " time " << time << " nps " << nps << " ";
+    std::cout.flush();
 
     // print principal variation
     showPV(depth);
@@ -294,5 +295,6 @@ void UCI::inputGo() {
 
         auto result = search();
         std::cout << "bestmove " << moveToString(result.first) << '\n';
+        std::cout.flush();
     }
 }
