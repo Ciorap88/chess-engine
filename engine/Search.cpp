@@ -141,6 +141,9 @@ void sortMoves(int *moves, int num, short ply) {
     int pvMoveLegal = false;
     int pvMove = pvArray[pvIndex];
 
+    // find hash move
+    int hashMove = retrieveBestMove();
+
     // check legality of killer moves
     bool killerLegal[2] = {false, false};
     for(unsigned int idx = 0; idx < num; idx++) {
@@ -152,7 +155,7 @@ void sortMoves(int *moves, int num, short ply) {
 
     // split the other moves into captures and non captures for easier sorting
     for(unsigned int idx = 0; idx < num; idx++) {
-        if((moves[idx] == pvMove) || (moves[idx] == killerMoves[ply][0]) || (moves[idx] == killerMoves[ply][1]))
+        if((moves[idx] == pvMove) || (moves[idx] == killerMoves[ply][0]) || (moves[idx] == killerMoves[ply][1]) || (moves[idx] == hashMove))
             continue;
 
         if(isCapture(moves[idx])) captures[nCaptures++] = moves[idx];
@@ -163,25 +166,28 @@ void sortMoves(int *moves, int num, short ply) {
 
     // 1: add pv move
     if(pvMove != NO_MOVE) moves[newNum++] = pvMove;
+
+    // 2: add hash move
+    if (hashMove != NO_MOVE && hashMove != pvMove) moves[newNum++] = hashMove;
     
-    // 2: add captures sorted by MVV-LVA (only winning / equal captures first)
+    // 3: add captures sorted by MVV-LVA (only winning / equal captures first)
     sort(captures, captures + nCaptures, cmpCapturesDesc);
     while(nCaptures && captureScore(captures[nCaptures-1]) >= 0) {
         moves[newNum++] = captures[--nCaptures];
     }
 
-    // 3: add killer moves
-    if(killerLegal[0] && (killerMoves[ply][0] != NO_MOVE) && (killerMoves[ply][0] != pvMove)) 
+    // 4: add killer moves
+    if(killerLegal[0] && (killerMoves[ply][0] != NO_MOVE) && (killerMoves[ply][0] != pvMove) && (killerMoves[ply][0] != hashMove)) 
         moves[newNum++] = killerMoves[ply][0];
-    if(killerLegal[1] && (killerMoves[ply][1] != NO_MOVE) && (killerMoves[ply][1] != pvMove)) 
+    if(killerLegal[1] && (killerMoves[ply][1] != NO_MOVE) && (killerMoves[ply][1] != pvMove) && (killerMoves[ply][1] != hashMove)) 
         moves[newNum++] = killerMoves[ply][1];
 
-    // 4: add other quiet moves sorted by history heuristic
+    // 5: add other quiet moves sorted by history heuristic
     sort(nonCaptures, nonCaptures + nNonCaptures, cmpNonCaptures);
     for(unsigned int idx = 0; idx < nNonCaptures; idx++)
         moves[newNum++] = nonCaptures[idx];
 
-    // 5: add losing captures
+    // 6: add losing captures
     while(nCaptures) {
         moves[newNum++] = captures[--nCaptures];
     }
