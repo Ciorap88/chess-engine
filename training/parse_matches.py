@@ -3,7 +3,7 @@ import io
 import random
 import sys
 
-# outputs the fens from a match, along with the score (separated by $)
+# outputs the fens from a match, along with the score (separated by "")
 def output_fen(match):
     pgn = io.StringIO(match)
     game = chess.pgn.read_game(pgn)
@@ -18,7 +18,7 @@ def output_fen(match):
 
     while game.next():
         game = game.next()
-        ans.append(game.board().fen() + " $" + outcome)
+        ans.append(game.board().fen() + ' "' + outcome + '"')
     
     return ans
 

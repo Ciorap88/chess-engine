@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iostream>
 #include <math.h>
+#include <unordered_map>
 
 #include "../engine/Evaluate.h"
 #include "../engine/Board.h"
@@ -39,146 +40,117 @@ void createPosVector(string input_file, int num) {
 }
 
 void printParams(vector<int>& params, string output_file) {
-    assert(params.size() == 100 + 9 * 64 + 3 + 24);
+    assert(params.size() ==  9 * 64 + 7 + 6 + 3 + 24);
 
     int offset = 0;
 
     ofstream fout(output_file);
 
-    fout << "int KING_SAFETY_TABLE[100] = {\n   ";
-    for(int i = 0; i < 100; i++)  {
-        if(i % 10 == 0 && i > 0) fout << "\n   ";
-        fout << params[i + offset] << (i < 99 ? ", " : "");
-    }
-    offset += 100;
-    fout << "\n};\n\n";
-
     fout << "int MG_KING_TABLE[64] = {\n   ";
     for(int i = 0; i < 64; i++)  {
         if(i % 8 == 0 && i > 0) fout << "\n   ";
-        fout << params[i + offset] << (i < 63 ? ", " : "");
+        fout << params[offset++] << (i < 63 ? ", " : "");
     }
-    offset += 64;
     fout << "\n};\n\n";
 
     fout << "int EG_KING_TABLE[64] = {\n   ";
     for(int i = 0; i < 64; i++)  {
         if(i % 8 == 0 && i > 0) fout << "\n   ";
-        fout << params[i + offset] << (i < 63 ? ", " : "");
+        fout << params[offset++] << (i < 63 ? ", " : "");
     }
-    offset += 64;
     fout << "\n};\n\n";
 
     fout << "int QUEEN_TABLE[64] = {\n   ";
     for(int i = 0; i < 64; i++)  {
         if(i % 8 == 0 && i > 0) fout << "\n   ";
-        fout << params[i + offset] << (i < 63 ? ", " : "");
+        fout << params[offset++] << (i < 63 ? ", " : "");
     }
-    offset += 64;
     fout << "\n};\n\n";
 
     fout << "int ROOK_TABLE[64] = {\n   ";
     for(int i = 0; i < 64; i++)  {
         if(i % 8 == 0 && i > 0) fout << "\n   ";
-        fout << params[i + offset] << (i < 63 ? ", " : "");
+        fout << params[offset++] << (i < 63 ? ", " : "");
     }
-    offset += 64;
     fout << "\n};\n\n";
 
     fout << "int BISHOP_TABLE[64] = {\n   ";
     for(int i = 0; i < 64; i++)  {
         if(i % 8 == 0 && i > 0) fout << "\n   ";
-        fout << params[i + offset] << (i < 63 ? ", " : "");
+        fout << params[offset++] << (i < 63 ? ", " : "");
     }
-    offset += 64;
     fout << "\n};\n\n";
 
     fout << "int KNIGHT_TABLE[64] = {\n   ";
     for(int i = 0; i < 64; i++)  {
         if(i % 8 == 0 && i > 0) fout << "\n   ";
-        fout << params[i + offset] << (i < 63 ? ", " : "");
+        fout << params[offset++] << (i < 63 ? ", " : "");
     }
-    offset += 64;
     fout << "\n};\n\n";
 
     fout << "int MG_PAWN_TABLE[64] = {\n   ";
     for(int i = 0; i < 64; i++)  {
         if(i % 8 == 0 && i > 0) fout << "\n   ";
-        fout << params[i + offset] << (i < 63 ? ", " : "");
+        fout << params[offset++] << (i < 63 ? ", " : "");
     }
-    offset += 64;
     fout << "\n};\n\n";
 
     fout << "int EG_PAWN_TABLE[64] = {\n   ";
     for(int i = 0; i < 64; i++)  {
         if(i % 8 == 0 && i > 0) fout << "\n   ";
-        fout << params[i + offset] << (i < 63 ? ", " : "");
+        fout << params[offset++] << (i < 63 ? ", " : "");
     }
-    offset += 64;
     fout << "\n};\n\n";
 
     fout << "int PASSED_PAWN_TABLE[64] = {\n   ";
     for(int i = 0; i < 64; i++)  {
         if(i % 8 == 0 && i > 0) fout << "\n   ";
-        fout << params[i + offset] << (i < 63 ? ", " : "");
+        fout << params[offset++] << (i < 63 ? ", " : "");
     }
-    offset += 64;
     fout << "\n};\n\n";
 
     fout << "int KING_SHIELD[3] = {\n   ";
     for(int i = 0; i < 3; i++)  {
-        fout << params[i + offset] << (i < 2 ? ", " : "");
+        fout << params[offset++] << (i < 2 ? ", " : "");
     }
-    offset += 3;
     fout << "\n};\n\n";
 
-    fout << "int KNIGHT_MOBILITY = " << params[offset] << ";\n";
-    offset++;
-    fout << "int KNIGHT_PAWN_CONST = " << params[offset] << ";\n";
-    offset++;
-    fout << "int TRAPPED_KNIGHT_PENALTY = " << params[offset] << ";\n";
-    offset++;
-    fout << "int KNIGHT_DEF_BY_PAWN = " << params[offset] << ";\n";
-    offset++;
-    fout << "int BLOCKING_C_KNIGHT = " << params[offset] << ";\n";
-    offset++;
-    fout << "int KNIGHT_PAIR_PENALTY = " << params[offset] << ";\n";
-    offset++;
-    fout << "int BISHOP_PAIR = " << params[offset] << ";\n";
-    offset++;
-    fout << "int TRAPPED_BISHOP_PENALTY = " << params[offset] << ";\n";
-    offset++;
-    fout << "int FIANCHETTO_BONUS = " << params[offset] << ";\n";
-    offset++;
-    fout << "int BISHOP_MOBILITY = " << params[offset] << ";\n";
-    offset++;
-    fout << "int BLOCKED_BISHOP_PENALTY = " << params[offset] << ";\n";
-    offset++;
-    fout << "int ROOK_ON_QUEEN_FILE = " << params[offset] << ";\n";
-    offset++;
-    fout << "int ROOK_ON_OPEN_FILE = " << params[offset] << ";\n";
-    offset++;
-    fout << "int ROOK_PAWN_CONST = " << params[offset] << ";\n";
-    offset++;
-    fout << "int ROOK_ON_SEVENTH = " << params[offset] << ";\n";
-    offset++;
-    fout << "int ROOKS_DEF_EACH_OTHER = " << params[offset] << ";\n";
-    offset++;
-    fout << "int ROOK_MOBILITY = " << params[offset] << ";\n";
-    offset++;
-    fout << "int BLOCKED_ROOK_PENALTY = " << params[offset] << ";\n";
-    offset++;
-    fout << "int EARLY_QUEEN_DEVELOPMENT = " << params[offset] << ";\n";
-    offset++;
-    fout << "int QUEEN_MOBILITY = " << params[offset] << ";\n";
-    offset++;
-    fout << "int DOUBLED_PAWNS_PENALTY = " << params[offset] << ";\n";
-    offset++;
-    fout << "int WEAK_PAWN_PENALTY = " << params[offset] << ";\n";
-    offset++;
-    fout << "int C_PAWN_PENALTY = " << params[offset] << ";\n";
-    offset++;
-    fout << "int TEMPO_BONUS = " << params[offset] << ";\n";
+    fout << "int PIECE_VALLUES[7] = {\n   ";
+    for(int i = 0; i < 7; i++)  {
+        fout << params[offset++] << (i < 6 ? ", " : "");
+    }
+    fout << "\n};\n\n";
+
+    fout << "int PIECE_ATTACK_WEIGHT[6] = {\n   ";
+    for(int i = 0; i < 6; i++)  {
+        fout << params[offset++] << (i < 5 ? ", " : "");
+    }
+    fout << "\n};\n\n";
+
+    fout << "int KNIGHT_MOBILITY = " << params[offset++] << ";\n";
+    fout << "int KNIGHT_PAWN_CONST = " << params[offset++] << ";\n";
+    fout << "int TRAPPED_KNIGHT_PENALTY = " << params[offset++] << ";\n";
+    fout << "int KNIGHT_DEF_BY_PAWN = " << params[offset++] << ";\n";
+    fout << "int BLOCKING_C_KNIGHT = " << params[offset++] << ";\n";
+    fout << "int KNIGHT_PAIR_PENALTY = " << params[offset++] << ";\n";
+    fout << "int BISHOP_PAIR = " << params[offset++] << ";\n";
+    fout << "int TRAPPED_BISHOP_PENALTY = " << params[offset++] << ";\n";
+    fout << "int FIANCHETTO_BONUS = " << params[offset++] << ";\n";
+    fout << "int BISHOP_MOBILITY = " << params[offset++] << ";\n";
+    fout << "int BLOCKED_BISHOP_PENALTY = " << params[offset++] << ";\n";
+    fout << "int ROOK_ON_QUEEN_FILE = " << params[offset++] << ";\n";
+    fout << "int ROOK_ON_OPEN_FILE = " << params[offset++] << ";\n";
+    fout << "int ROOK_PAWN_CONST = " << params[offset++] << ";\n";
+    fout << "int ROOK_ON_SEVENTH = " << params[offset++] << ";\n";
+    fout << "int ROOKS_DEF_EACH_OTHER = " << params[offset++] << ";\n";
+    fout << "int ROOK_MOBILITY = " << params[offset++] << ";\n";
+    fout << "int BLOCKED_ROOK_PENALTY = " << params[offset++] << ";\n";
+    fout << "int EARLY_QUEEN_DEVELOPMENT = " << params[offset++] << ";\n";
+    fout << "int QUEEN_MOBILITY = " << params[offset++] << ";\n";
+    fout << "int DOUBLED_PAWNS_PENALTY = " << params[offset++] << ";\n";
+    fout << "int WEAK_PAWN_PENALTY = " << params[offset++] << ";\n";
+    fout << "int C_PAWN_PENALTY = " << params[offset++] << ";\n";
+    fout << "int TEMPO_BONUS = " << params[offset++] << ";\n";
 
     fout.close();
 }
@@ -188,13 +160,12 @@ double Sigmoid(double ev) {
 }
 
 int E(vector<int>& params) {
-    assert(params.size() == 100 + 9 * 64 + 3 + 24);
+    assert(params.size() == 9 * 64 + 7 + 6 + 3 + 24);
 
-    int KING_SAFETY_TABLE[100], 
-        MG_KING_TABLE[64], EG_KING_TABLE[64],
+    int MG_KING_TABLE[64], EG_KING_TABLE[64],
         QUEEN_TABLE[64], ROOK_TABLE[64], BISHOP_TABLE[64], 
         KNIGHT_TABLE[64], MG_PAWN_TABLE[64], EG_PAWN_TABLE[64], PASSED_PAWN_TABLE[64],
-        KING_SHIELD[3],
+        KING_SHIELD[3], PIECE_VALUES[7], PIECE_ATTACK_WEIGHT[6],
         KNGIHT_MOBILITY, KNIGHT_PAWN_CONST, TRAPPED_KNIGHT_PENALTY,
         KNIGHT_DEF_BY_PAWN, BLOCKING_C_KNIGHT, KNIGHT_PAIR_PENALTY, 
         BISHOP_PAIR, TRAPPED_BISHOP_PENALTY, FIANCHETTO_BONUS, 
@@ -207,29 +178,19 @@ int E(vector<int>& params) {
         TEMPO_BONUS;
 
     int offset = 0;
-    for(int i = 0; i < 100; i++) KING_SAFETY_TABLE[i] = params[i + offset];
-    offset += 100;
-    for(int i = 0; i < 64; i++) MG_KING_TABLE[i] = params[i + offset];
-    offset += 64;
-    for(int i = 0; i < 64; i++) EG_KING_TABLE[i] = params[i + offset];
-    offset += 64;
-    for(int i = 0; i < 64; i++) QUEEN_TABLE[i] = params[i + offset];
-    offset += 64;
-    for(int i = 0; i < 64; i++) ROOK_TABLE[i] = params[i + offset];
-    offset += 64;
-    for(int i = 0; i < 64; i++) BISHOP_TABLE[i] = params[i + offset];
-    offset += 64;
-    for(int i = 0; i < 64; i++) KNIGHT_TABLE[i] = params[i + offset];
-    offset += 64;
-    for(int i = 0; i < 64; i++) MG_PAWN_TABLE[i] = params[i + offset];
-    offset += 64;
-    for(int i = 0; i < 64; i++) EG_PAWN_TABLE[i] = params[i + offset];
-    offset += 64;
-    for(int i = 0; i < 64; i++) PASSED_PAWN_TABLE[i] = params[i + offset];
-    offset += 64;
+    for(int i = 0; i < 64; i++) MG_KING_TABLE[i] = params[offset++];
+    for(int i = 0; i < 64; i++) EG_KING_TABLE[i] = params[offset++];
+    for(int i = 0; i < 64; i++) QUEEN_TABLE[i] = params[offset++];
+    for(int i = 0; i < 64; i++) ROOK_TABLE[i] = params[offset++];
+    for(int i = 0; i < 64; i++) BISHOP_TABLE[i] = params[offset++];
+    for(int i = 0; i < 64; i++) KNIGHT_TABLE[i] = params[offset++];
+    for(int i = 0; i < 64; i++) MG_PAWN_TABLE[i] = params[offset++];
+    for(int i = 0; i < 64; i++) EG_PAWN_TABLE[i] = params[offset++];
+    for(int i = 0; i < 64; i++) PASSED_PAWN_TABLE[i] = params[offset++];
 
-    for(int i = 0; i < 3; i++) KING_SHIELD[i] = params[i + offset];
-    offset += 3;
+    for(int i = 0; i < 3; i++) KING_SHIELD[i] = params[offset++];
+    for(int i = 0; i < 7; i++) PIECE_VALUES[i] = params[offset++];
+    for(int i = 0; i < 6; i++) PIECE_ATTACK_WEIGHT[i] = params[offset++];
 
     KNGIHT_MOBILITY = params[offset++];
     KNIGHT_PAWN_CONST = params[offset++];
@@ -260,11 +221,11 @@ int E(vector<int>& params) {
     for(pair<string, double> &p: positions) {
         board.loadFenPos(p.first);
 
-        double ev = evaluate(false, KING_SAFETY_TABLE, 
+        double ev = evaluate(false, 
             MG_KING_TABLE, EG_KING_TABLE,
             QUEEN_TABLE, ROOK_TABLE, BISHOP_TABLE, 
             KNIGHT_TABLE, MG_PAWN_TABLE, EG_PAWN_TABLE, PASSED_PAWN_TABLE,
-            KING_SHIELD,
+            KING_SHIELD, PIECE_VALUES, PIECE_ATTACK_WEIGHT,
             KNGIHT_MOBILITY, KNIGHT_PAWN_CONST, TRAPPED_KNIGHT_PENALTY,
             KNIGHT_DEF_BY_PAWN, BLOCKING_C_KNIGHT, KNIGHT_PAIR_PENALTY, 
             BISHOP_PAIR, TRAPPED_BISHOP_PENALTY, FIANCHETTO_BONUS, 
@@ -282,7 +243,7 @@ int E(vector<int>& params) {
 
         double sig = Sigmoid(ev);
         assert(sig <= 1 && sig >= 0);
-        // cout << "ev=" << ev << ' ' << Sigmoid(ev) << '\n';
+
         mse += (Sigmoid(ev) - p.second) * (Sigmoid(ev) - p.second);
     } 
 
@@ -298,7 +259,7 @@ vector<int> trainParameters(vector<int> initialGuess) {
     while ( improved ) {
         cout << "Iteration " << iteration << " started.\n";
         improved = false;
-        for (int pi = 0; pi < nParams; pi++) {
+        for (int pi = 580; pi < 581; pi++) {
             bool improvedParam;
             do {
                 improvedParam = false;
@@ -315,7 +276,6 @@ vector<int> trainParameters(vector<int> initialGuess) {
                 } else {
                     newParValues[pi] -= 2;
                     newE = E(newParValues);
-                    // cout << "Trying new value=" << newParValues[pi] << " new error=" << newE << '\n';
                     if (newE < bestE) {
                         improvedParam = true;
                         cout << "Found better value at parameter " << pi << ": " << bestParValues[pi] << " -> " << newParValues[pi] << ", mse=" << newE << '\n';
@@ -341,16 +301,6 @@ int main(int argc, char **argv) {
     createPosVector(argv[1], atoi(argv[3]));
 
     vector<int> par = {
-    0, 0, 1, 2, 3, 5, 7, 9, 12, 15,
-    18, 22, 26, 30, 35, 39, 44, 50, 56, 62,
-    68,  75,  82,  85,  89,  97, 105, 113, 122, 131,
-    140, 150, 169, 180, 191, 202, 213, 225, 237, 248,
-    260, 272, 283, 295, 307, 319, 330, 342, 354, 366,
-    377, 389, 401, 412, 424, 436, 448, 459, 471, 483,
-    494, 500, 500, 500, 500, 500, 500, 500, 500, 500,
-    500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
-    500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
-    500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
     40, 50, 30, 10, 10, 30, 50, 40,
     30, 40, 20, 0, 0, 20, 40, 30,
     10, 20, 0, -20, -20, 0, 20, 10,
@@ -424,6 +374,8 @@ int main(int argc, char **argv) {
     100, 100, 100, 100, 100, 100, 100, 100,
     0, 0, 0, 0, 0, 0, 0, 0,
     5, 10, 5,
+    0, 400, 325, 350, 500, 975, 0,
+    0, 0, 2, 2, 3, 5,
     4, 3, 100, 15, 30, 20, 50, 100, 20, 5, 50, 10, 20, 3, 30, 5, 3, 50, 20, 2, 40, 15, 25, 10};
 
 

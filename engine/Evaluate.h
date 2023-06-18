@@ -5,8 +5,6 @@
 
 #include "Board.h"
 
-#include <unordered_map>
-
 extern int PIECE_VALUES[7];
 extern const int MG_WEIGHT[7];
 
@@ -16,12 +14,11 @@ int evaluate();
 int evaluate(
     bool usePawnHash, 
 
-    int KING_SAFETY_TABLE[100], 
     int MG_KING_TABLE[64], int EG_KING_TABLE[64],
     int QUEEN_TABLE[64], int ROOK_TABLE[64], int BISHOP_TABLE[64], 
     int KNIGHT_TABLE[64], int MG_PAWN_TABLE[64], int EG_PAWN_TABLE[64], int PASSED_PAWN_TABLE[64],
 
-    int KING_SHIELD[3],
+    int KING_SHIELD[3], int PIECE_VALUES[7], int PIECE_ATTACK_WEIGHT[6],
 
     int& KNGIHT_MOBILITY, int& KNIGHT_PAWN_CONST, int& TRAPPED_KNIGHT_PENALTY,
     int& KNIGHT_DEF_BY_PAWN, int& BLOCKING_C_KNIGHT, int& KNIGHT_PAIR_PENALTY, 

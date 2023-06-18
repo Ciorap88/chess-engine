@@ -21,11 +21,6 @@ const int FLIPPED[64] = {
 
 const int MG_WEIGHT[7] = {0, 0, 1, 1, 2, 4, 0}; 
 
-int PIECE_VALUES[7] = {0, 100, 325, 350, 500, 975, 0};
-
-int PIECE_ATTACK_WEIGHT[6] = {0, 0, 2, 2, 3, 5};
-
-// table that tells how safe the king is based on the attackers
 int KING_SAFETY_TABLE[100] = {
     0, 0, 1, 2, 3, 5, 7, 9, 12, 15,
     18, 22, 26, 30, 35, 39, 44, 50, 56, 62,
@@ -141,6 +136,10 @@ int PASSED_PAWN_TABLE[64] = {
 
 int KING_SHIELD[3] = {5, 10, 5};
 
+int PIECE_VALUES[7] = {0, 100, 325, 350, 500, 975, 0};
+
+int PIECE_ATTACK_WEIGHT[6] = {0, 0, 2, 2, 3, 5};
+
 // bonuses and penalties according to various features of the position
 int KNIGHT_MOBILITY = 4;
 int KNIGHT_PAWN_CONST = 3;
@@ -181,33 +180,38 @@ int gamePhase();
 int evalPawn(
     int sq, int color, 
     int MG_PAWN_TABLE[64], int EG_PAWN_TABLE[64], int PASSED_PAWN_TABLE[64],
-    int& DOUBLED_PAWNS_PENALTY, int& WEAK_PAWN_PENALTY, int& C_PAWN_PENALTY
+    int& DOUBLED_PAWNS_PENALTY, int& WEAK_PAWN_PENALTY, int& C_PAWN_PENALTY,
+    int PIECE_VALUES[7]
 );
 int evalKnight( 
     int sq, int color, 
     int KNIGHT_TABLE[64], int& KNIGHT_MOBILITY, 
-    int& KNIGHT_PAWN_CONST, int& TRAPPED_KNIGHT_PENALTY, int& BLOCKING_C_KNIGHT, int& KNIGHT_DEF_BY_PAWN
+    int& KNIGHT_PAWN_CONST, int& TRAPPED_KNIGHT_PENALTY, int& BLOCKING_C_KNIGHT, int& KNIGHT_DEF_BY_PAWN,
+    int PIECE_VALUES[7], int PIECE_ATTACK_WEIGHT[6]
 );
 int evalBishop(
     int sq, int color, 
     int BISHOP_TABLE[64], int& TRAPPED_BISHOP_PENALTY, 
-    int& BLOCKED_BISHOP_PENALTY, int& FIANCHETTO_BONUS, int& BISHOP_MOBILITY
+    int& BLOCKED_BISHOP_PENALTY, int& FIANCHETTO_BONUS, int& BISHOP_MOBILITY,
+    int PIECE_VALUES[7], int PIECE_ATTACK_WEIGHT[6]
 );
 int evalRook(
     int sq, int color, 
     int ROOK_TABLE[64], int& BLOCKED_ROOK_PENALTY,
     int& ROOK_PAWN_CONST, int& ROOK_ON_OPEN_FILE, int& ROOK_ON_SEVENTH, int& ROOKS_DEF_EACH_OTHER,
-    int& ROOK_ON_QUEEN_FILE, int& ROOK_MOBILITY
+    int& ROOK_ON_QUEEN_FILE, int& ROOK_MOBILITY,
+    int PIECE_VALUES[7], int PIECE_ATTACK_WEIGHT[6]
 );
 int evalQueen(
     int sq, int color, 
     int QUEEN_TABLE[64], int& EARLY_QUEEN_DEVELOPMENT,
-    int& QUEEN_MOBILITY
+    int& QUEEN_MOBILITY, int PIECE_VALUES[7], int PIECE_ATTACK_WEIGHT[6]
 );
 int evalPawnStructure(
     bool useHash,
     int MG_PAWN_TABLE[64], int EG_PAWN_TABLE[64], int PASSED_PAWN_TABLE[64],
-    int& DOUBLED_PAWNS_PENALTY, int& WEAK_PAWN_PENALTY, int& C_PAWN_PENALTY
+    int& DOUBLED_PAWNS_PENALTY, int& WEAK_PAWN_PENALTY, int& C_PAWN_PENALTY,
+    int PIECE_VALUES[7]
 );
 
 int whiteKingShield(int KING_SHIELD[3]), blackKingShield(int KING_SHIELD[3]);
@@ -215,12 +219,11 @@ int whiteKingShield(int KING_SHIELD[3]), blackKingShield(int KING_SHIELD[3]);
 int evaluate(
     bool usePawnHash,
 
-    int KING_SAFETY_TABLE[100], 
     int MG_KING_TABLE[64], int EG_KING_TABLE[64],
     int QUEEN_TABLE[64], int ROOK_TABLE[64], int BISHOP_TABLE[64], 
     int KNIGHT_TABLE[64], int MG_PAWN_TABLE[64], int EG_PAWN_TABLE[64], int PASSED_PAWN_TABLE[64],
 
-    int KING_SHIELD[3],
+    int KING_SHIELD[3], int PIECE_VALUES[7], int PIECE_ATTACK_WEIGHT[6],
 
     int& KNIGHT_MOBILITY, int& KNIGHT_PAWN_CONST, int& TRAPPED_KNIGHT_PENALTY,
     int& KNIGHT_DEF_BY_PAWN, int& BLOCKING_C_KNIGHT, int& KNIGHT_PAIR_PENALTY, 
@@ -256,26 +259,28 @@ int evaluate(
         if(board.knightsBB & bits[sq]) res += evalKnight(
             sq, color, KNIGHT_TABLE,
             KNIGHT_MOBILITY, KNIGHT_PAWN_CONST, TRAPPED_KNIGHT_PENALTY, 
-            BLOCKING_C_KNIGHT, KNIGHT_DEF_BY_PAWN) * c;
+            BLOCKING_C_KNIGHT, KNIGHT_DEF_BY_PAWN, PIECE_VALUES, PIECE_ATTACK_WEIGHT) * c;
 
         if(board.bishopsBB & bits[sq]) res += evalBishop(
             sq, color, BISHOP_TABLE, 
             TRAPPED_BISHOP_PENALTY, BLOCKED_BISHOP_PENALTY, 
-            FIANCHETTO_BONUS, BISHOP_MOBILITY) * c;
+            FIANCHETTO_BONUS, BISHOP_MOBILITY, PIECE_VALUES, PIECE_ATTACK_WEIGHT) * c;
 
         if(board.rooksBB & bits[sq]) res += evalRook(
             sq, color, ROOK_TABLE, 
             BLOCKED_ROOK_PENALTY,ROOK_PAWN_CONST, ROOK_ON_OPEN_FILE, 
-            ROOK_ON_SEVENTH, ROOKS_DEF_EACH_OTHER, ROOK_ON_QUEEN_FILE, ROOK_MOBILITY) * c;
+            ROOK_ON_SEVENTH, ROOKS_DEF_EACH_OTHER, ROOK_ON_QUEEN_FILE, ROOK_MOBILITY, 
+            PIECE_VALUES, PIECE_ATTACK_WEIGHT) * c;
 
         if(board.queensBB & bits[sq]) res += evalQueen(
             sq, color, QUEEN_TABLE, EARLY_QUEEN_DEVELOPMENT,
-            QUEEN_MOBILITY) * c;
+            QUEEN_MOBILITY, PIECE_VALUES, PIECE_ATTACK_WEIGHT) * c;
     }
     res += evalPawnStructure(
         usePawnHash,
         MG_PAWN_TABLE, EG_PAWN_TABLE, PASSED_PAWN_TABLE,
-        DOUBLED_PAWNS_PENALTY, WEAK_PAWN_PENALTY, C_PAWN_PENALTY
+        DOUBLED_PAWNS_PENALTY, WEAK_PAWN_PENALTY, C_PAWN_PENALTY,
+        PIECE_VALUES
     );
 
     // evaluate kings based on the current game phase (king centralization becomes more important than safety as pieces disappear from the board)
@@ -344,11 +349,11 @@ int evaluate() {
     return evaluate(   
         true,
 
-        KING_SAFETY_TABLE, MG_KING_TABLE, EG_KING_TABLE,
+        MG_KING_TABLE, EG_KING_TABLE,
         QUEEN_TABLE, ROOK_TABLE, BISHOP_TABLE, 
         KNIGHT_TABLE, MG_PAWN_TABLE, EG_PAWN_TABLE, PASSED_PAWN_TABLE,
 
-        KING_SHIELD,
+        KING_SHIELD, PIECE_VALUES, PIECE_ATTACK_WEIGHT,
 
         KNIGHT_MOBILITY, KNIGHT_PAWN_CONST, TRAPPED_KNIGHT_PENALTY,
         KNIGHT_DEF_BY_PAWN, BLOCKING_C_KNIGHT, KNIGHT_PAIR_PENALTY, 
@@ -369,7 +374,8 @@ int evaluate() {
 int evalKnight( 
     int sq, int color, 
     int KNIGHT_TABLE[64], int& KNIGHT_MOBILITY, 
-    int& KNIGHT_PAWN_CONST, int& TRAPPED_KNIGHT_PENALTY, int& BLOCKING_C_KNIGHT, int& KNIGHT_DEF_BY_PAWN
+    int& KNIGHT_PAWN_CONST, int& TRAPPED_KNIGHT_PENALTY, int& BLOCKING_C_KNIGHT, int& KNIGHT_DEF_BY_PAWN,
+    int PIECE_VALUES[7], int PIECE_ATTACK_WEIGHT[6]
 ) {
     U64 opponentPawnsBB = (board.pawnsBB & (color == White ? board.blackPiecesBB : board.whitePiecesBB));
     U64 ourPawnsBB = (board.pawnsBB ^ opponentPawnsBB);
@@ -447,7 +453,8 @@ int evalKnight(
 int evalBishop(
     int sq, int color, 
     int BISHOP_TABLE[64], int& TRAPPED_BISHOP_PENALTY, 
-    int& BLOCKED_BISHOP_PENALTY, int& FIANCHETTO_BONUS, int& BISHOP_MOBILITY
+    int& BLOCKED_BISHOP_PENALTY, int& FIANCHETTO_BONUS, int& BISHOP_MOBILITY,
+    int PIECE_VALUES[7], int PIECE_ATTACK_WEIGHT[6]
 ) {
     U64 ourPawnsBB = (board.whitePiecesBB & board.pawnsBB);
     U64 opponentPawnsBB = (board.blackPiecesBB & board.pawnsBB);
@@ -519,7 +526,8 @@ int evalRook(
     int sq, int color, 
     int ROOK_TABLE[64], int& BLOCKED_ROOK_PENALTY,
     int& ROOK_PAWN_CONST, int& ROOK_ON_OPEN_FILE, int& ROOK_ON_SEVENTH, int& ROOKS_DEF_EACH_OTHER,
-    int& ROOK_ON_QUEEN_FILE, int& ROOK_MOBILITY
+    int& ROOK_ON_QUEEN_FILE, int& ROOK_MOBILITY,
+    int PIECE_VALUES[7], int PIECE_ATTACK_WEIGHT[6]
 ) {
     U64 currFileBB = filesBB[sq%8];
     U64 currRankBB = ranksBB[sq/8];
@@ -603,7 +611,8 @@ int evalRook(
 
 int evalQueen(
     int sq, int color, 
-    int QUEEN_TABLE[64], int& EARLY_QUEEN_DEVELOPMENT, int& QUEEN_MOBILITY
+    int QUEEN_TABLE[64], int& EARLY_QUEEN_DEVELOPMENT, int& QUEEN_MOBILITY,
+    int PIECE_VALUES[7], int PIECE_ATTACK_WEIGHT[6]
 ) {
     U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
     U64 opponentPiecesBB = (color == Black ? board.whitePiecesBB : board.blackPiecesBB);
@@ -731,7 +740,8 @@ int blackKingShield(int KING_SHIELD[3]) {
 int evalPawnStructure(
     bool useHash,
     int MG_PAWN_TABLE[64], int EG_PAWN_TABLE[64], int PASSED_PAWN_TABLE[64],
-    int& DOUBLED_PAWNS_PENALTY, int& WEAK_PAWN_PENALTY, int& C_PAWN_PENALTY
+    int& DOUBLED_PAWNS_PENALTY, int& WEAK_PAWN_PENALTY, int& C_PAWN_PENALTY,
+    int PIECE_VALUES[7]
 ) {
     U64 whitePawns = (board.pawnsBB & board.whitePiecesBB);
     U64 blackPawns = (board.pawnsBB & board.blackPiecesBB);
@@ -747,14 +757,14 @@ int evalPawnStructure(
         int sq = bitscanForward(whitePawns);
         eval += evalPawn(
             sq, White, MG_PAWN_TABLE, EG_PAWN_TABLE, PASSED_PAWN_TABLE,
-            DOUBLED_PAWNS_PENALTY, WEAK_PAWN_PENALTY, C_PAWN_PENALTY);
+            DOUBLED_PAWNS_PENALTY, WEAK_PAWN_PENALTY, C_PAWN_PENALTY, PIECE_VALUES);
         whitePawns &= (whitePawns-1);
     }
     while(blackPawns) {
         int sq = bitscanForward(blackPawns);
         eval -= evalPawn(
             sq, Black, MG_PAWN_TABLE, EG_PAWN_TABLE, PASSED_PAWN_TABLE,
-            DOUBLED_PAWNS_PENALTY, WEAK_PAWN_PENALTY, C_PAWN_PENALTY);
+            DOUBLED_PAWNS_PENALTY, WEAK_PAWN_PENALTY, C_PAWN_PENALTY, PIECE_VALUES);
         blackPawns &= (blackPawns-1);
     }
 
@@ -766,7 +776,8 @@ int evalPawnStructure(
 int evalPawn(
     int sq, int color, 
     int MG_PAWN_TABLE[64], int EG_PAWN_TABLE[64], int PASSED_PAWN_TABLE[64],
-    int& DOUBLED_PAWNS_PENALTY, int& WEAK_PAWN_PENALTY, int& C_PAWN_PENALTY
+    int& DOUBLED_PAWNS_PENALTY, int& WEAK_PAWN_PENALTY, int& C_PAWN_PENALTY,
+    int PIECE_VALUES[7]
 ) {
     U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
 
