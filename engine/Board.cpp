@@ -23,7 +23,7 @@ U64 bishopMasks[64], rookMasks[64];
 int castleStartSq[4] = {e1,e1,e8,e8};
 int castleEndSq[4] = {g1,c1,g8,c8};
 
-stack<int> castleStk, epStk;
+stack<int> castleStk, epStk, moveStk;
 
 void Board::clear() {
     for(int i = 0; i < 64; i++) this->squares[i] = Empty;
@@ -796,6 +796,8 @@ void Board::makeMove(int move) {
     castleStk.push(this->castleRights);
     epStk.push(this->ep);
 
+    moveStk.push(move);
+
     // get move info
     int from = getFromSq(move);
     int to = getToSq(move);
@@ -903,6 +905,8 @@ void Board::unmakeMove(int move) {
     this->castleRights = castleStk.top();
     epStk.pop();
     castleStk.pop();
+    
+    moveStk.pop();
 
     if(piece == King) {
         if(color == White) this->whiteKingSquare = from;

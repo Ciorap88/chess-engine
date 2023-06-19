@@ -3,6 +3,7 @@
 #include <math.h>
 #include <unordered_map>
 #include <iostream>
+#include <stack>
 
 #include "Evaluate.h"
 #include "Board.h"
@@ -15,7 +16,7 @@
 
 using namespace std;
 
-int killerMoves[200][2];
+int killerMoves[256][2];
 int history[16][64];
 const int HISTORY_MAX = 1e8;
 
@@ -99,9 +100,11 @@ void ageHistory() {
     }
 }
 
-// evaluating moves by material gain
 int captureScore(int move) {
     int score = 0;
+
+    // give huge score boost to captures of the last moved piece
+    if(getToSq(move) == getToSq(moveStk.top())) score += 2000;
 
     // captured piece value - capturing piece value
     if(isCapture(move)) score += (PIECE_VALUES[getCapturedPiece(move)]-
@@ -113,23 +116,34 @@ int captureScore(int move) {
     return score;
 }
 
-bool cmpCapturesDesc(int a, int b) {
+int nonCaptureScore(int move) {
+    // start with history score
+    int score = history[(getColor(move) | getPiece(move))][getToSq(move)];
+
+    // if it is a promotion add huge bonus so that it is searched first
+    if(isPromotion(move)) score += 100000000;
+
+    assert(score <= 1e9);
+    return score;
+}
+
+bool cmpCapturesInv(int a, int b) {
     return (captureScore(a) < captureScore(b));
 }
 
-bool cmpCapturesAsc(int a, int b) {
+bool cmpCaptures(int a, int b) {
     return  (captureScore(a) > captureScore(b));
 }
 
 bool cmpNonCaptures(int a, int b) {
-    return history[(getColor(a) | getPiece(a))][getToSq(a)] > history[(getColor(b) | getPiece(b))][getToSq(b)];
+    return nonCaptureScore(a) > nonCaptureScore(b);
 }
 
 // --- MOVE ORDERING --- 
 void sortMoves(int *moves, int num, short ply) {
     // sorting in quiescence search
       if(ply == -1) {
-          sort(moves, moves+num, cmpCapturesAsc);
+          sort(moves, moves+num, cmpCaptures);
           return;
       }
 
@@ -164,35 +178,35 @@ void sortMoves(int *moves, int num, short ply) {
 
     unsigned int newNum = 0; // size of sorted array
 
-    // 1: add pv move
+    // add pv move
     if(pvMove != NO_MOVE) moves[newNum++] = pvMove;
 
-    // 2: add hash move
+    // add hash move if it is not the pv move
     if (hashMove != NO_MOVE && hashMove != pvMove) moves[newNum++] = hashMove;
     
-    // 3: add captures sorted by MVV-LVA (only winning / equal captures first)
-    sort(captures, captures + nCaptures, cmpCapturesDesc);
+    // add captures sorted by MVV-LVA (only winning / equal captures first)
+    sort(captures, captures + nCaptures, cmpCapturesInv); // descending order because we add them from the end
     while(nCaptures && captureScore(captures[nCaptures-1]) >= 0) {
         moves[newNum++] = captures[--nCaptures];
     }
 
-    // 4: add killer moves
+    // add killer moves
     if(killerLegal[0] && (killerMoves[ply][0] != NO_MOVE) && (killerMoves[ply][0] != pvMove) && (killerMoves[ply][0] != hashMove)) 
         moves[newNum++] = killerMoves[ply][0];
     if(killerLegal[1] && (killerMoves[ply][1] != NO_MOVE) && (killerMoves[ply][1] != pvMove) && (killerMoves[ply][1] != hashMove)) 
         moves[newNum++] = killerMoves[ply][1];
 
-    // 5: add other quiet moves sorted by history heuristic
+    // add other quiet moves sorted
     sort(nonCaptures, nonCaptures + nNonCaptures, cmpNonCaptures);
     for(unsigned int idx = 0; idx < nNonCaptures; idx++)
         moves[newNum++] = nonCaptures[idx];
 
-    // 6: add losing captures
+    // add losing captures
     while(nCaptures) {
         moves[newNum++] = captures[--nCaptures];
     }
 
-    assert(num == newNum);
+    assert(newNum == num);
 }
 
 // --- QUIESCENCE SEARCH --- 
@@ -249,18 +263,18 @@ int quiesce(int alpha, int beta) {
 int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     assert(depth >= 0);
 
-
-    int pvIndex = ply * (2 * N + 1 - ply) / 2;
-    int pvNextIndex = pvIndex + N - ply;
-
-    memset(pvArray + pvIndex, NO_MOVE, sizeof(int) * (pvNextIndex - pvIndex));
-
     if(!(nodesSearched & 4095) && !infiniteTime) {
         long long currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
         if(currTime >= stopTime) timeOver = true;
     }
     if(timeOver) return 0;
     nodesSearched++;
+
+    int pvIndex = ply * (2 * N + 1 - ply) / 2;
+    int pvNextIndex = pvIndex + N - ply;
+
+    memset(pvArray + pvIndex, NO_MOVE, sizeof(int) * (pvNextIndex - pvIndex));
+
 
     int hashFlag = HASH_F_ALPHA;
 
@@ -339,7 +353,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     //     fPrune = true;
 
     int movesSearched = 0;
-
+    
     sortMoves(moves, num, ply);
     for(int idx = 0; idx < num; idx++) {
         if(alpha >= beta) return alpha;
@@ -429,7 +443,7 @@ pair<int, int> search() {
     int eval = 0;
 
     ageHistory();
-    for(short i = 0; i < 200; i++)
+    for(short i = 0; i < 256; i++)
         killerMoves[i][0] = killerMoves[i][1] = NO_MOVE;
 
     memset(pvArray, NO_MOVE, sizeof(pvArray));
