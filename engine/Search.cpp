@@ -333,18 +333,18 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     // --- NULL MOVE PRUNING --- 
     // if our position is good, we can pass the turn to the opponent
     // and if that doesn't wreck our position, we don't need to search further
-    // const int ENDGAME_MATERIAL = 10;
-    // if(doNull && (!isPV) && (isInCheck == false) && ply && (depth >= 3) && (gamePhase() >= ENDGAME_MATERIAL) && (evaluate() >= beta)) {
-    //     board.makeMove(NO_MOVE);
+    const int ENDGAME_MATERIAL = 4;
+    if(doNull && (!isPV) && (isInCheck == false) && ply && (depth > 3) && (gamePhase() >= ENDGAME_MATERIAL) && (evaluate() >= beta)) {
+        board.makeMove(NO_MOVE);
 
-    //     short R = 3 + depth / 6;
-    //     int score = -alphaBeta(-beta, -beta + 1, depth - R - 1, ply + 1, false);
+        short R = 3 + depth / 6;
+        int score = -alphaBeta(-beta, -beta + 1, depth - R - 1, ply + 1, false);
 
-    //     board.unmakeMove(NO_MOVE);
+        board.unmakeMove(NO_MOVE);
 
-    //     if(timeOver) return 0;
-    //     if(score >= beta) return beta;
-    // }
+        if(timeOver) return 0;
+        if(score >= beta) return beta;
+    }
 
     // decide if we can apply futility pruning
     // bool fPrune = false;
