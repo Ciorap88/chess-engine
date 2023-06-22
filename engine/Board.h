@@ -4,6 +4,7 @@
 #define BOARD_H_
 
 #include <string>
+#include <stack>
 
 using namespace std;
 
@@ -92,6 +93,8 @@ extern U64 bits[64], filesBB[8], ranksBB[8], knightAttacksBB[64], kingAttacksBB[
 extern U64 squaresNearWhiteKing[64], squaresNearBlackKing[64];
 extern U64 lightSquaresBB, darkSquaresBB;
 extern U64 bishopMasks[64], rookMasks[64];
+
+extern stack<int> moveStk;
 
 U64 pawnAttacks(U64 pawns, int color);
 U64 knightAttacks(U64 knights);
