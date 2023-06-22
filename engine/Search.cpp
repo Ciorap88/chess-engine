@@ -104,7 +104,7 @@ int captureScore(int move) {
     int score = 0;
 
     // give huge score boost to captures of the last moved piece
-    if(getToSq(move) == getToSq(moveStk.top())) score += 2000;
+    if(!moveStk.empty() && getToSq(move) == getToSq(moveStk.top())) score += 2000;
 
     // captured piece value - capturing piece value
     if(isCapture(move)) score += (PIECE_VALUES[getCapturedPiece(move)]-
@@ -132,7 +132,7 @@ bool cmpCapturesInv(int a, int b) {
 }
 
 bool cmpCaptures(int a, int b) {
-    return  (captureScore(a) > captureScore(b));
+    return (captureScore(a) > captureScore(b));
 }
 
 bool cmpNonCaptures(int a, int b) {
@@ -454,6 +454,7 @@ pair<int, int> search() {
     // also it helps improve move ordering by memorizing the best move that we can search first in the next iteration
     long long currStartTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
     for(short depth = 1; depth <= maxDepth; ) {
+
         nodesSearched = nodesQ = 0;
 
         int curEval = alphaBeta(alpha, beta, depth, 0, false);
