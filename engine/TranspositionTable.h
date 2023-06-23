@@ -6,8 +6,8 @@
 int retrieveBestMove();
 int probeHash(short depth, int alpha, int beta);
 void recordHash(short depth, int val, int hashF, int best);
-int retrievePawnEval(U64 pawns);
-void recordPawnEval(U64 pawns, int eval);
+int retrievePawnEval(U64 whitePawns, U64 blackPawns);
+void recordPawnEval(U64 whitePawns, U64 blackPawns, int eval);
 void generateZobristHashNumbers();
 U64 getZobristHashFromCurrPos();
 void clearTT();

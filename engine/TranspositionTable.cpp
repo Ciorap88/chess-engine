@@ -17,6 +17,30 @@ U64 castleZobristNumbers[16];
 U64 epZobristNumbers[8];
 U64 blackTurnZobristNumber;
 
+const int TABLE_SIZE = (1 << 25);
+const int PAWN_TABLE_SIZE = (1 << 20);
+const int VAL_UNKNOWN = -1e9;
+
+const int HASH_F_EXACT = 0;
+const int HASH_F_ALPHA = 1;
+const int HASH_F_BETA = 2;
+
+struct hashElement {
+    U64 key;
+    short depth;
+    int flags;
+    int value;
+    int best;
+};
+
+struct pawnHashElement {
+    U64 whitePawns, blackPawns;
+    int eval;
+};
+
+hashElement hashTable[TABLE_SIZE];
+pawnHashElement pawnHashTable[PAWN_TABLE_SIZE];
+
 void generateZobristHashNumbers() {
     for(int pc = 0; pc < 7; pc++) {
         for(int c = 0; c < 2; c++) {
@@ -123,25 +147,6 @@ void Board::updateHashKey(int move) {
     this->hashKey ^= blackTurnZobristNumber;
 }
 
-const int HASH_F_EXACT = 0;
-const int HASH_F_ALPHA = 1;
-const int HASH_F_BETA = 2;
-
-struct hashElement {
-    U64 key;
-    short depth;
-    int flags;
-    int value;
-    int best;
-};
-
-
-const int TABLE_SIZE = (1 << 25);
-const int VAL_UNKNOWN = -1e9;
-
-
-hashElement hashTable[TABLE_SIZE];
-
 // get the best move from the tt
 int retrieveBestMove() {
     int index = (board.hashKey & (TABLE_SIZE-1));
@@ -187,38 +192,38 @@ void recordHash(short depth, int val, int hashF, int best) {
     h->depth = depth;
 }
 
-struct pawnHashElement {
-    U64 bb;
-    int eval;
-};
-
-pawnHashElement pawnHashTable[TABLE_SIZE];
-
 // get hashed value from map
-int retrievePawnEval(U64 pawns) {
-    int idx = (board.hashKey & (TABLE_SIZE-1));
+int retrievePawnEval(U64 whitePawns, U64 blackPawns) {
+    U64 key = (whitePawns | blackPawns);
+    int idx = (key & (PAWN_TABLE_SIZE-1));
 
-    if(pawnHashTable[idx].bb == pawns) {
+    if(pawnHashTable[idx].whitePawns == whitePawns && pawnHashTable[idx].blackPawns == blackPawns) {
         return pawnHashTable[idx].eval;
     }
 
     return VAL_UNKNOWN;
 }
 
-void recordPawnEval(U64 pawns, int eval) {
-    int idx = (board.hashKey & (TABLE_SIZE-1));
+void recordPawnEval(U64 whitePawns, U64 blackPawns, int eval) {
+    if(timeOver) return;
+
+    U64 key = (whitePawns | blackPawns);
+    int idx = (key & (PAWN_TABLE_SIZE-1));
 
     // always replace
-    if(pawnHashTable[idx].bb != pawns) {
-        pawnHashTable[idx] = {pawns, eval};
+    if(pawnHashTable[idx].whitePawns != whitePawns || pawnHashTable[idx].blackPawns != blackPawns) {
+        pawnHashTable[idx] = {whitePawns, blackPawns, eval};
     }
 }
 
 void clearTT() {
     hashElement newElement = {0, 0, 0, 0, NO_MOVE};
-    pawnHashElement newPawnElement = {0, 0};
+    pawnHashElement newPawnElement = {0, 0, 0};
+
     for(int i = 0; i < TABLE_SIZE; i++) {
         hashTable[i] = newElement;
+    }
+    for(int i = 0; i < PAWN_TABLE_SIZE; i++) {
         pawnHashTable[i] = newPawnElement;
     }
 }

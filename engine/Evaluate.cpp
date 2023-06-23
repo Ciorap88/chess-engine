@@ -748,7 +748,7 @@ int evalPawnStructure(
 
     int eval;
     if(useHash) {
-        eval = retrievePawnEval(board.pawnsBB);
+        eval = retrievePawnEval((board.pawnsBB & board.whitePiecesBB), (board.pawnsBB & board.blackPiecesBB));
         if(eval != VAL_UNKNOWN) return eval;
     }
 
@@ -768,7 +768,7 @@ int evalPawnStructure(
         blackPawns &= (blackPawns-1);
     }
 
-    if(useHash) recordPawnEval(board.pawnsBB, eval);
+    if(useHash) recordPawnEval((board.pawnsBB & board.whitePiecesBB), (board.pawnsBB & board.blackPiecesBB), eval);
 
     return eval;
 }
