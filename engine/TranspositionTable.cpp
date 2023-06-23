@@ -193,8 +193,11 @@ void recordHash(short depth, int val, int hashF, int best) {
 }
 
 // get hashed value from map
-int retrievePawnEval(U64 whitePawns, U64 blackPawns) {
-    U64 key = (whitePawns | blackPawns);
+int retrievePawnEval() {
+    U64 key = board.pawnsBB;
+    U64 whitePawns = (board.pawnsBB & board.whitePiecesBB);
+    U64 blackPawns = (board.pawnsBB & board.blackPiecesBB);
+    
     int idx = (key & (PAWN_TABLE_SIZE-1));
 
     if(pawnHashTable[idx].whitePawns == whitePawns && pawnHashTable[idx].blackPawns == blackPawns) {
@@ -204,10 +207,13 @@ int retrievePawnEval(U64 whitePawns, U64 blackPawns) {
     return VAL_UNKNOWN;
 }
 
-void recordPawnEval(U64 whitePawns, U64 blackPawns, int eval) {
+void recordPawnEval(int eval) {
     if(timeOver) return;
 
-    U64 key = (whitePawns | blackPawns);
+    U64 key = board.pawnsBB;
+    U64 whitePawns = (board.pawnsBB & board.whitePiecesBB);
+    U64 blackPawns = (board.pawnsBB & board.blackPiecesBB);
+
     int idx = (key & (PAWN_TABLE_SIZE-1));
 
     // always replace
