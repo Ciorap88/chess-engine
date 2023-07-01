@@ -262,6 +262,7 @@ int quiesce(int alpha, int beta) {
 // alpha-beta algorithm with a fail-hard framework and PVS
 int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     assert(depth >= 0);
+    assert(ply <= N);
 
     if(!(nodesSearched & 4095) && !infiniteTime) {
         long long currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
@@ -279,9 +280,6 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     int hashFlag = HASH_F_ALPHA;
 
     bool isInCheck = board.isInCheck();
-
-    // increase the depth if king is in check
-    if(isInCheck) depth++;
 
     // --- MATE DISTANCE PRUNING --- 
     // if we find mate, we shouldn't look for a better move
