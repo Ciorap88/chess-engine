@@ -6,7 +6,7 @@
 #include "TranspositionTable.h"
 #include "Search.h"
 #include "MagicBitboards.h"
-#include "Moves.h"
+#include "MoveUtils.h"
 
 using namespace std;
 
@@ -85,18 +85,18 @@ void Board::updateHashKey(int move) {
     }
 
     // get move info
-    int from = getFromSq(move);
-    int to = getToSq(move);
+    int from = MoveUtils::getFromSq(move);
+    int to = MoveUtils::getToSq(move);
 
-    int color = getColor(move);
-    int piece = getPiece(move);
+    int color = MoveUtils::getColor(move);
+    int piece = MoveUtils::getPiece(move);
     int otherColor = (color ^ 8);
-    int otherPiece = getCapturedPiece(move);
+    int otherPiece = MoveUtils::getCapturedPiece(move);
 
-    bool isMoveEP = isEP(move);
-    bool isMoveCapture = isCapture(move);
-    bool isMoveCastle = isCastle(move);
-    int promotionPiece = getPromotionPiece(move);
+    bool isMoveEP = MoveUtils::isEP(move);
+    bool isMoveCapture = MoveUtils::isCapture(move);
+    bool isMoveCastle = MoveUtils::isCastle(move);
+    int promotionPiece = MoveUtils::getPromotionPiece(move);
 
     int capturedPieceSquare = (isMoveEP ? (to + (color == White ? south : north)) : to);
 

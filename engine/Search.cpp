@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <iostream>
 #include <stack>
+#include <cassert>
 
 #include "Evaluate.h"
 #include "Board.h"
@@ -11,7 +12,7 @@
 #include "TranspositionTable.h"
 #include "MagicBitboards.h"
 #include "UCI.h"
-#include "Moves.h"
+#include "MoveUtils.h"
 // #include "See.h"
 
 using namespace std;
@@ -67,7 +68,7 @@ void storeKiller(short ply, int move) {
 void updateHistory(int move, int depth) {
     int bonus = depth * depth;
 
-    history[(getColor(move) | getPiece(move))][getToSq(move)] += 2 * bonus;
+    history[(MoveUtils::getColor(move) | MoveUtils::getPiece(move))][MoveUtils::getToSq(move)] += 2 * bonus;
     for(int pc = 0; pc < 16; pc++) {
         for(int sq = 0; sq < 64; sq++) {
             history[pc][sq] -= bonus;
@@ -75,7 +76,7 @@ void updateHistory(int move, int depth) {
     }
 
     // cap history points at HISTORY_MAX
-    if(history[(getColor(move) | getPiece(move))][getToSq(move)] > HISTORY_MAX) {
+    if(history[(MoveUtils::getColor(move) | MoveUtils::getPiece(move))][MoveUtils::getToSq(move)] > HISTORY_MAX) {
         for(int pc = 0; pc < 16; pc++) {
             for(int sq = 0; sq < 64; sq++) {
                 history[pc][sq] /= 2;
@@ -104,24 +105,24 @@ int captureScore(int move) {
     int score = 0;
 
     // give huge score boost to captures of the last moved piece
-    if(!moveStk.empty() && getToSq(move) == getToSq(moveStk.top())) score += 2000;
+    if(!moveStk.empty() && MoveUtils::getToSq(move) == MoveUtils::getToSq(moveStk.top())) score += 2000;
 
     // captured piece value - capturing piece value
-    if(isCapture(move)) score += (PIECE_VALUES[getCapturedPiece(move)]-
-                  PIECE_VALUES[getPiece(move)]);
+    if(MoveUtils::isCapture(move)) score += (PIECE_VALUES[MoveUtils::getCapturedPiece(move)]-
+                  PIECE_VALUES[MoveUtils::getPiece(move)]);
 
     // material gained by promotion
-    if(isPromotion(move)) score += PIECE_VALUES[getPromotionPiece(move)] - PIECE_VALUES[Pawn];
+    if(MoveUtils::isPromotion(move)) score += PIECE_VALUES[MoveUtils::getPromotionPiece(move)] - PIECE_VALUES[Pawn];
 
     return score;
 }
 
 int nonCaptureScore(int move) {
     // start with history score
-    int score = history[(getColor(move) | getPiece(move))][getToSq(move)];
+    int score = history[(MoveUtils::getColor(move) | MoveUtils::getPiece(move))][MoveUtils::getToSq(move)];
 
     // if it is a promotion add huge bonus so that it is searched first
-    if(isPromotion(move)) score += 100000000;
+    if(MoveUtils::isPromotion(move)) score += 100000000;
 
     assert(score <= 1e9);
     return score;
@@ -172,7 +173,7 @@ void sortMoves(int *moves, int num, short ply) {
         if((moves[idx] == pvMove) || (moves[idx] == killerMoves[ply][0]) || (moves[idx] == killerMoves[ply][1]) || (moves[idx] == hashMove))
             continue;
 
-        if(isCapture(moves[idx])) captures[nCaptures++] = moves[idx];
+        if(MoveUtils::isCapture(moves[idx])) captures[nCaptures++] = moves[idx];
         else nonCaptures[nNonCaptures++] = moves[idx];
     }
 
@@ -231,18 +232,18 @@ int quiesce(int alpha, int beta) {
 
     sortMoves(moves, num, -1);
     for(int idx = 0; idx < num; idx++)  {
-        if(!isCapture(moves[idx]) && !isPromotion(moves[idx])) continue;
+        if(!MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx])) continue;
 
-        // if(isCapture(moves[idx]) && (seeMove(moves[idx]) < 0)) continue;
+        // if(MoveUtils::isCapture(moves[idx]) && (seeMove(moves[idx]) < 0)) continue;
 
         // --- DELTA PRUNING --- 
         // we test if each move has the potential to raise alpha
         // if it doesn't, then the position is hopeless so searching deeper won't improve it
-        int delta = standPat +  PIECE_VALUES[getCapturedPiece(moves[idx])] + 200;
-        if(isPromotion(moves[idx])) delta += PIECE_VALUES[getPromotionPiece(moves[idx])] - PIECE_VALUES[Pawn];
+        int delta = standPat +  PIECE_VALUES[MoveUtils::getCapturedPiece(moves[idx])] + 200;
+        if(MoveUtils::isPromotion(moves[idx])) delta += PIECE_VALUES[MoveUtils::getPromotionPiece(moves[idx])] - PIECE_VALUES[Pawn];
 
         const int ENDGAME_MATERIAL = 10;
-        if((delta <= alpha) && (gamePhase() - MG_WEIGHT[getCapturedPiece(moves[idx])] >= ENDGAME_MATERIAL)) continue;
+        if((delta <= alpha) && (gamePhase() - MG_WEIGHT[MoveUtils::getCapturedPiece(moves[idx])] >= ENDGAME_MATERIAL)) continue;
 
         board.makeMove(moves[idx]);
         int score = -quiesce(-beta, -alpha);
@@ -361,7 +362,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
         // --- FUTILITY PRUNING --- 
         // if a move is bad enough that it wouldn't be able to raise alpha, we just skip it
         // this only applies close to the horizon depth
-        // if(fPrune && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !board.isInCheck()) {
+        // if(fPrune && !MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx]) && !board.isInCheck()) {
         //     board.unmakeMove(moves[idx]);
         //     continue;
         // }
@@ -377,7 +378,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
             // --- LATE MOVE REDUCTION --- 
             // we do full searches only for the first moves, and then do a reduced search
             // if the move is potentially good, we do a full search instead
-            if(movesSearched >= 2 && !isCapture(moves[idx]) && !isPromotion(moves[idx]) && !isInCheck && depth >= 3 && !board.isInCheck()) {
+            if(movesSearched >= 2 && !MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx]) && !isInCheck && depth >= 3 && !board.isInCheck()) {
                 int reductionDepth = int(sqrt(double(depth-1)) + sqrt(double(movesSearched-1))); 
                 if(isPV) reductionDepth = (reductionDepth * 2) / 3;
                 reductionDepth = (reductionDepth < depth-1 ? reductionDepth : depth-1);
@@ -413,7 +414,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
             if(score >= beta) {
                 recordHash(depth, beta, HASH_F_BETA, currBestMove);
 
-                if(!isCapture(moves[idx]) && !isPromotion(moves[idx])) {
+                if(!MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx])) {
                     // store killer moves
                     storeKiller(ply, moves[idx]);
 
