@@ -10,7 +10,7 @@ int quiesce(int alpha, int beta);
 void clearHistory();
 void showPV(int depth);
 
-extern const int NO_MOVE, MATE_THRESHOLD, MATE_EVAL;
+extern const int MATE_THRESHOLD, MATE_EVAL;
 
 extern short maxDepth;
 extern long long startTime, stopTime;

@@ -10,6 +10,8 @@
 #include "Search.h"
 #include "Evaluate.h"
 #include "TranspositionTable.h"
+#include "BoardUtils.h"
+#include "Enums.h"
 #include "UCI.h"
 
 string UCI::engineName = "CiorapBot 0.2";
@@ -93,7 +95,7 @@ void UCI::inputIsReady() {
 void UCI::inputUCINewGame() {
     clearHistory();
     clearTT();
-    repetitionMap.clear();
+    board.repetitionMap.clear();
     board.clear();
 }
 
@@ -120,7 +122,7 @@ void UCI::inputPosition(string input) {
         int moves[256];
         int num = board.generateLegalMoves(moves);
         for(int idx = 0; idx < num; idx++) 
-            if(moveToString(moves[idx]) == parsedInput[i]) {
+            if(BoardUtils::moveToString(moves[idx]) == parsedInput[i]) {
                 board.makeMove(moves[idx]);
                 break;
             }
@@ -142,7 +144,7 @@ long long UCI::moveGenTest(short depth, bool show) {
         board.makeMove(moves[idx]);
         long long mv = moveGenTest(depth-1, false);
 
-        if(show) std::cout << moveToString(moves[idx]) << ": " << mv << '\n';
+        if(show) std::cout << BoardUtils::moveToString(moves[idx]) << ": " << mv << '\n';
 
         numPos += mv;
 
@@ -294,7 +296,7 @@ void UCI::inputGo() {
         stopTime = startTime + time + inc;
 
         auto result = search();
-        std::cout << "bestmove " << moveToString(result.first) << '\n';
+        std::cout << "bestmove " << BoardUtils::moveToString(result.first) << '\n';
         std::cout.flush();
     }
 }

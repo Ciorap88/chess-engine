@@ -5,6 +5,8 @@
 
 class MoveUtils {
 public:
+    static const int NO_MOVE;
+    
     static int getMove(int from, int to, bool color, int fromPiece, int capturedPiece, int prom, bool castle, bool ep);
 
     static bool isCastle(int move);

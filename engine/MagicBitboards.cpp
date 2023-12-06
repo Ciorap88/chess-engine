@@ -10,6 +10,7 @@ using namespace std;
 
 #include "Board.h"
 #include "MagicBitboards.h"
+#include "BoardUtils.h"
 
 typedef unsigned long long U64;
 typedef const U64 C64;
@@ -162,7 +163,7 @@ U64 bishopAttacks(int sq, U64 blockers) {
 // according to the current magic numbers
 void populateSlidingAttacks(int sq, int m, bool bishop) {
     U64 magic = (bishop ? BISHOP_MAGICS[sq] : ROOK_MAGICS[sq]);
-    U64 mask = (bishop ? bishopMasks[sq] : rookMasks[sq]);
+    U64 mask = (bishop ? BoardUtils::bishopMasks[sq] : BoardUtils::rookMasks[sq]);
     int n = popcount(mask);
     U64 blockers[4096], a[4096], used[4096];
 
@@ -188,7 +189,7 @@ void populateSlidingAttacks(int sq, int m, bool bishop) {
 U64 findMagic(int sq, int m, int bishop) {
     U64 blockers[4096], a[4096], used[4096];
 
-    U64 mask = (bishop ? bishopMasks[sq] : rookMasks[sq]);
+    U64 mask = (bishop ? BoardUtils::bishopMasks[sq] : BoardUtils::rookMasks[sq]);
     int n = popcount(mask);
 
     for(int i = 0; i < (1 << n); i++) {
@@ -226,14 +227,14 @@ U64 findMagic(int sq, int m, int bishop) {
 // we first & the occupancy bb with the correct mask, so we only get the blockers in the attack directions
 // after that, we multiply the result with the corresponding magic number and then we right shift it
 U64 magicBishopAttacks(U64 occ, int sq) {
-    occ &= bishopMasks[sq];
+    occ &= BoardUtils::bishopMasks[sq];
     occ *= BISHOP_MAGICS[sq];
     occ >>= 64-BISHOP_BITS[sq];
     return mBishopAttacks[sq][occ];
 }
 
 U64 magicRookAttacks(U64 occ, int sq) {
-    occ &= rookMasks[sq];
+    occ &= BoardUtils::rookMasks[sq];
     occ *= ROOK_MAGICS[sq];
     occ >>= 64-ROOK_BITS[sq];
     return mRookAttacks[sq][occ];

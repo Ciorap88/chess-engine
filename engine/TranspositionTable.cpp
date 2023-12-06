@@ -7,6 +7,8 @@
 #include "Search.h"
 #include "MagicBitboards.h"
 #include "MoveUtils.h"
+#include "BoardUtils.h"
+#include "Enums.h"
 
 using namespace std;
 
@@ -78,7 +80,7 @@ U64 getZobristHashFromCurrPos() {
 
 // update the hash key after making a move
 void Board::updateHashKey(int move) {
-    if(move == NO_MOVE) { // null move
+    if(move == MoveUtils::NO_MOVE) { // null move
         if(this->ep != -1) this->hashKey ^= epZobristNumbers[this->ep % 8];
         this->hashKey ^= blackTurnZobristNumber;
         return;
@@ -113,14 +115,14 @@ void Board::updateHashKey(int move) {
         int mask = (color == White ? 12 : 3);
         newCastleRights &= mask;
     }
-    if((newCastleRights & bits[1]) && (from == a1 || to == a1))
-        newCastleRights ^= bits[1];
-    if((newCastleRights & bits[0]) && (from == h1 || to == h1))
-        newCastleRights ^= bits[0];
-    if((newCastleRights & bits[3]) && (from == a8 || to == a8))
-        newCastleRights ^= bits[3];
-    if((newCastleRights & bits[2]) && (from == h8 || to == h8))
-        newCastleRights ^= bits[2];
+    if((newCastleRights & BoardUtils::bits[1]) && (from == a1 || to == a1))
+        newCastleRights ^= BoardUtils::bits[1];
+    if((newCastleRights & BoardUtils::bits[0]) && (from == h1 || to == h1))
+        newCastleRights ^= BoardUtils::bits[0];
+    if((newCastleRights & BoardUtils::bits[3]) && (from == a8 || to == a8))
+        newCastleRights ^= BoardUtils::bits[3];
+    if((newCastleRights & BoardUtils::bits[2]) && (from == h8 || to == h8))
+        newCastleRights ^= BoardUtils::bits[2];
 
     this->hashKey ^= castleZobristNumbers[this->castleRights];
     this->hashKey ^= castleZobristNumbers[newCastleRights];
@@ -152,7 +154,7 @@ int retrieveBestMove() {
     int index = (board.hashKey & (TABLE_SIZE-1));
     hashElement *h = &hashTable[index];
 
-    if(h->key != board.hashKey) return NO_MOVE;
+    if(h->key != board.hashKey) return MoveUtils::NO_MOVE;
 
     return h->best;
 }
@@ -223,7 +225,7 @@ void recordPawnEval(int eval) {
 }
 
 void clearTT() {
-    hashElement newElement = {0, 0, 0, 0, NO_MOVE};
+    hashElement newElement = {0, 0, 0, 0, MoveUtils::NO_MOVE};
     pawnHashElement newPawnElement = {0, 0, 0};
 
     for(int i = 0; i < TABLE_SIZE; i++) {

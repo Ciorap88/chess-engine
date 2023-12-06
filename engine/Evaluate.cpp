@@ -4,6 +4,8 @@
 #include "Board.h"
 #include "MagicBitboards.h"
 #include "TranspositionTable.h"
+#include "BoardUtils.h"
+#include "Enums.h"
 
 using namespace std;
 
@@ -256,23 +258,23 @@ int evaluate(
         int color = (board.squares[sq] & (Black | White));
         int c = (color == White ? 1 : -1);
 
-        if(board.knightsBB & bits[sq]) res += evalKnight(
+        if(board.knightsBB & BoardUtils::bits[sq]) res += evalKnight(
             sq, color, KNIGHT_TABLE,
             KNIGHT_MOBILITY, KNIGHT_PAWN_CONST, TRAPPED_KNIGHT_PENALTY, 
             BLOCKING_C_KNIGHT, KNIGHT_DEF_BY_PAWN, PIECE_VALUES, PIECE_ATTACK_WEIGHT) * c;
 
-        if(board.bishopsBB & bits[sq]) res += evalBishop(
+        if(board.bishopsBB & BoardUtils::bits[sq]) res += evalBishop(
             sq, color, BISHOP_TABLE, 
             TRAPPED_BISHOP_PENALTY, BLOCKED_BISHOP_PENALTY, 
             FIANCHETTO_BONUS, BISHOP_MOBILITY, PIECE_VALUES, PIECE_ATTACK_WEIGHT) * c;
 
-        if(board.rooksBB & bits[sq]) res += evalRook(
+        if(board.rooksBB & BoardUtils::bits[sq]) res += evalRook(
             sq, color, ROOK_TABLE, 
             BLOCKED_ROOK_PENALTY,ROOK_PAWN_CONST, ROOK_ON_OPEN_FILE, 
             ROOK_ON_SEVENTH, ROOKS_DEF_EACH_OTHER, ROOK_ON_QUEEN_FILE, ROOK_MOBILITY, 
             PIECE_VALUES, PIECE_ATTACK_WEIGHT) * c;
 
-        if(board.queensBB & bits[sq]) res += evalQueen(
+        if(board.queensBB & BoardUtils::bits[sq]) res += evalQueen(
             sq, color, QUEEN_TABLE, EARLY_QUEEN_DEVELOPMENT,
             QUEEN_MOBILITY, PIECE_VALUES, PIECE_ATTACK_WEIGHT) * c;
     }
@@ -381,8 +383,8 @@ int evalKnight(
     U64 ourPawnsBB = (board.pawnsBB ^ opponentPawnsBB);
     U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
 
-    U64 ourPawnAttacksBB = pawnAttacks(ourPawnsBB, color);
-    U64 opponentPawnAttacksBB = pawnAttacks(opponentPawnsBB, (color ^ (White | Black)));
+    U64 ourPawnAttacksBB = BoardUtils::pawnAttacks(ourPawnsBB, color);
+    U64 opponentPawnAttacksBB = BoardUtils::pawnAttacks(opponentPawnsBB, (color ^ (White | Black)));
 
     if(color == White) pieceMaterialWhite += PIECE_VALUES[Knight];
     else pieceMaterialBlack += PIECE_VALUES[Knight];
@@ -392,7 +394,7 @@ int evalKnight(
 
 
     // mobility bonus
-    U64 mob = (knightAttacksBB[sq] ^ (knightAttacksBB[sq] & (ourPiecesBB | opponentPawnAttacksBB)));
+    U64 mob = (BoardUtils::knightAttacksBB[sq] ^ (BoardUtils::knightAttacksBB[sq] & (ourPiecesBB | opponentPawnAttacksBB)));
     eval += KNIGHT_MOBILITY * (popcount(mob) - 4);
 
     // decreasing value as pawns disappear
@@ -401,42 +403,42 @@ int evalKnight(
 
     // traps and blockages
     if(color == White) {
-        if(sq == a8 && (opponentPawnsBB & (bits[a7] | bits[c7])))
+        if(sq == a8 && (opponentPawnsBB & (BoardUtils::bits[a7] | BoardUtils::bits[c7])))
            eval -= TRAPPED_KNIGHT_PENALTY;
-        if(sq == a7 && (opponentPawnsBB & (bits[a6] | bits[c6])) && (opponentPawnsBB & (bits[b7] | bits[d7])))
+        if(sq == a7 && (opponentPawnsBB & (BoardUtils::bits[a6] | BoardUtils::bits[c6])) && (opponentPawnsBB & (BoardUtils::bits[b7] | BoardUtils::bits[d7])))
             eval -= TRAPPED_KNIGHT_PENALTY;
 
-        if(sq == h8 && (opponentPawnsBB & (bits[h7] | bits[f7])))
+        if(sq == h8 && (opponentPawnsBB & (BoardUtils::bits[h7] | BoardUtils::bits[f7])))
            eval -= TRAPPED_KNIGHT_PENALTY;
-        if(sq == h7 && (opponentPawnsBB & (bits[f6] | bits[h6])) && (opponentPawnsBB & (bits[e7] | bits[g7])))
+        if(sq == h7 && (opponentPawnsBB & (BoardUtils::bits[f6] | BoardUtils::bits[h6])) && (opponentPawnsBB & (BoardUtils::bits[e7] | BoardUtils::bits[g7])))
             eval -= TRAPPED_KNIGHT_PENALTY;
 
-        if(sq == c3 && (ourPawnsBB & bits[c2]) && (ourPawnsBB & bits[d4]) && !(ourPawnsBB & bits[e4]))
+        if(sq == c3 && (ourPawnsBB & BoardUtils::bits[c2]) && (ourPawnsBB & BoardUtils::bits[d4]) && !(ourPawnsBB & BoardUtils::bits[e4]))
             eval -= BLOCKING_C_KNIGHT;
     }
     if(color == Black) {
-        if(sq == a1 && (opponentPawnsBB & (bits[a2] | bits[c2])))
+        if(sq == a1 && (opponentPawnsBB & (BoardUtils::bits[a2] | BoardUtils::bits[c2])))
            eval -= TRAPPED_KNIGHT_PENALTY;
-        if(sq == a2 && (opponentPawnsBB & (bits[a3] | bits[c3])) && (opponentPawnsBB & (bits[b2] | bits[d2])))
+        if(sq == a2 && (opponentPawnsBB & (BoardUtils::bits[a3] | BoardUtils::bits[c3])) && (opponentPawnsBB & (BoardUtils::bits[b2] | BoardUtils::bits[d2])))
             eval -= TRAPPED_KNIGHT_PENALTY;
 
-        if(sq == h1 && (opponentPawnsBB & (bits[h2] | bits[f2])))
+        if(sq == h1 && (opponentPawnsBB & (BoardUtils::bits[h2] | BoardUtils::bits[f2])))
            eval -= TRAPPED_KNIGHT_PENALTY;
-        if(sq == h2 && (opponentPawnsBB & (bits[f3] | bits[h3])) && (opponentPawnsBB & (bits[e2] | bits[g2])))
+        if(sq == h2 && (opponentPawnsBB & (BoardUtils::bits[f3] | BoardUtils::bits[h3])) && (opponentPawnsBB & (BoardUtils::bits[e2] | BoardUtils::bits[g2])))
             eval -= TRAPPED_KNIGHT_PENALTY;
 
-        if(sq == c6 && (ourPawnsBB & bits[c7]) && (ourPawnsBB & bits[d5]) && !(ourPawnsBB & bits[e5]))
+        if(sq == c6 && (ourPawnsBB & BoardUtils::bits[c7]) && (ourPawnsBB & BoardUtils::bits[d5]) && !(ourPawnsBB & BoardUtils::bits[e5]))
             eval -= BLOCKING_C_KNIGHT;
     }
 
     // bonus if defended by pawns
-    if(ourPawnAttacksBB & bits[sq])
+    if(ourPawnAttacksBB & BoardUtils::bits[sq])
         eval += KNIGHT_DEF_BY_PAWN;
 
     // attacks
-    U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
+    U64 sqNearKing = (color == White ? BoardUtils::squaresNearBlackKing[board.blackKingSquare] : BoardUtils::squaresNearWhiteKing[board.whiteKingSquare]);
 
-    int attackedSquares = popcount(knightAttacksBB[sq] & sqNearKing);
+    int attackedSquares = popcount(BoardUtils::knightAttacksBB[sq] & sqNearKing);
     if(attackedSquares) {
         if(color == White) {
             whiteAttackersCnt++;
@@ -460,7 +462,7 @@ int evalBishop(
     U64 opponentPawnsBB = (board.blackPiecesBB & board.pawnsBB);
     if(color == Black) swap(ourPawnsBB, opponentPawnsBB);
 
-    U64 opponentPawnAttacksBB = pawnAttacks(opponentPawnsBB, (color ^ (White | Black)));
+    U64 opponentPawnAttacksBB = BoardUtils::pawnAttacks(opponentPawnsBB, (color ^ (White | Black)));
 
     U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
     U64 opponentPiecesBB = (color == Black ? board.whitePiecesBB : board.blackPiecesBB);
@@ -475,36 +477,36 @@ int evalBishop(
 
     // traps and blockages
     if(color == White) {
-        if(sq == a7 && (opponentPawnsBB & bits[b6]) && (opponentPawnsBB & bits[c7]))
+        if(sq == a7 && (opponentPawnsBB & BoardUtils::bits[b6]) && (opponentPawnsBB & BoardUtils::bits[c7]))
             eval -= TRAPPED_BISHOP_PENALTY;
-        if(sq == h7 && (opponentPawnsBB & bits[g6]) && (opponentPawnsBB & bits[f7]))
+        if(sq == h7 && (opponentPawnsBB & BoardUtils::bits[g6]) && (opponentPawnsBB & BoardUtils::bits[f7]))
             eval -= TRAPPED_BISHOP_PENALTY;
 
-        if(sq == c1 && (ourPawnsBB & bits[d2]) & (ourPiecesBB & bits[e3]))
+        if(sq == c1 && (ourPawnsBB & BoardUtils::bits[d2]) & (ourPiecesBB & BoardUtils::bits[e3]))
             eval -= BLOCKED_BISHOP_PENALTY;
-        if(sq == f1 && (ourPawnsBB & bits[e2]) & (ourPiecesBB & bits[d3]))
+        if(sq == f1 && (ourPawnsBB & BoardUtils::bits[e2]) & (ourPiecesBB & BoardUtils::bits[d3]))
             eval -= BLOCKED_BISHOP_PENALTY;
     }
     if(color == Black) {
-        if(sq == a2 && (opponentPawnsBB & bits[b3]) && (opponentPawnsBB & bits[c2]))
+        if(sq == a2 && (opponentPawnsBB & BoardUtils::bits[b3]) && (opponentPawnsBB & BoardUtils::bits[c2]))
             eval -= TRAPPED_BISHOP_PENALTY;
-        if(sq == h2 && (opponentPawnsBB & bits[g3]) && (opponentPawnsBB & bits[f2]))
+        if(sq == h2 && (opponentPawnsBB & BoardUtils::bits[g3]) && (opponentPawnsBB & BoardUtils::bits[f2]))
             eval -= TRAPPED_BISHOP_PENALTY;
 
-        if(sq == c8 && (ourPawnsBB & bits[d7]) & (ourPiecesBB & bits[e6]))
+        if(sq == c8 && (ourPawnsBB & BoardUtils::bits[d7]) & (ourPiecesBB & BoardUtils::bits[e6]))
             eval -= BLOCKED_BISHOP_PENALTY;
-        if(sq == f8 && (ourPawnsBB & bits[e7]) & (ourPiecesBB & bits[d6]))
+        if(sq == f8 && (ourPawnsBB & BoardUtils::bits[e7]) & (ourPiecesBB & BoardUtils::bits[d6]))
             eval -= BLOCKED_BISHOP_PENALTY;
     }
 
     // fianchetto bonus (bishop on long diagonal on the second rank)
-    if(color == White && sq == g2 && (ourPawnsBB & bits[g3]) && (ourPawnsBB & bits[f2])) eval += FIANCHETTO_BONUS;
-    if(color == White && sq == b2 && (ourPawnsBB & bits[b3]) && (ourPawnsBB & bits[c2])) eval += FIANCHETTO_BONUS;
-    if(color == Black && sq == g7 && (ourPawnsBB & bits[g6]) && (ourPawnsBB & bits[f7])) eval += FIANCHETTO_BONUS;
-    if(color == Black && sq == b7 && (ourPawnsBB & bits[b6]) && (ourPawnsBB & bits[c7])) eval += FIANCHETTO_BONUS;
+    if(color == White && sq == g2 && (ourPawnsBB & BoardUtils::bits[g3]) && (ourPawnsBB & BoardUtils::bits[f2])) eval += FIANCHETTO_BONUS;
+    if(color == White && sq == b2 && (ourPawnsBB & BoardUtils::bits[b3]) && (ourPawnsBB & BoardUtils::bits[c2])) eval += FIANCHETTO_BONUS;
+    if(color == Black && sq == g7 && (ourPawnsBB & BoardUtils::bits[g6]) && (ourPawnsBB & BoardUtils::bits[f7])) eval += FIANCHETTO_BONUS;
+    if(color == Black && sq == b7 && (ourPawnsBB & BoardUtils::bits[b6]) && (ourPawnsBB & BoardUtils::bits[c7])) eval += FIANCHETTO_BONUS;
 
     // mobility and attacks
-    U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
+    U64 sqNearKing = (color == White ? BoardUtils::squaresNearBlackKing[board.blackKingSquare] : BoardUtils::squaresNearWhiteKing[board.whiteKingSquare]);
     U64 attacks = magicBishopAttacks((board.whitePiecesBB | board.blackPiecesBB), sq);
 
     int mobility = popcount(attacks & ~ourPiecesBB & ~opponentPawnAttacksBB);
@@ -531,8 +533,8 @@ int evalRook(
     int& ROOK_ON_QUEEN_FILE, int& ROOK_MOBILITY,
     int PIECE_VALUES[7], int PIECE_ATTACK_WEIGHT[6]
 ) {
-    U64 currFileBB = filesBB[sq%8];
-    U64 currRankBB = ranksBB[sq/8];
+    U64 currFileBB = BoardUtils::filesBB[sq%8];
+    U64 currRankBB = BoardUtils::BoardUtils::ranksBB[sq/8];
 
     U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
     U64 opponentPiecesBB = (color == Black ? board.whitePiecesBB : board.blackPiecesBB);
@@ -540,7 +542,7 @@ int evalRook(
     U64 opponentPawnsBB = (board.blackPiecesBB & board.pawnsBB);
     if(color == Black) swap(ourPawnsBB, opponentPawnsBB);
 
-    U64 opponentPawnAttacksBB = pawnAttacks(opponentPawnsBB, (color ^ (White | Black)));
+    U64 opponentPawnAttacksBB = BoardUtils::pawnAttacks(opponentPawnsBB, (color ^ (White | Black)));
 
     int opponentKingSquare = (color == White ? board.blackKingSquare : board.whiteKingSquare);
 
@@ -582,18 +584,18 @@ int evalRook(
     }
 
     // the rook on the seventh rank gets a huge bonus if there are pawns on that rank or if it restricts the king to the eighth rank
-    if(sq/8 == seventhRank && (opponentKingSquare/8 == eighthRank || (opponentPawnsBB & ranksBB[seventhRank])))
+    if(sq/8 == seventhRank && (opponentKingSquare/8 == eighthRank || (opponentPawnsBB & BoardUtils::ranksBB[seventhRank])))
         eval += ROOK_ON_SEVENTH;
 
     // small bonus if the rook is defended by another rook
-    if((board.rooksBB & ourPiecesBB & (currRankBB | currFileBB)) ^ bits[sq])
+    if((board.rooksBB & ourPiecesBB & (currRankBB | currFileBB)) ^ BoardUtils::bits[sq])
         eval += ROOKS_DEF_EACH_OTHER;
 
     // bonus for a rook that is on the same file as the enemy queen
     if(currFileBB & opponentPiecesBB & board.queensBB) eval += ROOK_ON_QUEEN_FILE;
 
     // mobility and attacks
-    U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
+    U64 sqNearKing = (color == White ? BoardUtils::squaresNearBlackKing[board.blackKingSquare] : BoardUtils::squaresNearWhiteKing[board.whiteKingSquare]);
     U64 attacks = magicRookAttacks((board.whitePiecesBB | board.blackPiecesBB), sq);
 
     int mobility = popcount(attacks & ~ourPiecesBB & ~opponentPawnAttacksBB);
@@ -624,7 +626,7 @@ int evalQueen(
     U64 ourKnightsBB = (board.knightsBB & ourPiecesBB);
 
     U64 opponentPawnsBB = (board.pawnsBB & opponentPiecesBB);
-    U64 opponentPawnAttacksBB = pawnAttacks(opponentPawnsBB, (color ^ (White | Black)));
+    U64 opponentPawnAttacksBB = BoardUtils::pawnAttacks(opponentPawnsBB, (color ^ (White | Black)));
 
     int opponentKingSquare = (color == Black ? board.whiteKingSquare : board.blackKingSquare);
 
@@ -636,20 +638,20 @@ int evalQueen(
 
     // penalty for early development
     if(color == White && sq/8 > 1) {
-        if(ourKnightsBB & bits[b1]) eval -= EARLY_QUEEN_DEVELOPMENT;
-        if(ourBishopsBB & bits[c1]) eval -= EARLY_QUEEN_DEVELOPMENT;
-        if(ourBishopsBB & bits[f1]) eval -= EARLY_QUEEN_DEVELOPMENT;
-        if(ourKnightsBB & bits[g1]) eval -= EARLY_QUEEN_DEVELOPMENT;
+        if(ourKnightsBB & BoardUtils::bits[b1]) eval -= EARLY_QUEEN_DEVELOPMENT;
+        if(ourBishopsBB & BoardUtils::bits[c1]) eval -= EARLY_QUEEN_DEVELOPMENT;
+        if(ourBishopsBB & BoardUtils::bits[f1]) eval -= EARLY_QUEEN_DEVELOPMENT;
+        if(ourKnightsBB & BoardUtils::bits[g1]) eval -= EARLY_QUEEN_DEVELOPMENT;
     }
     if(color == Black && sq/8 < 6) {
-        if(ourKnightsBB & bits[b8]) eval -= EARLY_QUEEN_DEVELOPMENT;
-        if(ourBishopsBB & bits[c8]) eval -= EARLY_QUEEN_DEVELOPMENT;
-        if(ourBishopsBB & bits[f8]) eval -= EARLY_QUEEN_DEVELOPMENT;
-        if(ourKnightsBB & bits[g8]) eval -= EARLY_QUEEN_DEVELOPMENT;
+        if(ourKnightsBB & BoardUtils::bits[b8]) eval -= EARLY_QUEEN_DEVELOPMENT;
+        if(ourBishopsBB & BoardUtils::bits[c8]) eval -= EARLY_QUEEN_DEVELOPMENT;
+        if(ourBishopsBB & BoardUtils::bits[f8]) eval -= EARLY_QUEEN_DEVELOPMENT;
+        if(ourKnightsBB & BoardUtils::bits[g8]) eval -= EARLY_QUEEN_DEVELOPMENT;
     }
 
     // mobility and attacks
-    U64 sqNearKing = (color == White ? squaresNearBlackKing[board.blackKingSquare] : squaresNearWhiteKing[board.whiteKingSquare]);
+    U64 sqNearKing = (color == White ? BoardUtils::squaresNearBlackKing[board.blackKingSquare] : BoardUtils::squaresNearWhiteKing[board.whiteKingSquare]);
     U64 attacks = (magicBishopAttacks((board.whitePiecesBB | board.blackPiecesBB), sq)
                  | magicRookAttacks((board.whitePiecesBB | board.blackPiecesBB), sq));
 
@@ -676,31 +678,31 @@ int whiteKingShield(int KING_SHIELD[3]) {
     int eval = 0;
     // queen side
     if(sq%8 < 3) {
-        if(ourPawnsBB & bits[a2]) eval += KING_SHIELD[1];
-        else if(ourPawnsBB & bits[a3]) eval += KING_SHIELD[2];
+        if(ourPawnsBB & BoardUtils::bits[a2]) eval += KING_SHIELD[1];
+        else if(ourPawnsBB & BoardUtils::bits[a3]) eval += KING_SHIELD[2];
         else eval -= KING_SHIELD[0];
 
-        if(ourPawnsBB & bits[b2]) eval += KING_SHIELD[1];
-        else if(ourPawnsBB & bits[b3]) eval += KING_SHIELD[2];
+        if(ourPawnsBB & BoardUtils::bits[b2]) eval += KING_SHIELD[1];
+        else if(ourPawnsBB & BoardUtils::bits[b3]) eval += KING_SHIELD[2];
         else eval -= KING_SHIELD[0];
 
-        if(ourPawnsBB & bits[c2]) eval += KING_SHIELD[1];
-        else if(ourPawnsBB & bits[c3]) eval += KING_SHIELD[2];
+        if(ourPawnsBB & BoardUtils::bits[c2]) eval += KING_SHIELD[1];
+        else if(ourPawnsBB & BoardUtils::bits[c3]) eval += KING_SHIELD[2];
         else eval -= KING_SHIELD[0];
     }
 
     // king side
     else if(sq%8 > 4) {
-        if(ourPawnsBB & bits[f2]) eval += KING_SHIELD[1];
-        else if(ourPawnsBB & bits[f3]) eval += KING_SHIELD[2];
+        if(ourPawnsBB & BoardUtils::bits[f2]) eval += KING_SHIELD[1];
+        else if(ourPawnsBB & BoardUtils::bits[f3]) eval += KING_SHIELD[2];
         else eval -= KING_SHIELD[0];
 
-        if(ourPawnsBB & bits[g2]) eval += KING_SHIELD[1];
-        else if(ourPawnsBB & bits[g3]) eval += KING_SHIELD[2];
+        if(ourPawnsBB & BoardUtils::bits[g2]) eval += KING_SHIELD[1];
+        else if(ourPawnsBB & BoardUtils::bits[g3]) eval += KING_SHIELD[2];
         else eval -= KING_SHIELD[0];
 
-        if(ourPawnsBB & bits[h2]) eval += KING_SHIELD[1];
-        else if(ourPawnsBB & bits[h3]) eval += KING_SHIELD[2];
+        if(ourPawnsBB & BoardUtils::bits[h2]) eval += KING_SHIELD[1];
+        else if(ourPawnsBB & BoardUtils::bits[h3]) eval += KING_SHIELD[2];
         else eval -= KING_SHIELD[0];
     }
     return eval;
@@ -713,31 +715,31 @@ int blackKingShield(int KING_SHIELD[3]) {
     int eval = 0;
     // queen side
     if(sq%8 < 3) {
-        if(ourPawnsBB & bits[a7]) eval += KING_SHIELD[1];
-        else if(ourPawnsBB & bits[a6]) eval += KING_SHIELD[2];
+        if(ourPawnsBB & BoardUtils::bits[a7]) eval += KING_SHIELD[1];
+        else if(ourPawnsBB & BoardUtils::bits[a6]) eval += KING_SHIELD[2];
         else eval -= KING_SHIELD[0];
 
-        if(ourPawnsBB & bits[b7]) eval += KING_SHIELD[1];
-        else if(ourPawnsBB & bits[b6]) eval += KING_SHIELD[2];
+        if(ourPawnsBB & BoardUtils::bits[b7]) eval += KING_SHIELD[1];
+        else if(ourPawnsBB & BoardUtils::bits[b6]) eval += KING_SHIELD[2];
         else eval -= KING_SHIELD[0];
 
-        if(ourPawnsBB & bits[c7]) eval += KING_SHIELD[1];
-        else if(ourPawnsBB & bits[c6]) eval += KING_SHIELD[2];
+        if(ourPawnsBB & BoardUtils::bits[c7]) eval += KING_SHIELD[1];
+        else if(ourPawnsBB & BoardUtils::bits[c6]) eval += KING_SHIELD[2];
         else eval -= KING_SHIELD[0];
     }
 
     // king side
     else if(sq%8 > 4) {
-        if(ourPawnsBB & bits[f7]) eval += KING_SHIELD[1];
-        else if(ourPawnsBB & bits[f6]) eval += KING_SHIELD[2];
+        if(ourPawnsBB & BoardUtils::bits[f7]) eval += KING_SHIELD[1];
+        else if(ourPawnsBB & BoardUtils::bits[f6]) eval += KING_SHIELD[2];
         else eval -= KING_SHIELD[0];
 
-        if(ourPawnsBB & bits[g7]) eval += KING_SHIELD[1];
-        else if(ourPawnsBB & bits[g6]) eval += KING_SHIELD[2];
+        if(ourPawnsBB & BoardUtils::bits[g7]) eval += KING_SHIELD[1];
+        else if(ourPawnsBB & BoardUtils::bits[g6]) eval += KING_SHIELD[2];
         else eval -= KING_SHIELD[0];
 
-        if(ourPawnsBB & bits[h7]) eval += KING_SHIELD[1];
-        else if(ourPawnsBB & bits[h6]) eval += KING_SHIELD[2];
+        if(ourPawnsBB & BoardUtils::bits[h7]) eval += KING_SHIELD[1];
+        else if(ourPawnsBB & BoardUtils::bits[h6]) eval += KING_SHIELD[2];
         else eval -= KING_SHIELD[0];
     }
     return eval;
@@ -791,8 +793,8 @@ int evalPawn(
     U64 opponentPawnsBB = (board.pawnsBB & (color == White ? board.blackPiecesBB : board.whitePiecesBB));
     U64 ourPawnsBB = (board.pawnsBB & (color == White ? board.whitePiecesBB : board.blackPiecesBB));
 
-    U64 opponentPawnAttacksBB = pawnAttacks(opponentPawnsBB, (color == White ? Black : White));
-    U64 ourPawnAttacksBB = pawnAttacks(ourPawnsBB, color);
+    U64 opponentPawnAttacksBB = BoardUtils::pawnAttacks(opponentPawnsBB, (color == White ? Black : White));
+    U64 ourPawnAttacksBB = BoardUtils::pawnAttacks(ourPawnsBB, color);
 
     bool weak = true, passed = true, opposed = false;
 
@@ -813,12 +815,12 @@ int evalPawn(
     // check squares in front of the pawn to see if it is passed or opposed/doubled
     int curSq = sq+dir;
     while(curSq < 64 && curSq >= 0) {
-        if(board.pawnsBB & bits[curSq]) {
+        if(board.pawnsBB & BoardUtils::bits[curSq]) {
             passed = false;
-            if(ourPiecesBB & bits[curSq]) eval -= DOUBLED_PAWNS_PENALTY;
+            if(ourPiecesBB & BoardUtils::bits[curSq]) eval -= DOUBLED_PAWNS_PENALTY;
             else opposed = true;
         }
-        if(opponentPawnAttacksBB & bits[curSq]) passed = false;
+        if(opponentPawnAttacksBB & BoardUtils::bits[curSq]) passed = false;
 
         curSq += dir;
     }
@@ -837,7 +839,7 @@ int evalPawn(
     // the bonus is also bigger if the pawn is more advanced
     if(passed) {
         int bonus = PASSED_PAWN_TABLE[(color == White ? sq : FLIPPED[sq])];
-        if(ourPawnAttacksBB & bits[sq]) bonus = (bonus*4)/3;
+        if(ourPawnAttacksBB & BoardUtils::bits[sq]) bonus = (bonus*4)/3;
 
         eval += bonus;
     }
@@ -851,9 +853,9 @@ int evalPawn(
     }
 
     // penalty for having a pawn on d4 and not having a pawn on c4 or c3 in a d4 opening
-    if(color == White && sq == c2 && (ourPawnsBB & bits[d4]) && !(ourPawnsBB & bits[e4]))
+    if(color == White && sq == c2 && (ourPawnsBB & BoardUtils::bits[d4]) && !(ourPawnsBB & BoardUtils::bits[e4]))
         eval -= C_PAWN_PENALTY;
-    if(color == Black && sq == c7 && (ourPawnsBB & bits[d5]) && !(ourPawnsBB & bits[e5]))
+    if(color == Black && sq == c7 && (ourPawnsBB & BoardUtils::bits[d5]) && !(ourPawnsBB & BoardUtils::bits[e5]))
         eval -= C_PAWN_PENALTY;
 
     return eval;

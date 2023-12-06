@@ -13,6 +13,8 @@
 #include "MagicBitboards.h"
 #include "UCI.h"
 #include "MoveUtils.h"
+#include "BoardUtils.h"
+#include "Enums.h"
 // #include "See.h"
 
 using namespace std;
@@ -22,7 +24,6 @@ int history[16][64];
 const int HISTORY_MAX = 1e8;
 
 const int INF = 1000000;
-const int NO_MOVE = 0;
 
 const int MATE_EVAL = INF-1;
 const int MATE_THRESHOLD = MATE_EVAL/2;
@@ -47,8 +48,8 @@ void showPV(int depth) {
 
     cout << "pv ";
     for(int i = 0; i < depth; i++) {
-        if(pvArray[i] == NO_MOVE) break;
-        cout << moveToString(pvArray[i]) << ' ';
+        if(pvArray[i] == MoveUtils::NO_MOVE) break;
+        cout << BoardUtils::moveToString(pvArray[i]) << ' ';
     }
     cout << '\n';
 }
@@ -105,7 +106,7 @@ int captureScore(int move) {
     int score = 0;
 
     // give huge score boost to captures of the last moved piece
-    if(!moveStk.empty() && MoveUtils::getToSq(move) == MoveUtils::getToSq(moveStk.top())) score += 2000;
+    if(!board.moveStk.empty() && MoveUtils::getToSq(move) == MoveUtils::getToSq(board.moveStk.top())) score += 2000;
 
     // captured piece value - capturing piece value
     if(MoveUtils::isCapture(move)) score += (PIECE_VALUES[MoveUtils::getCapturedPiece(move)]-
@@ -166,7 +167,7 @@ void sortMoves(int *moves, int num, short ply) {
         if(killerMoves[ply][1] == moves[idx]) killerLegal[1] = true;
         if(pvMove == moves[idx]) pvMoveLegal = true;
     }
-    assert(pvMoveLegal || pvMove == NO_MOVE);
+    assert(pvMoveLegal || pvMove == MoveUtils::NO_MOVE);
 
     // split the other moves into captures and non captures for easier sorting
     for(unsigned int idx = 0; idx < num; idx++) {
@@ -180,10 +181,10 @@ void sortMoves(int *moves, int num, short ply) {
     unsigned int newNum = 0; // size of sorted array
 
     // add pv move
-    if(pvMove != NO_MOVE) moves[newNum++] = pvMove;
+    if(pvMove != MoveUtils::NO_MOVE) moves[newNum++] = pvMove;
 
     // add hash move if it is not the pv move
-    if (hashMove != NO_MOVE && hashMove != pvMove) moves[newNum++] = hashMove;
+    if (hashMove != MoveUtils::NO_MOVE && hashMove != pvMove) moves[newNum++] = hashMove;
     
     // add captures sorted by MVV-LVA (only winning / equal captures first)
     sort(captures, captures + nCaptures, cmpCapturesInv); // descending order because we add them from the end
@@ -192,9 +193,9 @@ void sortMoves(int *moves, int num, short ply) {
     }
 
     // add killer moves
-    if(killerLegal[0] && (killerMoves[ply][0] != NO_MOVE) && (killerMoves[ply][0] != pvMove) && (killerMoves[ply][0] != hashMove)) 
+    if(killerLegal[0] && (killerMoves[ply][0] != MoveUtils::NO_MOVE) && (killerMoves[ply][0] != pvMove) && (killerMoves[ply][0] != hashMove)) 
         moves[newNum++] = killerMoves[ply][0];
-    if(killerLegal[1] && (killerMoves[ply][1] != NO_MOVE) && (killerMoves[ply][1] != pvMove) && (killerMoves[ply][1] != hashMove)) 
+    if(killerLegal[1] && (killerMoves[ply][1] != MoveUtils::NO_MOVE) && (killerMoves[ply][1] != pvMove) && (killerMoves[ply][1] != hashMove)) 
         moves[newNum++] = killerMoves[ply][1];
 
     // add other quiet moves sorted
@@ -275,7 +276,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     int pvIndex = ply * (2 * N + 1 - ply) / 2;
     int pvNextIndex = pvIndex + N - ply;
 
-    memset(pvArray + pvIndex, NO_MOVE, sizeof(int) * (pvNextIndex - pvIndex));
+    memset(pvArray + pvIndex, MoveUtils::NO_MOVE, sizeof(int) * (pvNextIndex - pvIndex));
 
 
     int hashFlag = HASH_F_ALPHA;
@@ -327,19 +328,19 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
         if(timeOver) return 0;
         return q;
     }
-    int currBestMove = NO_MOVE;
+    int currBestMove = MoveUtils::NO_MOVE;
 
     // --- NULL MOVE PRUNING --- 
     // if our position is good, we can pass the turn to the opponent
     // and if that doesn't wreck our position, we don't need to search further
     const int ENDGAME_MATERIAL = 4;
     if(doNull && (!isPV) && (isInCheck == false) && ply && (depth > 3) && (gamePhase() >= ENDGAME_MATERIAL) && (evaluate() >= beta)) {
-        board.makeMove(NO_MOVE);
+        board.makeMove(MoveUtils::NO_MOVE);
 
         short R = 3 + depth / 6;
         int score = -alphaBeta(-beta, -beta + 1, depth - R - 1, ply + 1, false);
 
-        board.unmakeMove(NO_MOVE);
+        board.unmakeMove(MoveUtils::NO_MOVE);
 
         if(timeOver) return 0;
         if(score >= beta) return beta;
@@ -407,7 +408,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
             pvArray[pvIndex] = moves[idx];
             copyPv(pvArray + pvIndex + 1, pvArray + pvNextIndex, N - ply - 1);
 
-            assert(pvArray[pvIndex] != NO_MOVE);
+            assert(pvArray[pvIndex] != MoveUtils::NO_MOVE);
             assert(pvIndex < pvNextIndex);
             assert(pvNextIndex < (N * N + N) / 2);
 
@@ -443,9 +444,9 @@ pair<int, int> search() {
 
     ageHistory();
     for(short i = 0; i < 256; i++)
-        killerMoves[i][0] = killerMoves[i][1] = NO_MOVE;
+        killerMoves[i][0] = killerMoves[i][1] = MoveUtils::NO_MOVE;
 
-    memset(pvArray, NO_MOVE, sizeof(pvArray));
+    memset(pvArray, MoveUtils::NO_MOVE, sizeof(pvArray));
 
     // --- ITERATIVE DEEPENING --- 
     // we start with a depth 1 search and then we increase the depth by 1 every time
