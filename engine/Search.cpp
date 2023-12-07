@@ -158,7 +158,7 @@ void sortMoves(int *moves, int num, short ply) {
     int pvMove = pvArray[pvIndex];
 
     // find hash move
-    int hashMove = retrieveBestMove();
+    int hashMove = transpositionTable.retrieveBestMove();
 
     // check legality of killer moves
     bool killerLegal[2] = {false, false};
@@ -279,7 +279,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     memset(pvArray + pvIndex, MoveUtils::NO_MOVE, sizeof(int) * (pvNextIndex - pvIndex));
 
 
-    int hashFlag = HASH_F_ALPHA;
+    int hashFlag = TranspositionTable::HASH_F_ALPHA;
 
     bool isInCheck = board.isInCheck();
 
@@ -307,8 +307,8 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     bool isPV = (beta - alpha > 1);
 
     // retrieving the hashed move and evaluation if there is any
-    int hashScore = probeHash(depth, alpha, beta);
-    if(hashScore != VAL_UNKNOWN) {
+    int hashScore = transpositionTable.probeHash(depth, alpha, beta);
+    if(hashScore != TranspositionTable::VAL_UNKNOWN) {
         // we return hashed info only if it is an exact hit in pv nodes
         if(!isPV || (hashScore > alpha && hashScore < beta)) {
             return hashScore;
@@ -413,7 +413,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
             assert(pvNextIndex < (N * N + N) / 2);
 
             if(score >= beta) {
-                recordHash(depth, beta, HASH_F_BETA, currBestMove);
+                transpositionTable.recordHash(depth, beta, TranspositionTable::HASH_F_BETA, currBestMove);
 
                 if(!MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx])) {
                     // store killer moves
@@ -425,13 +425,13 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
 
                 return beta;
             }
-            hashFlag = HASH_F_EXACT;
+            hashFlag = TranspositionTable::HASH_F_EXACT;
             alpha = score;
         }
     }
     if(timeOver) return 0;
 
-    recordHash(depth, alpha, hashFlag, currBestMove);
+    transpositionTable.recordHash(depth, alpha, hashFlag, currBestMove);
     return alpha;
 }
 
@@ -481,5 +481,5 @@ pair<int, int> search() {
         depth++; // increase depth only if we are inside the window
     }
 
-    return {retrieveBestMove(), eval};
+    return {transpositionTable.retrieveBestMove(), eval};
 }

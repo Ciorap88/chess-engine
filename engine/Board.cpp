@@ -22,7 +22,7 @@ void init() {
         BoardUtils::bits[i] = (1LL << i);
 
     // initialize zobrist numbers in order to make zobrist hash keys
-    generateZobristHashNumbers();
+    TranspositionTable::generateZobristHashNumbers();
 
     // bitboard for checking empty squares between king and rook when castling
     BoardUtils::castleMask[0] =(BoardUtils::bits[f1] | BoardUtils::bits[g1]);
@@ -120,7 +120,7 @@ void init() {
 
     initMagics();
 
-    clearTT();
+    transpositionTable.clear();
     clearHistory();
 }
 
@@ -844,6 +844,96 @@ bool Board::isDraw() {
     }
 
     return false;
+}
+
+
+// xor zobrist numbers corresponding to all features of the current position
+U64 Board::getZobristHashFromCurrPos() {
+    U64 key = 0;
+    for(int i = 0; i < 64; i++) {
+        if(squares[i] == Empty) continue;
+        int color = (squares[i] & (Black | White));
+        int piece = (squares[i] ^ color);
+
+        key ^= TranspositionTable::pieceZobristNumbers[piece][(int)(color == White)][i];
+    }
+
+    key ^= TranspositionTable::castleZobristNumbers[castleRights];
+    if(ep != -1) key ^= TranspositionTable::epZobristNumbers[ep % 8];
+    if(turn == Black) key ^= TranspositionTable::blackTurnZobristNumber;
+
+    return key;
+}
+
+// update the hash key after making a move
+void Board::updateHashKey(int move) {
+    if(move == MoveUtils::NO_MOVE) { // null move
+        if(this->ep != -1) this->hashKey ^= TranspositionTable::epZobristNumbers[this->ep % 8];
+        this->hashKey ^= TranspositionTable::blackTurnZobristNumber;
+        return;
+    }
+
+    // get move info
+    int from = MoveUtils::getFromSq(move);
+    int to = MoveUtils::getToSq(move);
+
+    int color = MoveUtils::getColor(move);
+    int piece = MoveUtils::getPiece(move);
+    int otherColor = (color ^ 8);
+    int otherPiece = MoveUtils::getCapturedPiece(move);
+
+    bool isMoveEP = MoveUtils::isEP(move);
+    bool isMoveCapture = MoveUtils::isCapture(move);
+    bool isMoveCastle = MoveUtils::isCastle(move);
+    int promotionPiece = MoveUtils::getPromotionPiece(move);
+
+    int capturedPieceSquare = (isMoveEP ? (to + (color == White ? south : north)) : to);
+
+    // update pieces
+    this->hashKey ^= TranspositionTable::pieceZobristNumbers[piece][(int)(color == White)][from];
+    if(isMoveCapture) this->hashKey ^= TranspositionTable::pieceZobristNumbers[otherPiece][(int)(otherColor == White)][capturedPieceSquare];
+
+    if(!promotionPiece) this->hashKey ^= TranspositionTable::pieceZobristNumbers[piece][(int)(color == White)][to];
+    else this->hashKey ^= TranspositionTable::pieceZobristNumbers[promotionPiece][(int)(color == White)][to];
+
+    // castle stuff
+    int newCastleRights = this->castleRights;
+    if(piece == King) {
+        int mask = (color == White ? 12 : 3);
+        newCastleRights &= mask;
+    }
+    if((newCastleRights & BoardUtils::bits[1]) && (from == a1 || to == a1))
+        newCastleRights ^= BoardUtils::bits[1];
+    if((newCastleRights & BoardUtils::bits[0]) && (from == h1 || to == h1))
+        newCastleRights ^= BoardUtils::bits[0];
+    if((newCastleRights & BoardUtils::bits[3]) && (from == a8 || to == a8))
+        newCastleRights ^= BoardUtils::bits[3];
+    if((newCastleRights & BoardUtils::bits[2]) && (from == h8 || to == h8))
+        newCastleRights ^= BoardUtils::bits[2];
+
+    this->hashKey ^= TranspositionTable::castleZobristNumbers[this->castleRights];
+    this->hashKey ^= TranspositionTable::castleZobristNumbers[newCastleRights];
+
+    if(isMoveCastle) {
+        int Rank = (to >> 3), File = (to & 7);
+        int rookStartSquare = (Rank << 3) + (File == 6 ? 7 : 0);
+        int rookEndSquare = (Rank << 3) + (File == 6 ? 5 : 3);
+
+        this->hashKey ^= TranspositionTable::pieceZobristNumbers[Rook][(int)(color == White)][rookStartSquare];
+        this->hashKey ^= TranspositionTable::pieceZobristNumbers[Rook][(int)(color == White)][rookEndSquare];
+    }
+
+    // update ep square
+    int nextEp = -1;
+    if(piece == Pawn && abs(from-to) == 16) {
+        nextEp = to + (color == White ? south : north);
+    }
+
+    if(this->ep != -1) this->hashKey ^= TranspositionTable::epZobristNumbers[this->ep % 8];
+    if(nextEp != -1) this->hashKey ^= TranspositionTable::epZobristNumbers[nextEp % 8];
+
+    // switch turn
+    this->hashKey ^= TranspositionTable::blackTurnZobristNumber;
 }
 
 Board board;

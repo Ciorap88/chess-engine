@@ -23,7 +23,6 @@ public:
     static U64 knightAttacks(U64 knights);
 
     static bool isInBoard(int sq, int dir);
-    static void init();
 
     static int direction(int from, int to);
     static string square(int x);

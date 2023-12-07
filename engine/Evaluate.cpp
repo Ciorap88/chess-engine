@@ -758,7 +758,7 @@ int evalPawnStructure(
     int eval;
     if(useHash) {
         eval = retrievePawnEval();
-        if(eval != VAL_UNKNOWN) return eval;
+        if(eval != TranspositionTable::VAL_UNKNOWN) return eval;
     }
 
     eval = 0;

@@ -94,7 +94,7 @@ void UCI::inputIsReady() {
 // prepare for a new game by clearing hash tables and history/killer tables
 void UCI::inputUCINewGame() {
     clearHistory();
-    clearTT();
+    transpositionTable.clear();
     board.repetitionMap.clear();
     board.clear();
 }
@@ -217,24 +217,24 @@ void UCI::inputGo() {
 
         vector<string> parsedInput = splitStr(UCI::goCommand);
 
+        // do a perft and then continue if it is requested
+        if(parsedInput[1] == "perft") {
+            long long startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+            long long num = moveGenTest(stoi(parsedInput[2]), true);
+            long long endTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+            long long time = max(1LL, endTime-startTime);
+            long long nps = 1000LL*num/time;
+
+            std::cout << "nodes " << num << " time " << time << " nps " << nps << '\n';
+            continue;
+        }
+
         // loop through words
         for(int i = 0; i < parsedInput.size(); i++) {
             // only do a quiescence search
             if(parsedInput[i] == "quiescence") {
                 int score = quiesce(-1000000, 1000000);
                 std::cout << score * (board.turn == Black ? -1 : 1) << '\n';
-                return;
-            }
-            
-            // do a perft and then return if it is requested
-            if(parsedInput[i] == "perft") {
-                long long startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-                long long num = moveGenTest(stoi(parsedInput[i+1]), true);
-                long long endTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-                long long time = max(1LL, endTime-startTime);
-                long long nps = 1000LL*num/time;
-
-                std::cout << "nodes " << num << " time " << time << " nps " << nps << '\n';
                 return;
             }
 

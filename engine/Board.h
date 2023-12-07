@@ -37,6 +37,7 @@ public:
 
     void loadFenPos(string input);
     string getFenFromCurrPos();
+    U64 getZobristHashFromCurrPos();
 
     U64 attacksTo(int sq);
     bool isAttacked(int sq);
