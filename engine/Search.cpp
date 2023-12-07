@@ -162,7 +162,7 @@ void sortMoves(int *moves, int num, short ply) {
 
     // check legality of killer moves
     bool killerLegal[2] = {false, false};
-    for(unsigned int idx = 0; idx < num; idx++) {
+    for(int idx = 0; idx < num; idx++) {
         if(killerMoves[ply][0] == moves[idx]) killerLegal[0] = true;
         if(killerMoves[ply][1] == moves[idx]) killerLegal[1] = true;
         if(pvMove == moves[idx]) pvMoveLegal = true;
@@ -170,7 +170,7 @@ void sortMoves(int *moves, int num, short ply) {
     assert(pvMoveLegal || pvMove == MoveUtils::NO_MOVE);
 
     // split the other moves into captures and non captures for easier sorting
-    for(unsigned int idx = 0; idx < num; idx++) {
+    for(int idx = 0; idx < num; idx++) {
         if((moves[idx] == pvMove) || (moves[idx] == killerMoves[ply][0]) || (moves[idx] == killerMoves[ply][1]) || (moves[idx] == hashMove))
             continue;
 
@@ -178,7 +178,7 @@ void sortMoves(int *moves, int num, short ply) {
         else nonCaptures[nNonCaptures++] = moves[idx];
     }
 
-    unsigned int newNum = 0; // size of sorted array
+    int newNum = 0; // size of sorted array
 
     // add pv move
     if(pvMove != MoveUtils::NO_MOVE) moves[newNum++] = pvMove;

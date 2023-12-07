@@ -118,7 +118,7 @@ void UCI::inputPosition(string input) {
     }
 
     // make the moves
-    for(int i = movesIdx+1; i < parsedInput.size(); i++) {
+    for(unsigned int i = movesIdx+1; i < parsedInput.size(); i++) {
         int moves[256];
         int num = board.generateLegalMoves(moves);
         for(int idx = 0; idx < num; idx++) 
@@ -230,7 +230,7 @@ void UCI::inputGo() {
         }
 
         // loop through words
-        for(int i = 0; i < parsedInput.size(); i++) {
+        for(unsigned int i = 0; i < parsedInput.size(); i++) {
             // only do a quiescence search
             if(parsedInput[i] == "quiescence") {
                 int score = quiesce(-1000000, 1000000);

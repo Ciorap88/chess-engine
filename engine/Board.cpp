@@ -40,7 +40,7 @@ void init() {
 
     // create pawn attacks masks and vectors
     for(int i = 0; i < 64; i++) {
-        int file = (i & 7), rank = (i >> 3);
+        int file = (i & 7);
 
         if(file > 0) {
             if(i+7 < 64) BoardUtils::whitePawnAttacksBB[i] |= BoardUtils::bits[i+7];
@@ -220,7 +220,7 @@ void Board::loadFenPos(string input) {
 
     // parse the fen string
     string pieces;
-    int i = 0;
+    unsigned int i = 0;
     for(; input[i] != ' ' && i < input.length(); i++)
         pieces += input[i];
     i++;
@@ -257,8 +257,6 @@ void Board::loadFenPos(string input) {
                 int color = ((p >= 'A' && p <= 'Z') ? White : Black);
                 int type = pieceSymbols[tolower(p)];
 
-                U64 currBit = BoardUtils::bits[rank*8 + file];
-
                 this->updatePieceInBB(type, color, rank*8 + file);
                 if(type == King) {
                     if(color == White) this->whiteKingSquare = rank*8 + file;
@@ -294,7 +292,6 @@ short Board::generatePseudoLegalMoves() {
     short numberOfMoves = 0;
 
     int color = this->turn;
-    int otherColor = (color ^ 8);
 
     U64 ourPiecesBB = (color == White ? this->whitePiecesBB : this->blackPiecesBB);
     U64 opponentPiecesBB = (color == White ? this->blackPiecesBB : this->whitePiecesBB);
@@ -497,9 +494,7 @@ U64 Board::attacksTo(int sq) {
 // takes the pseudo legal moves and checks if they don't leave the king in check
 int Board::generateLegalMoves(int *moves) {
     int color = this->turn;
-    int otherColor = (color ^ 8);
     int kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
-    int otherKingSquare = (otherColor == White ? this->whiteKingSquare : this->blackKingSquare);
 
     U64 allPiecesBB = (this->whitePiecesBB | this->blackPiecesBB);
     U64 opponentPiecesBB = (color == White ? this->blackPiecesBB : this->whitePiecesBB);
@@ -520,7 +515,6 @@ int Board::generateLegalMoves(int *moves) {
     U64 checkRayBB = 0;
     if(checkingPiecesCnt == 1) {
         checkRayBB |= checkingPiecesBB;
-        int piece = (this->squares[checkingPieceIndex]^otherColor);
         int dir = BoardUtils::direction(checkingPieceIndex, kingSquare);
 
         // check direction is a straight line

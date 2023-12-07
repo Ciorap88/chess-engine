@@ -465,9 +465,6 @@ int evalBishop(
     U64 opponentPawnAttacksBB = BoardUtils::pawnAttacks(opponentPawnsBB, (color ^ (White | Black)));
 
     U64 ourPiecesBB = (color == White ? board.whitePiecesBB : board.blackPiecesBB);
-    U64 opponentPiecesBB = (color == Black ? board.whitePiecesBB : board.blackPiecesBB);
-
-    int opponentKingSquare = (color == White ? board.blackKingSquare : board.whiteKingSquare);
 
     if(color == White) pieceMaterialWhite += PIECE_VALUES[Bishop];
     else pieceMaterialBlack += PIECE_VALUES[Bishop];
@@ -627,8 +624,6 @@ int evalQueen(
 
     U64 opponentPawnsBB = (board.pawnsBB & opponentPiecesBB);
     U64 opponentPawnAttacksBB = BoardUtils::pawnAttacks(opponentPawnsBB, (color ^ (White | Black)));
-
-    int opponentKingSquare = (color == Black ? board.whiteKingSquare : board.blackKingSquare);
 
     if(color == White) pieceMaterialWhite += PIECE_VALUES[Queen];
     else pieceMaterialBlack += PIECE_VALUES[Queen];
