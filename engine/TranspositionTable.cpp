@@ -5,7 +5,7 @@
 #include "Board.h"
 #include "TranspositionTable.h"
 #include "Search.h"
-#include "MagicBitboards.h"
+#include "MagicBitboardUtils.h"
 #include "MoveUtils.h"
 #include "BoardUtils.h"
 #include "Enums.h"
@@ -14,10 +14,10 @@ using namespace std;
 
 typedef unsigned long long U64;
 
-U64 TranspositionTable::TranspositionTable::pieceZobristNumbers[7][2][64];
-U64 TranspositionTable::TranspositionTable::castleZobristNumbers[16];
-U64 TranspositionTable::TranspositionTable::epZobristNumbers[8];
-U64 TranspositionTable::TranspositionTable::blackTurnZobristNumber;
+U64 TranspositionTable::pieceZobristNumbers[7][2][64];
+U64 TranspositionTable::castleZobristNumbers[16];
+U64 TranspositionTable::epZobristNumbers[8];
+U64 TranspositionTable::blackTurnZobristNumber;
 
 const int TranspositionTable::VAL_UNKNOWN = -1e9;
 const int TranspositionTable::HASH_F_EXACT = 0;
@@ -41,17 +41,17 @@ void TranspositionTable::generateZobristHashNumbers() {
     for(int pc = 0; pc < 7; pc++) {
         for(int c = 0; c < 2; c++) {
             for(int sq = 0; sq < 64; sq++) {
-                TranspositionTable::pieceZobristNumbers[pc][c][sq] = randomULL();
+                TranspositionTable::pieceZobristNumbers[pc][c][sq] = MagicBitboardUtils::randomULL();
             }
         }
     }
     for(int castle = 0; castle < 16; castle++) {
-        TranspositionTable::castleZobristNumbers[castle] = randomULL();
+        TranspositionTable::castleZobristNumbers[castle] = MagicBitboardUtils::randomULL();
     }
     for(int col = 0; col < 8; col++) {
-        TranspositionTable::epZobristNumbers[col] = randomULL();
+        TranspositionTable::epZobristNumbers[col] = MagicBitboardUtils::randomULL();
     }
-    TranspositionTable::blackTurnZobristNumber = randomULL();
+    TranspositionTable::blackTurnZobristNumber = MagicBitboardUtils::randomULL();
 }
 
 // get the best move from the tt

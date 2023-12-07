@@ -9,14 +9,11 @@
 using namespace std;
 
 #include "Board.h"
-#include "MagicBitboards.h"
+#include "MagicBitboardUtils.h"
 #include "BoardUtils.h"
 
-typedef unsigned long long U64;
-typedef const U64 C64;
-
 // number of bits we need to shift when computing magic attacks
-const int ROOK_BITS[64] = {
+const int MagicBitboardUtils::ROOK_BITS[64] = {
     12, 11, 11, 11, 11, 11, 11, 12,
     11, 10, 10, 10, 10, 10, 10, 11,
     11, 10, 10, 10, 10, 10, 10, 11,
@@ -27,7 +24,7 @@ const int ROOK_BITS[64] = {
     12, 11, 11, 11, 11, 11, 11, 12
 };
 
-const int BISHOP_BITS[64] = {
+const int MagicBitboardUtils::BISHOP_BITS[64] = {
     6, 5, 5, 5, 5, 5, 5, 6,
     5, 5, 5, 5, 5, 5, 5, 5,
     5, 5, 7, 7, 7, 7, 5, 5,
@@ -39,7 +36,7 @@ const int BISHOP_BITS[64] = {
 };
 
 // precalculated values for the magic numbers
-C64 BISHOP_MAGICS[64] = {577322812503966336, 2270049134510085, 38289964190400650, 158769899958174800, 565217696222208, 581529844573028484, 4036387455024235520,
+C64 MagicBitboardUtils::BISHOP_MAGICS[64] = {577322812503966336, 2270049134510085, 38289964190400650, 158769899958174800, 565217696222208, 581529844573028484, 4036387455024235520,
 581034909873737735, 1152926211925100032, 7219360397122405076, 18594945514614800, 4677221482548, 2379030914224099330, 75437566601986049, 2017614866464133392,
 37154838677037057, 361415798805365248, 55204288533234706, 288793602392342658, 18577365878833152, 295003440814227600, 18084775848838144, 584343159787553905,
 149182288558164096, 2490543513319768324, 1227530799180683298, 2534383697937920, 38289393498325024, 4521260549685264, 4613953211559199244, 36310560044222516,
@@ -49,7 +46,7 @@ C64 BISHOP_MAGICS[64] = {577322812503966336, 2270049134510085, 38289964190400650
 2328363309472161793, 74768267218944, 2891311257527783936, 1163617970535338272, 4613937844619182592, 90423983978136576, 1139163907769376, 638954298933377,
 306262375445569664};
 
-C64 ROOK_MAGICS[64] = {72075324745056513, 18031991769276424, 648553543602538512, 4827894603405330436, 144117387368072224, 144117387233591696, 2377936887437328532,
+C64 MagicBitboardUtils::ROOK_MAGICS[64] = {72075324745056513, 18031991769276424, 648553543602538512, 4827894603405330436, 144117387368072224, 144117387233591696, 2377936887437328532,
 3494804722568675456, 1688988448522752, 216243426004312064, 281754151682064, 2814784664895556, 18295890951276546, 281483701125376, 148900271274131524,
 2306405960794767490, 35734136307724, 36312471564320848, 580964902097657859, 630513843974439168, 38280872784560640, 36592296770143232, 39582452248648,
 2253998845403220, 180144269636411392, 306280513088260352, 1153506741147664640, 36288179474432, 378311169088161024, 5911288043798594, 1297599651226584065,
@@ -59,16 +56,22 @@ C64 ROOK_MAGICS[64] = {72075324745056513, 18031991769276424, 648553543602538512,
 4403022283264, 2341947122781262081, 590534574161805350, 1152992972998967313, 2533292238703137, 311311393515635714, 576742261706981889, 144117666281429012,
 281483588804737};
 
-// the arrays in which the hashed attacks are stored
-U64 mBishopAttacks[64][512], mRookAttacks[64][4096];
+const int MagicBitboardUtils::BitTable[64] = {
+    63, 30, 3, 32, 25, 41, 22, 33, 15, 50, 42, 13, 11, 53, 19, 34, 61, 29, 2,
+    51, 21, 43, 45, 10, 18, 47, 1, 54, 9, 57, 0, 35, 62, 31, 40, 4, 49, 5, 52,
+    26, 60, 6, 23, 44, 46, 27, 56, 16, 7, 39, 48, 24, 59, 14, 12, 55, 38, 28,
+    58, 20, 37, 17, 36, 8
+};
+
+U64 MagicBitboardUtils::mBishopAttacks[64][512], MagicBitboardUtils::mRookAttacks[64][4096];
 
 // index of least significant set bit
-int bitscanForward(U64 bb) {
+int MagicBitboardUtils::bitscanForward(U64 bb) {
     return __builtin_ctzll(bb);
 }
 
 // combine 4 random 16bit numbers
-U64 randomULL() {
+U64 MagicBitboardUtils::randomULL() {
     U64 u1 = (U64)(rand()) & 0xFFFF;
     U64 u2 = (U64)(rand()) & 0xFFFF;
     U64 u3 = (U64)(rand()) & 0xFFFF;
@@ -77,24 +80,17 @@ U64 randomULL() {
 }
 
 // & multiple random numbers so we get fewer bits
-U64 randomU64FewBits() {
+U64 MagicBitboardUtils::randomU64FewBits() {
     return (randomULL() & randomULL() & randomULL());
 }
 
-const int BitTable[64] = {
-    63, 30, 3, 32, 25, 41, 22, 33, 15, 50, 42, 13, 11, 53, 19, 34, 61, 29, 2,
-    51, 21, 43, 45, 10, 18, 47, 1, 54, 9, 57, 0, 35, 62, 31, 40, 4, 49, 5, 52,
-    26, 60, 6, 23, 44, 46, 27, 56, 16, 7, 39, 48, 24, 59, 14, 12, 55, 38, 28,
-    58, 20, 37, 17, 36, 8
-};
-
 // number of set bits
-int popcount(U64 bb) {
+int MagicBitboardUtils::popcount(U64 bb) {
     return __builtin_popcountll(bb);
 }
 
 // pop the ms1b fron a number
-int popFirstBit(U64 *bb) {
+int MagicBitboardUtils::popFirstBit(U64 *bb) {
     U64 b = *bb ^ (*bb - 1);
     unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
     *bb &= (*bb - 1);
@@ -103,7 +99,7 @@ int popFirstBit(U64 *bb) {
 
 // function that transforms the index in the attack arrays into a bitboard
 // it is actually the inverse of the function that we access the hashed attacks with
-U64 indexToU64(int index, int bits, U64 m) {
+U64 MagicBitboardUtils::indexToU64(int index, int bits, U64 m) {
     U64 res = 0;
     for(int i = 0; i < bits; i++) {
         int j = popFirstBit(&m);
@@ -114,7 +110,7 @@ U64 indexToU64(int index, int bits, U64 m) {
 
 // manually calculated rook attacks
 // we go in every direction until we find another piece
-U64 rookAttacks(int sq, U64 blockers) {
+U64 MagicBitboardUtils::rookAttacks(int sq, U64 blockers) {
     U64 res = 0;
     int Rank = sq/8, File = sq%8;
     for(int r = Rank+1; r <= 7; r++) {
@@ -137,7 +133,7 @@ U64 rookAttacks(int sq, U64 blockers) {
 }
 
 // manually calculated bishop attacks
-U64 bishopAttacks(int sq, U64 blockers) {
+U64 MagicBitboardUtils::bishopAttacks(int sq, U64 blockers) {
     U64 res = 0;
     int Rank = sq/8, File = sq%8;
     for(int r = Rank+1, f = File+1; r <= 7 && f <= 7; r++, f++) {
@@ -161,7 +157,7 @@ U64 bishopAttacks(int sq, U64 blockers) {
 
 // populate the mBishopAttacks and mRookAttacks arrays with the correct attack bitboards 
 // according to the current magic numbers
-void populateSlidingAttacks(int sq, int m, bool bishop) {
+void MagicBitboardUtils::populateSlidingAttacks(int sq, int m, bool bishop) {
     U64 magic = (bishop ? BISHOP_MAGICS[sq] : ROOK_MAGICS[sq]);
     U64 mask = (bishop ? BoardUtils::bishopMasks[sq] : BoardUtils::rookMasks[sq]);
     int n = popcount(mask);
@@ -186,7 +182,7 @@ void populateSlidingAttacks(int sq, int m, bool bishop) {
 // function that finds good magic numbers, using trial and error
 // it is too slow so I don't use it every time the engine starts
 // I used it once and copied the magic numbers into the arrays
-U64 findMagic(int sq, int m, int bishop) {
+U64 MagicBitboardUtils::findMagic(int sq, int m, int bishop) {
     U64 blockers[4096], a[4096], used[4096];
 
     U64 mask = (bishop ? BoardUtils::bishopMasks[sq] : BoardUtils::rookMasks[sq]);
@@ -226,14 +222,14 @@ U64 findMagic(int sq, int m, int bishop) {
 // the actual functions that return the attack bitboards
 // we first & the occupancy bb with the correct mask, so we only get the blockers in the attack directions
 // after that, we multiply the result with the corresponding magic number and then we right shift it
-U64 magicBishopAttacks(U64 occ, int sq) {
+U64 MagicBitboardUtils::magicBishopAttacks(U64 occ, int sq) {
     occ &= BoardUtils::bishopMasks[sq];
     occ *= BISHOP_MAGICS[sq];
     occ >>= 64-BISHOP_BITS[sq];
     return mBishopAttacks[sq][occ];
 }
 
-U64 magicRookAttacks(U64 occ, int sq) {
+U64 MagicBitboardUtils::magicRookAttacks(U64 occ, int sq) {
     occ &= BoardUtils::rookMasks[sq];
     occ *= ROOK_MAGICS[sq];
     occ >>= 64-ROOK_BITS[sq];
@@ -241,7 +237,7 @@ U64 magicRookAttacks(U64 occ, int sq) {
 }
 
 // the function we will call when initializing the engine
-void initMagics() {
+void MagicBitboardUtils::initMagics() {
     for(int i = 0; i < 64; i++) {
         populateSlidingAttacks(i, BISHOP_BITS[i], 1);
         populateSlidingAttacks(i, ROOK_BITS[i], 0); 
@@ -249,7 +245,7 @@ void initMagics() {
 }
 
 // function for generating magic numbers
-void generateMagicNumbers() {
+void MagicBitboardUtils::generateMagicNumbers() {
     cout << "BISHOP_MAGICS[64] = {";
     for(int i = 0; i <64; i++) {
         if(i%8 == 7) cout << '\n';

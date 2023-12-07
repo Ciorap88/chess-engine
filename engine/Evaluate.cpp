@@ -2,7 +2,7 @@
 
 #include "Evaluate.h"
 #include "Board.h"
-#include "MagicBitboards.h"
+#include "MagicBitboardUtils.h"
 #include "TranspositionTable.h"
 #include "BoardUtils.h"
 #include "Enums.h"
@@ -310,11 +310,11 @@ int evaluate(
     else res -= TEMPO_BONUS;
 
     // add scores for bishop and knight pairs
-    if(popcount(board.whitePiecesBB & board.bishopsBB) >= 2) res += BISHOP_PAIR;
-    if(popcount(board.blackPiecesBB & board.bishopsBB) >= 2) res -= BISHOP_PAIR;
+    if(MagicBitboardUtils::popcount(board.whitePiecesBB & board.bishopsBB) >= 2) res += BISHOP_PAIR;
+    if(MagicBitboardUtils::popcount(board.blackPiecesBB & board.bishopsBB) >= 2) res -= BISHOP_PAIR;
 
-    if(popcount(board.whitePiecesBB & board.knightsBB) >= 2) res -= KNIGHT_PAIR_PENALTY;
-    if(popcount(board.blackPiecesBB & board.knightsBB) >= 2) res += KNIGHT_PAIR_PENALTY;
+    if(MagicBitboardUtils::popcount(board.whitePiecesBB & board.knightsBB) >= 2) res -= KNIGHT_PAIR_PENALTY;
+    if(MagicBitboardUtils::popcount(board.blackPiecesBB & board.knightsBB) >= 2) res += KNIGHT_PAIR_PENALTY;
 
     // low material corrections (adjusting the score for well known draws)
 
@@ -395,10 +395,10 @@ int evalKnight(
 
     // mobility bonus
     U64 mob = (BoardUtils::knightAttacksBB[sq] ^ (BoardUtils::knightAttacksBB[sq] & (ourPiecesBB | opponentPawnAttacksBB)));
-    eval += KNIGHT_MOBILITY * (popcount(mob) - 4);
+    eval += KNIGHT_MOBILITY * (MagicBitboardUtils::popcount(mob) - 4);
 
     // decreasing value as pawns disappear
-    int numberOfPawns = popcount(board.pawnsBB);
+    int numberOfPawns = MagicBitboardUtils::popcount(board.pawnsBB);
     eval += KNIGHT_PAWN_CONST * (numberOfPawns - 8);
 
     // traps and blockages
@@ -438,7 +438,7 @@ int evalKnight(
     // attacks
     U64 sqNearKing = (color == White ? BoardUtils::squaresNearBlackKing[board.blackKingSquare] : BoardUtils::squaresNearWhiteKing[board.whiteKingSquare]);
 
-    int attackedSquares = popcount(BoardUtils::knightAttacksBB[sq] & sqNearKing);
+    int attackedSquares = MagicBitboardUtils::popcount(BoardUtils::knightAttacksBB[sq] & sqNearKing);
     if(attackedSquares) {
         if(color == White) {
             whiteAttackersCnt++;
@@ -507,10 +507,10 @@ int evalBishop(
 
     // mobility and attacks
     U64 sqNearKing = (color == White ? BoardUtils::squaresNearBlackKing[board.blackKingSquare] : BoardUtils::squaresNearWhiteKing[board.whiteKingSquare]);
-    U64 attacks = magicBishopAttacks((board.whitePiecesBB | board.blackPiecesBB), sq);
+    U64 attacks = MagicBitboardUtils::magicBishopAttacks((board.whitePiecesBB | board.blackPiecesBB), sq);
 
-    int mobility = popcount(attacks & ~ourPiecesBB & ~opponentPawnAttacksBB);
-    int attackedSquares = popcount(attacks & sqNearKing);
+    int mobility = MagicBitboardUtils::popcount(attacks & ~ourPiecesBB & ~opponentPawnAttacksBB);
+    int attackedSquares = MagicBitboardUtils::popcount(attacks & sqNearKing);
 
     eval += BISHOP_MOBILITY * (mobility-5);
     if(attackedSquares) {
@@ -571,7 +571,7 @@ int evalRook(
     }
 
     // the rook becomes more valuable as there are less pawns on the board
-    int numberOfPawns = popcount(board.pawnsBB);
+    int numberOfPawns = MagicBitboardUtils::popcount(board.pawnsBB);
     eval += ROOK_PAWN_CONST * (8 - numberOfPawns);
 
     // bonus for a rook on an open or semi open file
@@ -596,10 +596,10 @@ int evalRook(
 
     // mobility and attacks
     U64 sqNearKing = (color == White ? BoardUtils::squaresNearBlackKing[board.blackKingSquare] : BoardUtils::squaresNearWhiteKing[board.whiteKingSquare]);
-    U64 attacks = magicRookAttacks((board.whitePiecesBB | board.blackPiecesBB), sq);
+    U64 attacks = MagicBitboardUtils::magicRookAttacks((board.whitePiecesBB | board.blackPiecesBB), sq);
 
-    int mobility = popcount(attacks & ~ourPiecesBB & ~opponentPawnAttacksBB);
-    int attackedSquares = popcount(attacks & sqNearKing);
+    int mobility = MagicBitboardUtils::popcount(attacks & ~ourPiecesBB & ~opponentPawnAttacksBB);
+    int attackedSquares = MagicBitboardUtils::popcount(attacks & sqNearKing);
 
     eval += ROOK_MOBILITY * (mobility-7);
     if(attackedSquares) {
@@ -652,11 +652,11 @@ int evalQueen(
 
     // mobility and attacks
     U64 sqNearKing = (color == White ? BoardUtils::squaresNearBlackKing[board.blackKingSquare] : BoardUtils::squaresNearWhiteKing[board.whiteKingSquare]);
-    U64 attacks = (magicBishopAttacks((board.whitePiecesBB | board.blackPiecesBB), sq)
-                 | magicRookAttacks((board.whitePiecesBB | board.blackPiecesBB), sq));
+    U64 attacks = (MagicBitboardUtils::magicBishopAttacks((board.whitePiecesBB | board.blackPiecesBB), sq)
+                 | MagicBitboardUtils::magicRookAttacks((board.whitePiecesBB | board.blackPiecesBB), sq));
 
-    int mobility = popcount(attacks & ~ourPiecesBB & ~opponentPawnAttacksBB);
-    int attackedSquares = popcount(attacks & sqNearKing);
+    int mobility = MagicBitboardUtils::popcount(attacks & ~ourPiecesBB & ~opponentPawnAttacksBB);
+    int attackedSquares = MagicBitboardUtils::popcount(attacks & sqNearKing);
 
     eval += QUEEN_MOBILITY * (mobility-14);
     if(attackedSquares) {
@@ -763,14 +763,14 @@ int evalPawnStructure(
 
     eval = 0;
     while(whitePawns) {
-        int sq = bitscanForward(whitePawns);
+        int sq = MagicBitboardUtils::bitscanForward(whitePawns);
         eval += evalPawn(
             sq, White, MG_PAWN_TABLE, EG_PAWN_TABLE, PASSED_PAWN_TABLE,
             DOUBLED_PAWNS_PENALTY, WEAK_PAWN_PENALTY, C_PAWN_PENALTY, PIECE_VALUES);
         whitePawns &= (whitePawns-1);
     }
     while(blackPawns) {
-        int sq = bitscanForward(blackPawns);
+        int sq = MagicBitboardUtils::bitscanForward(blackPawns);
         eval -= evalPawn(
             sq, Black, MG_PAWN_TABLE, EG_PAWN_TABLE, PASSED_PAWN_TABLE,
             DOUBLED_PAWNS_PENALTY, WEAK_PAWN_PENALTY, C_PAWN_PENALTY, PIECE_VALUES);
@@ -862,8 +862,8 @@ int evalPawn(
 }
 
 int gamePhase() {
-    return popcount(board.knightsBB) * MG_WEIGHT[Knight] 
-         + popcount(board.bishopsBB) * MG_WEIGHT[Bishop] 
-         + popcount(board.rooksBB) * MG_WEIGHT[Rook]
-         + popcount(board.queensBB) * MG_WEIGHT[Queen]; 
+    return MagicBitboardUtils::popcount(board.knightsBB) * MG_WEIGHT[Knight] 
+         + MagicBitboardUtils::popcount(board.bishopsBB) * MG_WEIGHT[Bishop] 
+         + MagicBitboardUtils::popcount(board.rooksBB) * MG_WEIGHT[Rook]
+         + MagicBitboardUtils::popcount(board.queensBB) * MG_WEIGHT[Queen]; 
 }

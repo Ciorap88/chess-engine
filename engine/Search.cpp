@@ -10,7 +10,7 @@
 #include "Board.h"
 #include "Search.h"
 #include "TranspositionTable.h"
-#include "MagicBitboards.h"
+#include "MagicBitboardUtils.h"
 #include "UCI.h"
 #include "MoveUtils.h"
 #include "BoardUtils.h"

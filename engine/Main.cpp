@@ -4,7 +4,7 @@
 #include "Search.h"
 #include "Evaluate.h"
 #include "Board.h"
-#include "MagicBitboards.h"
+#include "MagicBitboardUtils.h"
 #include "TranspositionTable.h"
 #include "UCI.h"
 
