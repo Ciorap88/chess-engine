@@ -374,6 +374,8 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
 }
 
 pair<int, int> Search::root() {
+    board.repetitionIndex = 0;
+
     timeOver = false;
 
     int alpha = -INF, beta = INF;

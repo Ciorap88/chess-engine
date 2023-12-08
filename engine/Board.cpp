@@ -14,6 +14,15 @@
 
 using namespace std;
 
+Board::Board() : repetitionMap(new U64[Search::MAX_DEPTH]) {
+    clear();
+}
+
+Board::~Board() {
+    delete[] repetitionMap;
+}
+
+
 // initialize all the variables before starting the actual engine
 void init() {
     board.clear();
@@ -665,7 +674,9 @@ void Board::makeMove(int move) {
 
         return;
     }
-    repetitionMap[this->hashKey]++;
+
+    assert(repetitionIndex < Search::MAX_DEPTH - 1);
+    repetitionMap[repetitionIndex++] = hashKey;
 
     // push the current castle and ep info in order to retrieve it when we unmake the move
     castleStk.push(this->castleRights);
@@ -759,8 +770,8 @@ void Board::unmakeMove(int move) {
 
         return;
     }
-    repetitionMap[this->hashKey]--;
-    if(repetitionMap[this->hashKey] == 0) repetitionMap.erase(this->hashKey);
+
+    repetitionIndex--;
 
     // get move info
     int from = MoveUtils::getFromSq(move);
@@ -822,9 +833,17 @@ void Board::unmakeMove(int move) {
     this->updateHashKey(move);
 }
 
+bool Board::checkRepetition() {
+    for(int i = repetitionIndex-2; i >= 0; i -= 2) {
+        if(repetitionMap[i] == hashKey) return true;
+    }
+
+    return false;
+}
+
 // draw by insufficient material or repetition
 bool Board::isDraw() {
-    if(repetitionMap[this->hashKey] > 1) return true; // repetition
+    if(checkRepetition()) return true;
 
     if(this->queensBB | this->rooksBB | this->pawnsBB) return false;
 

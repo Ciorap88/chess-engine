@@ -95,7 +95,7 @@ void UCI::inputIsReady() {
 void UCI::inputUCINewGame() {
     Search::clearHistory();
     transpositionTable.clear();
-    board.repetitionMap.clear();
+    board.repetitionIndex = 0;
     board.clear();
 }
 
