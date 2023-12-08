@@ -14,7 +14,6 @@ private:
     static bool startFlag, quitFlag;
 
     static std::string goCommand;
-
     static std::string engineName;
 
 public:

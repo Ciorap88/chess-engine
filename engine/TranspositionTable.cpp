@@ -36,6 +36,10 @@ TranspositionTable::TranspositionTable(): SIZE(1 << 25), hashTable(new hashEleme
     clear();
 }
 
+TranspositionTable::~TranspositionTable() {
+    delete[] hashTable;
+}
+
 
 void TranspositionTable::generateZobristHashNumbers() {
     for(int pc = 0; pc < 7; pc++) {
@@ -81,7 +85,7 @@ int TranspositionTable::probeHash(short depth, int alpha, int beta) {
 
 // replace hashed element if replacement conditions are met
 void TranspositionTable::recordHash(short depth, int val, int hashF, int best) {
-    if(timeOver) return;
+    if(Search::timeOver) return;
 
     int index = (board.hashKey & (SIZE-1));
     hashElement *h = &hashTable[index];
@@ -127,7 +131,7 @@ int retrievePawnEval() {
 }
 
 void recordPawnEval(int eval) {
-    if(timeOver) return;
+    if(Search::timeOver) return;
 
     U64 key = board.pawnsBB;
     U64 whitePawns = (board.pawnsBB & board.whitePiecesBB);

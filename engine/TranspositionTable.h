@@ -10,6 +10,7 @@ private:
     hashElement *hashTable;
 public:
     TranspositionTable();
+    ~TranspositionTable();
 
     static U64 pieceZobristNumbers[7][2][64];
     static U64 castleZobristNumbers[16];

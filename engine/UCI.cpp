@@ -23,7 +23,7 @@ bool UCI::startFlag, UCI::quitFlag;
 // for showing uci info
 string scoreToStr(int score) {
     // if it is a mate, we print "mate" + the number of moves until mate
-    if (abs(score) > MATE_THRESHOLD) return "mate " + to_string((score > 0 ? MATE_EVAL - score + 1 : -MATE_EVAL - score) / 2);
+    if (abs(score) > Search::MATE_THRESHOLD) return "mate " + to_string((score > 0 ? Search::MATE_EVAL - score + 1 : -Search::MATE_EVAL - score) / 2);
 
     // the score is initially relative to the side to move, so we change it to be positive for white
     if(board.turn == Black) score *= -1;
@@ -35,7 +35,7 @@ string scoreToStr(int score) {
 // function to split string into words
 vector<string> splitStr(string s) {
     vector<string> ans;
-    for(auto c: s) {
+    for(char c: s) {
         if(c == ' ' || !ans.size()) ans.push_back("");
         else ans.back() += c;
     }
@@ -67,9 +67,9 @@ void UCI::UCICommunication() {
         } else if(inputString.substr(0, 4) == "eval") {
             printEval();
         } else if(inputString == "stop") {
-            timeOver = true;
+            Search::timeOver = true;
         } else if(inputString == "quit") {
-            timeOver = true;
+            Search::timeOver = true;
             {
                 std::lock_guard<std::mutex> lk(UCI::mtx);
                 UCI::goCommand = inputString;
@@ -93,7 +93,7 @@ void UCI::inputIsReady() {
 
 // prepare for a new game by clearing hash tables and history/killer tables
 void UCI::inputUCINewGame() {
-    clearHistory();
+    Search::clearHistory();
     transpositionTable.clear();
     board.repetitionMap.clear();
     board.clear();
@@ -156,7 +156,7 @@ long long UCI::moveGenTest(short depth, bool show) {
 // show information related to the search such as the depth, nodes, time etc.
 void UCI::showSearchInfo(short depth, int nodes, int startTime, int score) {
     // reduce depth if mate is found
-    if(abs(score) > MATE_THRESHOLD) depth = MATE_EVAL - abs(score);
+    if(abs(score) > Search::MATE_THRESHOLD) depth = Search::MATE_EVAL - abs(score);
 
     // get current time
     int currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
@@ -172,7 +172,7 @@ void UCI::showSearchInfo(short depth, int nodes, int startTime, int score) {
     std::cout.flush();
 
     // print principal variation
-    showPV(depth);
+    Search::showPV(depth);
 }
 
 // function that prints the current board
@@ -206,7 +206,7 @@ void UCI::inputGo() {
     while(true) {
         long long time = -1, inc = 0, movesToGo = -1, moveTime = -1;
         short depth = 256;
-        infiniteTime = true;
+        Search::infiniteTime = true;
 
         std::unique_lock<std::mutex> lk(UCI::mtx);
         UCI::cv.wait(lk, []{ return UCI::startFlag || UCI::quitFlag; });
@@ -233,7 +233,7 @@ void UCI::inputGo() {
         for(unsigned int i = 0; i < parsedInput.size(); i++) {
             // only do a quiescence search
             if(parsedInput[i] == "quiescence") {
-                int score = quiesce(-1000000, 1000000);
+                int score = Search::quiescence(-1000000, 1000000);
                 std::cout << score * (board.turn == Black ? -1 : 1) << '\n';
                 return;
             }
@@ -267,15 +267,16 @@ void UCI::inputGo() {
                 depth = stoi(parsedInput[i+1]);
             }
         }
+        std::cout << "time " << (time)/1000 << '\n';
 
-        // if depth is specified, we change the max depth, otherwise we leave it at 200
-        maxDepth = depth;
+        // if depth is specified, we change the max depth, otherwise we leave it at 255
+        Search::currMaxDepth = depth;
 
         if(movesToGo != -1) movesToGo += 2;
-        else movesToGo = 40;
+        else movesToGo = 80;
 
         // get current time;
-        startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+        long long startTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
         
         // if move time is set, we can use it all for the current move
         if(moveTime != -1) {
@@ -285,7 +286,7 @@ void UCI::inputGo() {
         // otherwise consider 
         }
         if(time != -1) {
-            infiniteTime = false;
+            Search::infiniteTime = false;
             time /= movesToGo;
         }
 
@@ -293,10 +294,10 @@ void UCI::inputGo() {
         else if(time > 100) time -= 50;
 
         // set the stop time
-        stopTime = startTime + time + inc;
+        Search::stopTime = startTime + time + inc;
 
-        auto result = search();
-        std::cout << "bestmove " << BoardUtils::moveToString(result.first) << '\n';
+        std::pair<int, int> searchResult = Search::root();
+        std::cout << "bestmove " << BoardUtils::moveToString(searchResult.first) << '\n';
         std::cout.flush();
     }
 }

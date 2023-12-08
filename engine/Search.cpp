@@ -15,94 +15,33 @@
 #include "MoveUtils.h"
 #include "BoardUtils.h"
 #include "Enums.h"
-// #include "See.h"
 
 using namespace std;
 
-int killerMoves[256][2];
-int history[16][64];
-const int HISTORY_MAX = 1e8;
+int Search::killerMoves[256][2];
+int Search::history[16][64];
+const int Search::HISTORY_MAX = 1e8;
 
-const int INF = 1000000;
+const int Search::INF = 1000000;
+const int Search::MATE_EVAL = INF-1;
+const int Search::MATE_THRESHOLD = MATE_EVAL/2;
 
-const int MATE_EVAL = INF-1;
-const int MATE_THRESHOLD = MATE_EVAL/2;
+long long Search::stopTime;
+bool Search::infiniteTime;
 
-long long startTime, stopTime;
-short maxDepth = 256;
-bool infiniteTime;
+int Search::nodesSearched = 0;
+int Search::nodesQ = 0;
+bool Search::timeOver = false;
 
-int nodesSearched = 0;
-int nodesQ = 0;
-bool timeOver = false;
+const int Search::MAX_DEPTH = 256;
+int Search::currMaxDepth = 256;
+int Search::pvArray[(MAX_DEPTH * MAX_DEPTH + MAX_DEPTH) / 2];
 
-const int N = 256;
-int pvArray[(N * N + N) / 2];
-
-void copyPv(int* dest, int* src, int n) {
-   while (n-- && (*dest++ = *src++));
-}
-
-void showPV(int depth) {
-    assert(depth <= N);
-
-    cout << "pv ";
-    for(int i = 0; i < depth; i++) {
-        if(pvArray[i] == MoveUtils::NO_MOVE) break;
-        cout << BoardUtils::moveToString(pvArray[i]) << ' ';
-    }
-    cout << '\n';
-}
+const int Search::ASP_INCREASE = 50;
 
 
-// killer moves are quiet moves that cause a beta cutoff and are used for sorting purposes
-void storeKiller(short ply, int move) {
-    // make sure the moves are different
-    if(killerMoves[ply][0] != move) 
-        killerMoves[ply][1] = killerMoves[ply][0];
-
-    killerMoves[ply][0] = move;
-}
-
-
-// same as killer moves, but they are saved based on their squares and color
-void updateHistory(int move, int depth) {
-    int bonus = depth * depth;
-
-    history[(MoveUtils::getColor(move) | MoveUtils::getPiece(move))][MoveUtils::getToSq(move)] += 2 * bonus;
-    for(int pc = 0; pc < 16; pc++) {
-        for(int sq = 0; sq < 64; sq++) {
-            history[pc][sq] -= bonus;
-        }
-    }
-
-    // cap history points at HISTORY_MAX
-    if(history[(MoveUtils::getColor(move) | MoveUtils::getPiece(move))][MoveUtils::getToSq(move)] > HISTORY_MAX) {
-        for(int pc = 0; pc < 16; pc++) {
-            for(int sq = 0; sq < 64; sq++) {
-                history[pc][sq] /= 2;
-            }
-        }
-    }
-}
-
-void clearHistory() {
-    for(int pc = 0; pc < 16; pc++) {
-        for(int sq = 0; sq < 64; sq++) {
-            history[pc][sq] = 0;
-        }
-    }
-}
-
-void ageHistory() {
-    for(int pc = 0; pc < 16; pc++) {
-        for(int sq = 0; sq < 64; sq++) {
-            history[pc][sq] /= 8;
-        }
-    }
-}
-
-int captureScore(int move) {
+// --- MOVE ORDERING ---
+int Search::captureScore(int move) {
     int score = 0;
 
     // give huge score boost to captures of the last moved piece
@@ -118,7 +57,7 @@ int captureScore(int move) {
     return score;
 }
 
-int nonCaptureScore(int move) {
+int Search::nonCaptureScore(int move) {
     // start with history score
     int score = history[(MoveUtils::getColor(move) | MoveUtils::getPiece(move))][MoveUtils::getToSq(move)];
 
@@ -129,20 +68,19 @@ int nonCaptureScore(int move) {
     return score;
 }
 
-bool cmpCapturesInv(int a, int b) {
+bool Search::cmpCapturesInv(int a, int b) {
     return (captureScore(a) < captureScore(b));
 }
 
-bool cmpCaptures(int a, int b) {
+bool Search::cmpCaptures(int a, int b) {
     return (captureScore(a) > captureScore(b));
 }
 
-bool cmpNonCaptures(int a, int b) {
+bool Search::cmpNonCaptures(int a, int b) {
     return nonCaptureScore(a) > nonCaptureScore(b);
 }
 
-// --- MOVE ORDERING --- 
-void sortMoves(int *moves, int num, short ply) {
+void Search::sortMoves(int *moves, int num, short ply) {
     // sorting in quiescence search
       if(ply == -1) {
           sort(moves, moves+num, cmpCaptures);
@@ -153,7 +91,7 @@ void sortMoves(int *moves, int num, short ply) {
     unsigned int nCaptures = 0, nNonCaptures = 0;
 
     // find pv move
-    int pvIndex = ply * (2 * N + 1 - ply) / 2;
+    int pvIndex = ply * (2 * MAX_DEPTH + 1 - ply) / 2;
     int pvMoveLegal = false;
     int pvMove = pvArray[pvIndex];
 
@@ -213,7 +151,7 @@ void sortMoves(int *moves, int num, short ply) {
 
 // --- QUIESCENCE SEARCH --- 
 // only searching for captures at the end of a regular search in order to ensure the engine won't miss obvious tactics
-int quiesce(int alpha, int beta) {
+int Search::quiescence(int alpha, int beta) {
     if(!(nodesQ & 4095) && !infiniteTime) {
         long long currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
         if(currTime >= stopTime) timeOver = true;
@@ -247,7 +185,7 @@ int quiesce(int alpha, int beta) {
         if((delta <= alpha) && (gamePhase() - MG_WEIGHT[MoveUtils::getCapturedPiece(moves[idx])] >= ENDGAME_MATERIAL)) continue;
 
         board.makeMove(moves[idx]);
-        int score = -quiesce(-beta, -alpha);
+        int score = -quiescence(-beta, -alpha);
         board.unmakeMove(moves[idx]);
 
         if(timeOver) return 0;
@@ -262,9 +200,9 @@ int quiesce(int alpha, int beta) {
 }
 
 // alpha-beta algorithm with a fail-hard framework and PVS
-int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
+int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     assert(depth >= 0);
-    assert(ply <= N);
+    assert(ply <= MAX_DEPTH);
 
     if(!(nodesSearched & 4095) && !infiniteTime) {
         long long currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
@@ -273,8 +211,8 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     if(timeOver) return 0;
     nodesSearched++;
 
-    int pvIndex = ply * (2 * N + 1 - ply) / 2;
-    int pvNextIndex = pvIndex + N - ply;
+    int pvIndex = ply * (2 * MAX_DEPTH + 1 - ply) / 2;
+    int pvNextIndex = pvIndex + MAX_DEPTH - ply;
 
     memset(pvArray + pvIndex, MoveUtils::NO_MOVE, sizeof(int) * (pvNextIndex - pvIndex));
 
@@ -324,7 +262,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
 
 
     if(depth <= 0) {
-        int q = quiesce(alpha, beta);
+        int q = quiescence(alpha, beta);
         if(timeOver) return 0;
         return q;
     }
@@ -406,11 +344,11 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
             currBestMove = moves[idx];
 
             pvArray[pvIndex] = moves[idx];
-            copyPv(pvArray + pvIndex + 1, pvArray + pvNextIndex, N - ply - 1);
+            copyPv(pvArray + pvIndex + 1, pvArray + pvNextIndex, MAX_DEPTH - ply - 1);
 
             assert(pvArray[pvIndex] != MoveUtils::NO_MOVE);
             assert(pvIndex < pvNextIndex);
-            assert(pvNextIndex < (N * N + N) / 2);
+            assert(pvNextIndex < (MAX_DEPTH * MAX_DEPTH + MAX_DEPTH) / 2);
 
             if(score >= beta) {
                 transpositionTable.recordHash(depth, beta, TranspositionTable::HASH_F_BETA, currBestMove);
@@ -435,8 +373,7 @@ int alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) {
     return alpha;
 }
 
-const int ASP_INCREASE = 50;
-pair<int, int> search() {
+pair<int, int> Search::root() {
     timeOver = false;
 
     int alpha = -INF, beta = INF;
@@ -453,7 +390,7 @@ pair<int, int> search() {
     // this helps manage the time because at any point the engine can return the best move found so far
     // also it helps improve move ordering by memorizing the best move that we can search first in the next iteration
     long long currStartTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-    for(short depth = 1; depth <= maxDepth; ) {
+    for(short depth = 1; depth <= currMaxDepth; ) {
 
         nodesSearched = nodesQ = 0;
 
@@ -482,4 +419,68 @@ pair<int, int> search() {
     }
 
     return {transpositionTable.retrieveBestMove(), eval};
+}
+
+// --- KILLERS AND HISTORY ---
+// killer moves are quiet moves that cause a beta cutoff and are used for sorting purposes
+void Search::storeKiller(short ply, int move) {
+    // make sure the moves are different
+    if(killerMoves[ply][0] != move) 
+        killerMoves[ply][1] = killerMoves[ply][0];
+
+    killerMoves[ply][0] = move;
+}
+
+
+// same as killer moves, but they are saved based on their squares and color
+void Search::updateHistory(int move, int depth) {
+    int bonus = depth * depth;
+
+    history[(MoveUtils::getColor(move) | MoveUtils::getPiece(move))][MoveUtils::getToSq(move)] += 2 * bonus;
+    for(int pc = 0; pc < 16; pc++) {
+        for(int sq = 0; sq < 64; sq++) {
+            history[pc][sq] -= bonus;
+        }
+    }
+
+    // cap history points at HISTORY_MAX
+    if(history[(MoveUtils::getColor(move) | MoveUtils::getPiece(move))][MoveUtils::getToSq(move)] > HISTORY_MAX) {
+        for(int pc = 0; pc < 16; pc++) {
+            for(int sq = 0; sq < 64; sq++) {
+                history[pc][sq] /= 2;
+            }
+        }
+    }
+}
+
+void Search::clearHistory() {
+    for(int pc = 0; pc < 16; pc++) {
+        for(int sq = 0; sq < 64; sq++) {
+            history[pc][sq] = 0;
+        }
+    }
+}
+
+void Search::ageHistory() {
+    for(int pc = 0; pc < 16; pc++) {
+        for(int sq = 0; sq < 64; sq++) {
+            history[pc][sq] /= 8;
+        }
+    }
+}
+
+// --- PV HELPER FUNCTIONS ---
+void Search::copyPv(int* dest, int* src, int n) {
+   while (n-- && (*dest++ = *src++));
+}
+
+void Search::showPV(int depth) {
+    assert(depth <= MAX_DEPTH);
+
+    cout << "pv ";
+    for(int i = 0; i < depth; i++) {
+        if(pvArray[i] == MoveUtils::NO_MOVE) break;
+        cout << BoardUtils::moveToString(pvArray[i]) << ' ';
+    }
+    cout << '\n';
 }

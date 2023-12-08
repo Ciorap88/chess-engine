@@ -76,7 +76,7 @@ void init() {
 
     // create bishop masks
     for(int i = 0; i < 64; i++) {
-        for(auto dir: {northEast, northWest, southEast, southWest}) {
+        for(Direction dir: {northEast, northWest, southEast, southWest}) {
             int sq = i;
             while(BoardUtils::isInBoard(sq, dir)) {
                 BoardUtils::bishopMasks[i] |= BoardUtils::bits[sq];
@@ -88,7 +88,7 @@ void init() {
 
     // create rook masks
     for(int i = 0; i < 64; i++) {
-        for(auto dir: {east, west, north, south}) {
+        for(Direction dir: {east, west, north, south}) {
             int sq = i;
             while(BoardUtils::isInBoard(sq, dir)) {
                 BoardUtils::rookMasks[i] |= BoardUtils::bits[sq];
@@ -121,7 +121,7 @@ void init() {
     MagicBitboardUtils::initMagics();
 
     transpositionTable.clear();
-    clearHistory();
+    Search::clearHistory();
 }
 
 void Board::clear() {
