@@ -7,6 +7,7 @@
 
 extern int PIECE_VALUES[7];
 extern const int MG_WEIGHT[7];
+extern const int FLIPPED[64];
 
 int gamePhase();
 int evaluate();

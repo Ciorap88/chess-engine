@@ -8,15 +8,15 @@
 #include <condition_variable>
 
 class UCI {
-public:
+private:
     static std::condition_variable cv;
     static std::mutex mtx;
     static bool startFlag, quitFlag;
 
     static std::string goCommand;
-
     static std::string engineName;
 
+public:
     static void UCICommunication();
     static void inputUCI();
     static void inputIsReady();
