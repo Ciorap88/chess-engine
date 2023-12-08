@@ -111,8 +111,12 @@ void UCI::inputPosition(string input) {
         movesIdx = 2;
     } else {
         string fen;
-        for(int i = 2; i <= 7; i++)
+        for(int i = 2; i <= 5; i++)
             fen += parsedInput[i] + " ";
+        
+        if(parsedInput.size() > 6) fen += parsedInput[6] + " ";
+        if(parsedInput.size() > 7) fen += parsedInput[7] + " ";
+        
         board.loadFenPos(fen);
         movesIdx = 8;
     }
