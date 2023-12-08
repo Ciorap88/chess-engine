@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <unordered_map>
+#include <cassert>
 
 #include "Board.h"
 #include "TranspositionTable.h"
@@ -32,14 +33,13 @@ struct TranspositionTable::hashElement {
     int best;
 };
 
-TranspositionTable::TranspositionTable(): SIZE(1 << 25), hashTable(new hashElement[SIZE]) {
+TranspositionTable::TranspositionTable(): SIZE(1 << 22), hashTable(new hashElement[SIZE]) {
     clear();
 }
 
 TranspositionTable::~TranspositionTable() {
     delete[] hashTable;
 }
-
 
 void TranspositionTable::generateZobristHashNumbers() {
     for(int pc = 0; pc < 7; pc++) {
@@ -61,6 +61,8 @@ void TranspositionTable::generateZobristHashNumbers() {
 // get the best move from the tt
 int TranspositionTable::retrieveBestMove() {
     int index = (board.hashKey & (SIZE-1));
+    assert(index >= 0 && index < SIZE);
+
     hashElement *h = &hashTable[index];
 
     if(h->key != board.hashKey) return MoveUtils::NO_MOVE;
@@ -71,6 +73,8 @@ int TranspositionTable::retrieveBestMove() {
 // check if the stored hash element corresponds to the current position and if it was searched at a good enough depth
 int TranspositionTable::probeHash(short depth, int alpha, int beta) {
     int index = (board.hashKey & (SIZE-1));
+    assert(index >= 0 && index < SIZE);
+
     hashElement *h = &hashTable[index];
 
     if(h->key == board.hashKey) {
@@ -88,6 +92,8 @@ void TranspositionTable::recordHash(short depth, int val, int hashF, int best) {
     if(Search::timeOver) return;
 
     int index = (board.hashKey & (SIZE-1));
+    assert(index >= 0 && index < SIZE);
+
     hashElement *h = &hashTable[index];
 
     bool skip = false;
@@ -122,6 +128,7 @@ int retrievePawnEval() {
     U64 blackPawns = (board.pawnsBB & board.blackPiecesBB);
     
     int idx = (key & (PAWN_TABLE_SIZE-1));
+    assert(idx >= 0 && idx < PAWN_TABLE_SIZE);
 
     if(pawnHashTable[idx].whitePawns == whitePawns && pawnHashTable[idx].blackPawns == blackPawns) {
         return pawnHashTable[idx].eval;
@@ -138,6 +145,8 @@ void recordPawnEval(int eval) {
     U64 blackPawns = (board.pawnsBB & board.blackPiecesBB);
 
     int idx = (key & (PAWN_TABLE_SIZE-1));
+    assert(idx >= 0 && idx < PAWN_TABLE_SIZE);
+
 
     // always replace
     if(pawnHashTable[idx].whitePawns != whitePawns || pawnHashTable[idx].blackPawns != blackPawns) {

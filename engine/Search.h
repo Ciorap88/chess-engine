@@ -16,7 +16,6 @@ private:
     static int nodesSearched;
     static int nodesQ;
 
-    static const int MAX_DEPTH;
     static int pvArray[];
 
     static const int ASP_INCREASE;
@@ -42,6 +41,7 @@ public:
     static const int MATE_EVAL;
     static const int MATE_THRESHOLD;
 
+    static const int MAX_DEPTH;
     static int currMaxDepth;
     static long long stopTime;
     static bool infiniteTime;

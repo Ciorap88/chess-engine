@@ -100,7 +100,6 @@ void UCI::inputUCINewGame() {
 }
 
 void UCI::inputPosition(string input) {
-
     // split input into words
     vector<string> parsedInput = splitStr(input);
     int movesIdx = 0;
@@ -142,7 +141,7 @@ long long UCI::moveGenTest(short depth, bool show) {
 
     if(depth == 1) return num;
 
-    int numPos = 0;
+    long long numPos = 0;
 
     for(int idx = 0; idx < num; idx++) {
         board.makeMove(moves[idx]);

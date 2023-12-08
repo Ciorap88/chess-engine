@@ -652,6 +652,10 @@ int Board::generateLegalMoves(int *moves) {
 
 // make a move, updating the squares and bitboards
 void Board::makeMove(int move) {
+    assert((int)epStk.size() <= Search::MAX_DEPTH);
+    assert((int)castleStk.size() <= Search::MAX_DEPTH);
+    assert((int)moveStk.size() <= Search::MAX_DEPTH);
+
     this->updateHashKey(move);
 
     if(move == MoveUtils::NO_MOVE) { // null move
@@ -756,6 +760,7 @@ void Board::unmakeMove(int move) {
         return;
     }
     repetitionMap[this->hashKey]--;
+    if(repetitionMap[this->hashKey] == 0) repetitionMap.erase(this->hashKey);
 
     // get move info
     int from = MoveUtils::getFromSq(move);
