@@ -25,9 +25,6 @@ Board::~Board() {
 
 // initialize all the variables before starting the actual engine
 void init() {
-    board = new Board();
-    transpositionTable = new TranspositionTable();
-
     // bitmasks for every bit from 0 to 63
     for(int i = 0; i < 64; i++)
         BoardUtils::bits[i] = (1LL << i);
@@ -131,7 +128,6 @@ void init() {
 
     MagicBitboardUtils::initMagics();
 
-    transpositionTable->clear();
     Search::clearHistory();
 }
 
