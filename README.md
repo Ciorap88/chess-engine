@@ -28,7 +28,7 @@ This is a UCI-compatible chess engine with ~2000 Elo rating (only tested against
 
 ```
 cd engine
-g++ -std=c++20 -O3 -fsanitize=address -Wall -Wextra *.cpp -o ciorap-bot
+g++ -std=c++20 -O3 -Wall -Wextra *.cpp -o ciorap-bot
 ./ciorap-bot
 ```
 
