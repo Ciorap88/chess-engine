@@ -149,6 +149,7 @@ void Board::clear() {
     // clear stacks
     while(!castleStk.empty()) castleStk.pop();
     while(!epStk.empty()) epStk.pop();
+    while(!moveStk.empty()) moveStk.pop();
 }
 
 // updates the bitboards when a piece is moved
