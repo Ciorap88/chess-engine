@@ -270,8 +270,7 @@ void UCI::inputGo() {
                 depth = stoi(parsedInput[i+1]);
             }
         }
-        std::cout << "time " << (time)/1000 << '\n';
-
+// 
         // if depth is specified, we change the max depth, otherwise we leave it at 255
         Search::currMaxDepth = depth;
 
