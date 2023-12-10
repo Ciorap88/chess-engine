@@ -28,7 +28,7 @@ public:
     static void generateZobristHashNumbers();
 };
 
-extern TranspositionTable transpositionTable;
+extern TranspositionTable *transpositionTable;
 
 int retrievePawnEval();
 void recordPawnEval(int eval);

@@ -14,7 +14,7 @@
 
 using namespace std;
 
-Board::Board() : repetitionMap(new U64[Search::MAX_DEPTH]) {
+Board::Board() : repetitionIndex(0), repetitionMap(new U64[Search::MAX_DEPTH]) {
     clear();
 }
 
@@ -25,7 +25,6 @@ Board::~Board() {
 
 // initialize all the variables before starting the actual engine
 void init() {
-    board.clear();
     // bitmasks for every bit from 0 to 63
     for(int i = 0; i < 64; i++)
         BoardUtils::bits[i] = (1LL << i);
@@ -129,13 +128,13 @@ void init() {
 
     MagicBitboardUtils::initMagics();
 
-    transpositionTable.clear();
     Search::clearHistory();
 }
 
 void Board::clear() {
     for(int i = 0; i < 64; i++) this->squares[i] = Empty;
     whiteKingSquare = blackKingSquare = 0;
+    repetitionIndex = 0;
 
     this->turn = White;
     this->castleRights = 0;
@@ -955,4 +954,4 @@ void Board::updateHashKey(int move) {
     this->hashKey ^= TranspositionTable::blackTurnZobristNumber;
 }
 
-Board board;
+Board *board = nullptr;

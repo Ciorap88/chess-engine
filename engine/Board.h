@@ -58,6 +58,6 @@ public:
 
 void init();
 
-extern Board board;
+extern Board *board;
 
 #endif

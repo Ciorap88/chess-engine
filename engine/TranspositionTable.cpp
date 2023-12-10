@@ -60,24 +60,24 @@ void TranspositionTable::generateZobristHashNumbers() {
 
 // get the best move from the tt
 int TranspositionTable::retrieveBestMove() {
-    int index = (board.hashKey & (SIZE-1));
+    int index = (board->hashKey & (SIZE-1));
     assert(index >= 0 && index < SIZE);
 
     hashElement *h = &hashTable[index];
 
-    if(h->key != board.hashKey) return MoveUtils::NO_MOVE;
+    if(h->key != board->hashKey) return MoveUtils::NO_MOVE;
 
     return h->best;
 }
 
 // check if the stored hash element corresponds to the current position and if it was searched at a good enough depth
 int TranspositionTable::probeHash(short depth, int alpha, int beta) {
-    int index = (board.hashKey & (SIZE-1));
+    int index = (board->hashKey & (SIZE-1));
     assert(index >= 0 && index < SIZE);
 
     hashElement *h = &hashTable[index];
 
-    if(h->key == board.hashKey) {
+    if(h->key == board->hashKey) {
         if(h->depth >= depth) {
             if((h->flags == HASH_F_EXACT || h->flags == HASH_F_ALPHA) && h->value <= alpha) return alpha;
             if((h->flags == HASH_F_EXACT || h->flags == HASH_F_BETA) && h->value >= beta) return beta;
@@ -91,25 +91,25 @@ int TranspositionTable::probeHash(short depth, int alpha, int beta) {
 void TranspositionTable::recordHash(short depth, int val, int hashF, int best) {
     if(Search::timeOver) return;
 
-    int index = (board.hashKey & (SIZE-1));
+    int index = (board->hashKey & (SIZE-1));
     assert(index >= 0 && index < SIZE);
 
     hashElement *h = &hashTable[index];
 
     bool skip = false;
-    if((h->key == board.hashKey) && (h->depth > depth)) skip = true; 
+    if((h->key == board->hashKey) && (h->depth > depth)) skip = true; 
     if(hashF != HASH_F_EXACT && h->flags == HASH_F_EXACT) skip = true; 
     if(hashF == HASH_F_EXACT && h->flags != HASH_F_EXACT) skip = false;
     if(skip) return;
 
-    h->key = board.hashKey;
+    h->key = board->hashKey;
     h->best = best;
     h->value = val;
     h->flags = hashF;
     h->depth = depth;
 }
 
-TranspositionTable transpositionTable;
+TranspositionTable *transpositionTable = nullptr;
 
 
 const int PAWN_TABLE_SIZE = (1 << 20);
@@ -123,9 +123,9 @@ pawnHashElement pawnHashTable[PAWN_TABLE_SIZE];
 
 // get hashed value from map
 int retrievePawnEval() {
-    U64 key = board.pawnsBB;
-    U64 whitePawns = (board.pawnsBB & board.whitePiecesBB);
-    U64 blackPawns = (board.pawnsBB & board.blackPiecesBB);
+    U64 key = board->pawnsBB;
+    U64 whitePawns = (board->pawnsBB & board->whitePiecesBB);
+    U64 blackPawns = (board->pawnsBB & board->blackPiecesBB);
     
     int idx = (key & (PAWN_TABLE_SIZE-1));
     assert(idx >= 0 && idx < PAWN_TABLE_SIZE);
@@ -140,9 +140,9 @@ int retrievePawnEval() {
 void recordPawnEval(int eval) {
     if(Search::timeOver) return;
 
-    U64 key = board.pawnsBB;
-    U64 whitePawns = (board.pawnsBB & board.whitePiecesBB);
-    U64 blackPawns = (board.pawnsBB & board.blackPiecesBB);
+    U64 key = board->pawnsBB;
+    U64 whitePawns = (board->pawnsBB & board->whitePiecesBB);
+    U64 blackPawns = (board->pawnsBB & board->blackPiecesBB);
 
     int idx = (key & (PAWN_TABLE_SIZE-1));
     assert(idx >= 0 && idx < PAWN_TABLE_SIZE);

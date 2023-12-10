@@ -45,7 +45,7 @@ int Search::captureScore(int move) {
     int score = 0;
 
     // give huge score boost to captures of the last moved piece
-    if(!board.moveStk.empty() && MoveUtils::getToSq(move) == MoveUtils::getToSq(board.moveStk.top())) score += 2000;
+    if(!board->moveStk.empty() && MoveUtils::getToSq(move) == MoveUtils::getToSq(board->moveStk.top())) score += 2000;
 
     // captured piece value - capturing piece value
     if(MoveUtils::isCapture(move)) score += (PIECE_VALUES[MoveUtils::getCapturedPiece(move)]-
@@ -96,7 +96,7 @@ void Search::sortMoves(int *moves, int num, short ply) {
     int pvMove = pvArray[pvIndex];
 
     // find hash move
-    int hashMove = transpositionTable.retrieveBestMove();
+    int hashMove = transpositionTable->retrieveBestMove();
 
     // check legality of killer moves
     bool killerLegal[2] = {false, false};
@@ -159,7 +159,7 @@ int Search::quiescence(int alpha, int beta) {
     if(timeOver) return 0;
     nodesQ++;
 
-    if(board.isDraw()) return 0;
+    if(board->isDraw()) return 0;
 
     int standPat = evaluate();
     if(standPat >= beta) return beta;
@@ -167,7 +167,7 @@ int Search::quiescence(int alpha, int beta) {
     alpha = max(alpha, standPat);
 
     int moves[256];
-    int num = board.generateLegalMoves(moves);
+    int num = board->generateLegalMoves(moves);
 
     sortMoves(moves, num, -1);
     for(int idx = 0; idx < num; idx++)  {
@@ -184,9 +184,9 @@ int Search::quiescence(int alpha, int beta) {
         const int ENDGAME_MATERIAL = 10;
         if((delta <= alpha) && (gamePhase() - MG_WEIGHT[MoveUtils::getCapturedPiece(moves[idx])] >= ENDGAME_MATERIAL)) continue;
 
-        board.makeMove(moves[idx]);
+        board->makeMove(moves[idx]);
         int score = -quiescence(-beta, -alpha);
-        board.unmakeMove(moves[idx]);
+        board->unmakeMove(moves[idx]);
 
         if(timeOver) return 0;
 
@@ -219,7 +219,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
 
     int hashFlag = TranspositionTable::HASH_F_ALPHA;
 
-    bool isInCheck = board.isInCheck();
+    bool isInCheck = board->isInCheck();
 
     // --- MATE DISTANCE PRUNING --- 
     // if we find mate, we shouldn't look for a better move
@@ -240,12 +240,12 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
 
     if(alpha >= beta) return alpha;
 
-    if(board.isDraw()) return 0;
+    if(board->isDraw()) return 0;
 
     bool isPV = (beta - alpha > 1);
 
     // retrieving the hashed move and evaluation if there is any
-    int hashScore = transpositionTable.probeHash(depth, alpha, beta);
+    int hashScore = transpositionTable->probeHash(depth, alpha, beta);
     if(hashScore != TranspositionTable::VAL_UNKNOWN) {
         // we return hashed info only if it is an exact hit in pv nodes
         if(!isPV || (hashScore > alpha && hashScore < beta)) {
@@ -254,7 +254,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
     }
 
     int moves[256];
-    int num = board.generateLegalMoves(moves);
+    int num = board->generateLegalMoves(moves);
     if(num == 0) {
         if(isInCheck) return -mateScore; // checkmate
         return 0; // stalemate
@@ -273,12 +273,12 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
     // and if that doesn't wreck our position, we don't need to search further
     const int ENDGAME_MATERIAL = 4;
     if(doNull && (!isPV) && (isInCheck == false) && ply && (depth > 3) && (gamePhase() >= ENDGAME_MATERIAL) && (evaluate() >= beta)) {
-        board.makeMove(MoveUtils::NO_MOVE);
+        board->makeMove(MoveUtils::NO_MOVE);
 
         short R = 3 + depth / 6;
         int score = -alphaBeta(-beta, -beta + 1, depth - R - 1, ply + 1, false);
 
-        board.unmakeMove(MoveUtils::NO_MOVE);
+        board->unmakeMove(MoveUtils::NO_MOVE);
 
         if(timeOver) return 0;
         if(score >= beta) return beta;
@@ -296,13 +296,13 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
     for(int idx = 0; idx < num; idx++) {
         if(alpha >= beta) return alpha;
 
-        board.makeMove(moves[idx]);
+        board->makeMove(moves[idx]);
 
         // --- FUTILITY PRUNING --- 
         // if a move is bad enough that it wouldn't be able to raise alpha, we just skip it
         // this only applies close to the horizon depth
-        // if(fPrune && !MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx]) && !board.isInCheck()) {
-        //     board.unmakeMove(moves[idx]);
+        // if(fPrune && !MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx]) && !board->isInCheck()) {
+        //     board->unmakeMove(moves[idx]);
         //     continue;
         // }
             
@@ -317,7 +317,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
             // --- LATE MOVE REDUCTION --- 
             // we do full searches only for the first moves, and then do a reduced search
             // if the move is potentially good, we do a full search instead
-            if(movesSearched >= 2 && !MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx]) && !isInCheck && depth >= 3 && !board.isInCheck()) {
+            if(movesSearched >= 2 && !MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx]) && !isInCheck && depth >= 3 && !board->isInCheck()) {
                 int reductionDepth = int(sqrt(double(depth-1)) + sqrt(double(movesSearched-1))); 
                 if(isPV) reductionDepth = (reductionDepth * 2) / 3;
                 reductionDepth = (reductionDepth < depth-1 ? reductionDepth : depth-1);
@@ -335,7 +335,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
             }
         }
 
-        board.unmakeMove(moves[idx]);
+        board->unmakeMove(moves[idx]);
         movesSearched++;
 
         if(timeOver) return 0;
@@ -351,7 +351,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
             assert(pvNextIndex < (MAX_DEPTH * MAX_DEPTH + MAX_DEPTH) / 2);
 
             if(score >= beta) {
-                transpositionTable.recordHash(depth, beta, TranspositionTable::HASH_F_BETA, currBestMove);
+                transpositionTable->recordHash(depth, beta, TranspositionTable::HASH_F_BETA, currBestMove);
 
                 if(!MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx])) {
                     // store killer moves
@@ -369,12 +369,12 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
     }
     if(timeOver) return 0;
 
-    transpositionTable.recordHash(depth, alpha, hashFlag, currBestMove);
+    transpositionTable->recordHash(depth, alpha, hashFlag, currBestMove);
     return alpha;
 }
 
 pair<int, int> Search::root() {
-    board.repetitionIndex = 0;
+    board->repetitionIndex = 0;
 
     timeOver = false;
 
@@ -420,7 +420,7 @@ pair<int, int> Search::root() {
         depth++; // increase depth only if we are inside the window
     }
 
-    return {transpositionTable.retrieveBestMove(), eval};
+    return {transpositionTable->retrieveBestMove(), eval};
 }
 
 // --- KILLERS AND HISTORY ---
