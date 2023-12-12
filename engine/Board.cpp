@@ -439,6 +439,133 @@ short Board::generatePseudoLegalMoves() {
     return numberOfMoves;
 }
 
+short Board::generatePseudoLegalMovesQS() {
+    short numberOfMoves = 0;
+
+    int color = this->turn;
+
+    U64 ourPiecesBB = (color == White ? this->whitePiecesBB : this->blackPiecesBB);
+    U64 opponentPiecesBB = (color == White ? this->blackPiecesBB : this->whitePiecesBB);
+    U64 allPiecesBB = (this->whitePiecesBB | this->blackPiecesBB);
+
+    // -----pawns-----
+    U64 ourPawnsBB = (ourPiecesBB & this->pawnsBB);
+    int pawnDir = (color == White ? north : south);
+    int pawnPromRank = (color == White ? 7 : 0);
+
+    while(ourPawnsBB) {
+        int sq = MagicBitboardUtils::bitscanForward(ourPawnsBB);
+        bool isPromoting = (((sq+pawnDir) >> 3) == pawnPromRank);
+
+        // normal promotions
+        if((allPiecesBB & BoardUtils::bits[sq+pawnDir]) == 0) {
+            assert(this->squares[sq] == (Pawn | color));
+
+            if(isPromoting) {
+                for(int piece: {Knight, Bishop, Rook, Queen})
+                    pseudoLegalMoves[numberOfMoves++] = MoveUtils::getMove(sq, sq+pawnDir, color, Pawn, 0, piece, 0, 0);
+            }
+
+        }
+
+        // captures and capture-promotions
+        U64 pawnCapturesBB = (color == White ? BoardUtils::whitePawnAttacksBB[sq] : BoardUtils::blackPawnAttacksBB[sq]);
+        pawnCapturesBB &= opponentPiecesBB;
+        while(pawnCapturesBB) {
+            assert(this->squares[sq] == (Pawn | color));
+
+            int to = MagicBitboardUtils::bitscanForward(pawnCapturesBB);
+            if(isPromoting) {
+                for(int piece: {Knight, Bishop, Rook, Queen})
+                    pseudoLegalMoves[numberOfMoves++] = MoveUtils::getMove(sq, to, color, Pawn, (this->squares[to] & (~8)), piece, 0, 0);
+            } else pseudoLegalMoves[numberOfMoves++] = MoveUtils::getMove(sq, to, color, Pawn, (this->squares[to] & (~8)), 0, 0, 0);
+
+            pawnCapturesBB &= (pawnCapturesBB-1);
+
+        }
+
+        ourPawnsBB &= (ourPawnsBB-1);
+    }
+
+    //-----knights-----
+    U64 ourKnightsBB = (this->knightsBB & ourPiecesBB);
+
+    while(ourKnightsBB) {
+        int sq = MagicBitboardUtils::bitscanForward(ourKnightsBB);
+
+        U64 knightMoves = (BoardUtils::knightAttacksBB[sq] & opponentPiecesBB);
+        while(knightMoves) {
+            assert(this->squares[sq] == (Knight | color));
+
+            int to = MagicBitboardUtils::bitscanForward(knightMoves);
+            pseudoLegalMoves[numberOfMoves++] = MoveUtils::getMove(sq, to, color, Knight, (this->squares[to] & (~8)), 0, 0, 0);
+            knightMoves &= (knightMoves-1);
+        }
+
+        ourKnightsBB &= (ourKnightsBB-1);
+    }
+
+    //-----king-----
+    int kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
+    U64 ourKingMoves = (BoardUtils::kingAttacksBB[kingSquare] & opponentPiecesBB);
+
+    while(ourKingMoves) {
+        assert(this->squares[kingSquare] == (King | color));
+
+        int to = MagicBitboardUtils::bitscanForward(ourKingMoves);
+        pseudoLegalMoves[numberOfMoves++] = MoveUtils::getMove(kingSquare, to, color, King, (this->squares[to] & (~8)), 0, 0, 0);
+        ourKingMoves &= (ourKingMoves-1);
+    }
+
+    //-----sliding pieces-----
+    U64 rooksQueens = (ourPiecesBB & (this->rooksBB | this->queensBB));
+    while(rooksQueens) {
+        int sq = MagicBitboardUtils::bitscanForward(rooksQueens);
+
+        U64 rookMoves = (MagicBitboardUtils::magicRookAttacks(allPiecesBB, sq) & opponentPiecesBB);
+        while(rookMoves) {
+            assert(this->squares[sq] == (Rook | color) || this->squares[sq] == (Queen | color));
+
+            int to = MagicBitboardUtils::bitscanForward(rookMoves);
+            pseudoLegalMoves[numberOfMoves++] = MoveUtils::getMove(sq, to, color, (this->squares[sq] & (~8)), (this->squares[to] & (~8)), 0, 0, 0);
+            rookMoves &= (rookMoves-1);
+        }
+
+        rooksQueens &= (rooksQueens-1);
+    }
+
+    U64 bishopsQueens = (ourPiecesBB & (this->bishopsBB | this->queensBB));
+    while(bishopsQueens) {
+        int sq = MagicBitboardUtils::bitscanForward(bishopsQueens);
+
+        U64 bishopMoves = (MagicBitboardUtils::magicBishopAttacks(allPiecesBB, sq) & opponentPiecesBB);
+        while(bishopMoves) {
+             assert(this->squares[sq] == (Bishop | color) || this->squares[sq] == (Queen | color));
+
+            int to = MagicBitboardUtils::bitscanForward(bishopMoves);
+            pseudoLegalMoves[numberOfMoves++] = MoveUtils::getMove(sq, to, color, (this->squares[sq] & (~8)), (this->squares[to] & (~8)), 0, 0, 0);
+            bishopMoves &= (bishopMoves-1);
+        }
+
+        bishopsQueens &= (bishopsQueens-1);
+    }
+
+    // -----en passant-----
+    if(ep != -1) {
+        ourPawnsBB = (this->pawnsBB & ourPiecesBB);
+        U64 epBB = ((color == White ? BoardUtils::blackPawnAttacksBB[ep] : BoardUtils::whitePawnAttacksBB[ep]) & ourPawnsBB);
+        while(epBB) {
+            int sq = MagicBitboardUtils::bitscanForward(epBB);
+
+            assert(this->squares[sq] == (Pawn | color));
+
+            pseudoLegalMoves[numberOfMoves++] = MoveUtils::getMove(sq, ep, color, Pawn, Pawn, 0, 0, 1);
+            epBB &= (epBB-1);
+        }
+    }
+    return numberOfMoves;
+}
+
 // returns true if the square sq is attacked by enemy pieces
 bool Board::isAttacked(int sq) {
     int color = this->turn;
@@ -627,6 +754,139 @@ int Board::generateLegalMoves(int *moves) {
 
         if(ok) moves[num++] = castleMoves[idx];
     }
+
+    // ep horizontal pin
+    for(int idx = 0; idx < numEp; idx++) {
+        int from = MoveUtils::getFromSq(epMoves[idx]);
+        int to = MoveUtils::getToSq(epMoves[idx]);
+
+        int epRank = (from >> 3);
+        int otherPawnSquare = (epRank << 3) | (to & 7);
+        U64 rooksQueens = (opponentPiecesBB & (this->rooksBB | this->queensBB) & BoardUtils::ranksBB[epRank]);
+
+        // remove the 2 pawns and compute attacks from rooks/queens on king square
+        U64 removeWhite = BoardUtils::bits[from], 
+            removeBlack = BoardUtils::bits[otherPawnSquare];
+        if(color == Black) swap(removeWhite, removeBlack);
+
+        this->whitePiecesBB ^= removeWhite;
+        this->blackPiecesBB ^= removeBlack;
+
+        U64 attacks = this->attacksTo(kingSquare);
+        if((rooksQueens & attacks) == 0) moves[num++] = epMoves[idx];
+
+        this->whitePiecesBB ^= removeWhite;
+        this->blackPiecesBB ^= removeBlack;
+    }
+
+    // put the king back
+    if(color == White) this->whitePiecesBB ^= BoardUtils::bits[kingSquare];
+    else this->blackPiecesBB ^= BoardUtils::bits[kingSquare];
+
+    return num;
+}
+
+int Board::generateLegalMovesQS(int *moves) {
+    int color = this->turn;
+    int kingSquare = (color == White ? this->whiteKingSquare : this->blackKingSquare);
+
+    U64 allPiecesBB = (this->whitePiecesBB | this->blackPiecesBB);
+    U64 opponentPiecesBB = (color == White ? this->blackPiecesBB : this->whitePiecesBB);
+    U64 ourPiecesBB = (color == White ? this->whitePiecesBB : this->blackPiecesBB);
+
+    short pseudoNum = this->generatePseudoLegalMovesQS();
+    unsigned int num = 0;
+
+    // remove the king so we can correctly find all squares attacked by sliding pieces, where the king can't go
+    if(color == White) this->whitePiecesBB ^= BoardUtils::bits[kingSquare];
+    else this->blackPiecesBB ^= BoardUtils::bits[kingSquare];
+
+    U64 checkingPiecesBB = this->attacksTo(kingSquare);
+    int checkingPiecesCnt = MagicBitboardUtils::popcount(checkingPiecesBB);
+    int checkingPieceIndex = MagicBitboardUtils::bitscanForward(checkingPiecesBB);
+
+    // check ray is the path between the king and the sliding piece checking it
+    U64 checkRayBB = 0;
+    if(checkingPiecesCnt == 1) {
+        checkRayBB |= checkingPiecesBB;
+        int dir = BoardUtils::direction(checkingPieceIndex, kingSquare);
+
+        // check direction is a straight line
+        if(abs(dir) == north || abs(dir) == east)
+            checkRayBB |= (MagicBitboardUtils::magicRookAttacks(allPiecesBB, kingSquare) & MagicBitboardUtils::magicRookAttacks(allPiecesBB, checkingPieceIndex));
+
+        // check direction is a diagonal
+        else checkRayBB |= (MagicBitboardUtils::magicBishopAttacks(allPiecesBB, kingSquare) & MagicBitboardUtils::magicBishopAttacks(allPiecesBB, checkingPieceIndex));
+    }
+
+    // finding the absolute pins
+    U64 pinnedBB = 0;
+
+    U64 attacks = MagicBitboardUtils::magicRookAttacks(allPiecesBB, kingSquare); // attacks on the rook directions from the king square to our pieces
+    U64 blockers = (ourPiecesBB & attacks); // potentially pinned pieces
+    U64 oppRooksQueens = ((this->rooksBB | this->queensBB) & opponentPiecesBB);
+    U64 pinners = ((attacks ^ MagicBitboardUtils::magicRookAttacks((allPiecesBB ^ blockers), kingSquare)) & oppRooksQueens); // get pinners by computing attacks on the board without the blockers
+    while(pinners) {
+        int sq = MagicBitboardUtils::bitscanForward(pinners);
+
+        // get pinned pieces by &-ing attacks from the rook square with attacks from the king square, and then with our own pieces
+        pinnedBB |= (MagicBitboardUtils::magicRookAttacks(allPiecesBB, sq) & MagicBitboardUtils::magicRookAttacks(allPiecesBB, kingSquare) & ourPiecesBB);
+        pinners &= (pinners-1); // remove bit
+    }
+
+    attacks = MagicBitboardUtils::magicBishopAttacks(allPiecesBB, kingSquare);
+    blockers = (ourPiecesBB & attacks);
+    U64 oppBishopsQueens = ((this->bishopsBB | this->queensBB) & opponentPiecesBB);
+    pinners = ((attacks ^ MagicBitboardUtils::magicBishopAttacks((allPiecesBB ^ blockers), kingSquare)) & oppBishopsQueens);
+    while(pinners) {
+        int sq = MagicBitboardUtils::bitscanForward(pinners);
+        pinnedBB |= (MagicBitboardUtils::magicBishopAttacks(allPiecesBB, sq) & MagicBitboardUtils::magicBishopAttacks(allPiecesBB, kingSquare) & ourPiecesBB);
+        pinners &= (pinners-1);
+    }
+
+    for(int idx = 0; idx < pseudoNum; idx++) {
+        int from = MoveUtils::getFromSq(pseudoLegalMoves[idx]);
+        int to = MoveUtils::getToSq(pseudoLegalMoves[idx]);
+
+        // we can always move the king to a safe square
+        if(from == kingSquare) {
+            if(this->isAttacked(to) == false) moves[num++] = pseudoLegalMoves[idx];
+            continue;
+        }
+
+        // single check, can capture the attacker or intercept the check only if the moving piece is not pinned
+        if(checkingPiecesCnt == 1 && ((pinnedBB & BoardUtils::bits[from]) == 0)) {
+
+            // capturing the checking pawn by en passant (special case)
+            if(MoveUtils::isEP(pseudoLegalMoves[idx]) && checkingPieceIndex == to + (color == White ? south: north))
+                moves[num++] = pseudoLegalMoves[idx];
+
+            // check ray includes interception or capturing the attacker
+            else if(checkRayBB & BoardUtils::bits[to]) {
+                moves[num++] = pseudoLegalMoves[idx];
+            }
+        }
+
+        // no checks, every piece can move if it is not pinned or it moves in the direction of the pin
+        if(checkingPiecesCnt == 0) {
+            // not pinned
+            if((pinnedBB & BoardUtils::bits[from]) == 0)
+                moves[num++] = pseudoLegalMoves[idx];
+
+            // pinned, can only move in the pin direction
+            else if(abs(BoardUtils::direction(from, to)) == abs(BoardUtils::direction(from, kingSquare)))
+                moves[num++] = pseudoLegalMoves[idx];
+        }
+    }
+
+    // en passant are the last added pseudo legal moves
+    int epMoves[2];
+    int numEp = 0;
+    while(num && MoveUtils::isEP(moves[num-1])) {
+        epMoves[numEp++] = moves[--num];
+    }
+
+    assert(numEp <= 2);
 
     // ep horizontal pin
     for(int idx = 0; idx < numEp; idx++) {
