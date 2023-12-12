@@ -16,6 +16,7 @@ private:
 
     int pseudoLegalMoves[512];
     short generatePseudoLegalMoves();
+    short generatePseudoLegalMovesQS();
 
     void updateHashKey(int move);
     void updatePieceInBB(int piece, int color, int sq);
@@ -51,6 +52,7 @@ public:
     bool isDraw();
 
     int generateLegalMoves(int *moves);
+    int generateLegalMovesQS(int *moves);
 
     void makeMove(int move);
     void unmakeMove(int move);

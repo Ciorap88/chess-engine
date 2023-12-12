@@ -162,17 +162,15 @@ int Search::quiescence(int alpha, int beta) {
     if(board->isDraw()) return 0;
 
     int standPat = evaluate();
-    if(standPat >= beta) return beta;
+    if(standPat >= beta && !board->isInCheck()) return beta;
 
     alpha = max(alpha, standPat);
 
     int moves[256];
-    int num = board->generateLegalMoves(moves);
+    int num = board->generateLegalMovesQS(moves);
 
     sortMoves(moves, num, -1);
     for(int idx = 0; idx < num; idx++)  {
-        if(!MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx])) continue;
-
         // if(MoveUtils::isCapture(moves[idx]) && (seeMove(moves[idx]) < 0)) continue;
 
         // --- DELTA PRUNING --- 
