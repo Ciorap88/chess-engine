@@ -266,11 +266,22 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
     }
     int currBestMove = MoveUtils::NO_MOVE;
 
+    // --- STATIC NULL MOVE PRUNING ---
+    // if our position is so good that we can afford to lose some material
+    // we assume this node will fail high and we prune its branch
+    int staticScore = evaluate();
+    if(!isInCheck && !isPV && abs(beta) < mateScore) {
+        int scoreMargin = 100 * depth;
+        if (staticScore - scoreMargin >= beta) {
+            return staticScore - scoreMargin;
+        }
+    }
+
     // --- NULL MOVE PRUNING --- 
     // if our position is good, we can pass the turn to the opponent
     // and if that doesn't wreck our position, we don't need to search further
     const int ENDGAME_MATERIAL = 4;
-    if(doNull && (!isPV) && (isInCheck == false) && ply && (depth > 3) && (gamePhase() >= ENDGAME_MATERIAL) && (evaluate() >= beta)) {
+    if(doNull && (!isPV) && (isInCheck == false) && ply && (depth > 3) && (gamePhase() >= ENDGAME_MATERIAL) && (staticScore >= beta)) {
         board->makeMove(MoveUtils::NO_MOVE);
 
         short R = 3 + depth / 6;
