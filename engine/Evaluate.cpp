@@ -210,7 +210,6 @@ int evalQueen(
     int& QUEEN_MOBILITY, int PIECE_VALUES[7], int PIECE_ATTACK_WEIGHT[6]
 );
 int evalPawnStructure(
-    bool useHash,
     int MG_PAWN_TABLE[64], int EG_PAWN_TABLE[64], int PASSED_PAWN_TABLE[64],
     int& DOUBLED_PAWNS_PENALTY, int& WEAK_PAWN_PENALTY, int& C_PAWN_PENALTY,
     int PIECE_VALUES[7]
@@ -219,8 +218,6 @@ int evalPawnStructure(
 int whiteKingShield(int KING_SHIELD[3]), blackKingShield(int KING_SHIELD[3]);
 
 int evaluate(
-    bool usePawnHash,
-
     int MG_KING_TABLE[64], int EG_KING_TABLE[64],
     int QUEEN_TABLE[64], int ROOK_TABLE[64], int BISHOP_TABLE[64], 
     int KNIGHT_TABLE[64], int MG_PAWN_TABLE[64], int EG_PAWN_TABLE[64], int PASSED_PAWN_TABLE[64],
@@ -279,7 +276,6 @@ int evaluate(
             QUEEN_MOBILITY, PIECE_VALUES, PIECE_ATTACK_WEIGHT) * c;
     }
     res += evalPawnStructure(
-        usePawnHash,
         MG_PAWN_TABLE, EG_PAWN_TABLE, PASSED_PAWN_TABLE,
         DOUBLED_PAWNS_PENALTY, WEAK_PAWN_PENALTY, C_PAWN_PENALTY,
         PIECE_VALUES
@@ -348,9 +344,7 @@ int evaluate(
 }
 
 int evaluate() {
-    return evaluate(   
-        true,
-
+    return evaluate(
         MG_KING_TABLE, EG_KING_TABLE,
         QUEEN_TABLE, ROOK_TABLE, BISHOP_TABLE, 
         KNIGHT_TABLE, MG_PAWN_TABLE, EG_PAWN_TABLE, PASSED_PAWN_TABLE,
@@ -742,7 +736,6 @@ int blackKingShield(int KING_SHIELD[3]) {
 
 // evaluate every pawn independently but store the full pawn structure evaluation in the hash map
 int evalPawnStructure(
-    bool useHash,
     int MG_PAWN_TABLE[64], int EG_PAWN_TABLE[64], int PASSED_PAWN_TABLE[64],
     int& DOUBLED_PAWNS_PENALTY, int& WEAK_PAWN_PENALTY, int& C_PAWN_PENALTY,
     int PIECE_VALUES[7]
@@ -750,13 +743,7 @@ int evalPawnStructure(
     U64 whitePawns = (board->pawnsBB & board->whitePiecesBB);
     U64 blackPawns = (board->pawnsBB & board->blackPiecesBB);
 
-    int eval;
-    if(useHash) {
-        eval = retrievePawnEval();
-        if(eval != TranspositionTable::VAL_UNKNOWN) return eval;
-    }
-
-    eval = 0;
+    int eval = 0;
     while(whitePawns) {
         int sq = MagicBitboardUtils::bitscanForward(whitePawns);
         eval += evalPawn(
@@ -771,8 +758,6 @@ int evalPawnStructure(
             DOUBLED_PAWNS_PENALTY, WEAK_PAWN_PENALTY, C_PAWN_PENALTY, PIECE_VALUES);
         blackPawns &= (blackPawns-1);
     }
-
-    if(useHash) recordPawnEval(eval);
 
     return eval;
 }
