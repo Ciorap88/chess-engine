@@ -18,7 +18,7 @@ public:
     static U64 blackTurnZobristNumber;
 
     static const int VAL_UNKNOWN;
-    static const int HASH_F_ALPHA, HASH_F_BETA, HASH_F_EXACT;
+    static const int HASH_F_ALPHA, HASH_F_BETA, HASH_F_EXACT, HASH_F_UNKNOWN;
 
     int retrieveBestMove();
     int probeHash(short depth, int alpha, int beta);

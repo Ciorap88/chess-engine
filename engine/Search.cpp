@@ -18,6 +18,7 @@
 
 using namespace std;
 
+
 int Search::killerMoves[256][2];
 int Search::history[16][64];
 const int Search::HISTORY_MAX = 1e8;
@@ -293,6 +294,15 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
         if(score >= beta) return beta;
     }
 
+    // --- INTERNAL ITERATIVE DEEPENING ---
+    // if we don't have a move from the tt, we do a quick search with a reduced depth
+    if(depth >= 4 && isPV && transpositionTable->retrieveBestMove() == MoveUtils::NO_MOVE) {
+        int score = alphaBeta(alpha, beta, depth - 2, ply + 1, doNull);
+
+        // make sure we have a move in the tt
+        if (score <= alpha) score = alphaBeta(-INF, beta, depth - 2, ply + 1, doNull);
+    }
+
     // decide if we can apply futility pruning
     // bool fPrune = false;
     // const int F_MARGIN[4] = { 0, 200, 300, 500 };
@@ -351,6 +361,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
         
         if(score > alpha) {
             currBestMove = moves[idx];
+            assert(currBestMove != MoveUtils::NO_MOVE);
 
             pvArray[pvIndex] = moves[idx];
             copyPv(pvArray + pvIndex + 1, pvArray + pvNextIndex, MAX_DEPTH - ply - 1);

@@ -24,6 +24,7 @@ const int TranspositionTable::VAL_UNKNOWN = -1e9;
 const int TranspositionTable::HASH_F_EXACT = 0;
 const int TranspositionTable::HASH_F_ALPHA = 1;
 const int TranspositionTable::HASH_F_BETA = 2;
+const int TranspositionTable::HASH_F_UNKNOWN = -1;
 
 struct TranspositionTable::hashElement {
     U64 key;
@@ -79,6 +80,7 @@ int TranspositionTable::probeHash(short depth, int alpha, int beta) {
 
     if(h->key == board->hashKey) {
         if(h->depth >= depth) {
+            // return max(min(h->value, beta), alpha);
             if((h->flags == HASH_F_EXACT || h->flags == HASH_F_ALPHA) && h->value <= alpha) return alpha;
             if((h->flags == HASH_F_EXACT || h->flags == HASH_F_BETA) && h->value >= beta) return beta;
             if(h->flags == HASH_F_EXACT && h->value > alpha && h->value < beta) return h->value;
@@ -97,9 +99,11 @@ void TranspositionTable::recordHash(short depth, int val, int hashF, int best) {
     hashElement *h = &hashTable[index];
 
     bool skip = false;
+    // if(h->depth > depth) skip = true;
     if((h->key == board->hashKey) && (h->depth > depth)) skip = true; 
     if(hashF != HASH_F_EXACT && h->flags == HASH_F_EXACT) skip = true; 
     if(hashF == HASH_F_EXACT && h->flags != HASH_F_EXACT) skip = false;
+    if(h->flags == HASH_F_UNKNOWN) skip = false;
     if(skip) return;
 
     h->key = board->hashKey;
@@ -110,7 +114,7 @@ void TranspositionTable::recordHash(short depth, int val, int hashF, int best) {
 }
 
 void TranspositionTable::clear() {
-    hashElement newElement = {0, 0, 0, 0, MoveUtils::NO_MOVE};
+    hashElement newElement = {0, -1, HASH_F_UNKNOWN, 0, MoveUtils::NO_MOVE};
     for(int i = 0; i < SIZE; i++) {
         hashTable[i] = newElement;
     }
