@@ -30,7 +30,4 @@ public:
 
 extern TranspositionTable *transpositionTable;
 
-int retrievePawnEval();
-void recordPawnEval(int eval);
-
 #endif

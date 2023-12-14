@@ -109,59 +109,11 @@ void TranspositionTable::recordHash(short depth, int val, int hashF, int best) {
     h->depth = depth;
 }
 
-TranspositionTable *transpositionTable = nullptr;
-
-
-const int PAWN_TABLE_SIZE = (1 << 20);
-
-struct pawnHashElement {
-    U64 whitePawns, blackPawns;
-    int eval;
-};
-
-pawnHashElement pawnHashTable[PAWN_TABLE_SIZE];
-
-// get hashed value from map
-int retrievePawnEval() {
-    U64 key = board->pawnsBB;
-    U64 whitePawns = (board->pawnsBB & board->whitePiecesBB);
-    U64 blackPawns = (board->pawnsBB & board->blackPiecesBB);
-    
-    int idx = (key & (PAWN_TABLE_SIZE-1));
-    assert(idx >= 0 && idx < PAWN_TABLE_SIZE);
-
-    if(pawnHashTable[idx].whitePawns == whitePawns && pawnHashTable[idx].blackPawns == blackPawns) {
-        return pawnHashTable[idx].eval;
-    }
-
-    return TranspositionTable::VAL_UNKNOWN;
-}
-
-void recordPawnEval(int eval) {
-    if(Search::timeOver) return;
-
-    U64 key = board->pawnsBB;
-    U64 whitePawns = (board->pawnsBB & board->whitePiecesBB);
-    U64 blackPawns = (board->pawnsBB & board->blackPiecesBB);
-
-    int idx = (key & (PAWN_TABLE_SIZE-1));
-    assert(idx >= 0 && idx < PAWN_TABLE_SIZE);
-
-
-    // always replace
-    if(pawnHashTable[idx].whitePawns != whitePawns || pawnHashTable[idx].blackPawns != blackPawns) {
-        pawnHashTable[idx] = {whitePawns, blackPawns, eval};
-    }
-}
-
 void TranspositionTable::clear() {
     hashElement newElement = {0, 0, 0, 0, MoveUtils::NO_MOVE};
-    pawnHashElement newPawnElement = {0, 0, 0};
-
     for(int i = 0; i < SIZE; i++) {
         hashTable[i] = newElement;
     }
-    for(int i = 0; i < PAWN_TABLE_SIZE; i++) {
-        pawnHashTable[i] = newPawnElement;
-    }
 }
+
+TranspositionTable *transpositionTable = nullptr;
