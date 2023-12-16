@@ -161,9 +161,6 @@ long long UCI::moveGenTest(short depth, bool show) {
 
 // show information related to the search such as the depth, nodes, time etc.
 void UCI::showSearchInfo(short depth, int nodes, int startTime, int score) {
-    // reduce depth if mate is found
-    if(abs(score) > Search::MATE_THRESHOLD) depth = Search::MATE_EVAL - abs(score);
-
     // get current time
     int currTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
 

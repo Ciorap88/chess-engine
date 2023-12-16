@@ -114,7 +114,7 @@ void TranspositionTable::recordHash(short depth, int val, int hashF, int best) {
 }
 
 void TranspositionTable::clear() {
-    hashElement newElement = {0, -1, HASH_F_UNKNOWN, 0, MoveUtils::NO_MOVE};
+    hashElement newElement = {0, -2, HASH_F_UNKNOWN, 0, MoveUtils::NO_MOVE};
     for(int i = 0; i < SIZE; i++) {
         hashTable[i] = newElement;
     }

@@ -357,7 +357,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
         board->unmakeMove(moves[idx]);
         movesSearched++;
 
-        if(timeOver) return 0;
+        if(timeOver && (ply > 0 || idx > 0)) return 0; // ensure that we at least have a move to print
         
         if(score > alpha) {
             currBestMove = moves[idx];
@@ -440,7 +440,10 @@ pair<int, int> Search::root() {
         depth++; // increase depth only if we are inside the window
     }
 
-    return {transpositionTable->retrieveBestMove(), eval};
+    int bestMove = transpositionTable->retrieveBestMove();
+    if(bestMove == MoveUtils::NO_MOVE) bestMove = pvArray[0]; // if we can't even finish a depth 1 search
+
+    return {bestMove, eval};
 }
 
 // --- KILLERS AND HISTORY ---
@@ -461,7 +464,7 @@ void Search::updateHistory(int move, int depth) {
     history[(MoveUtils::getColor(move) | MoveUtils::getPiece(move))][MoveUtils::getToSq(move)] += 2 * bonus;
     for(int pc = 0; pc < 16; pc++) {
         for(int sq = 0; sq < 64; sq++) {
-            history[pc][sq] -= bonus;
+            history[pc][sq] = max(0, history[pc][sq] - bonus);
         }
     }
 
