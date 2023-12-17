@@ -18,6 +18,7 @@
 
 using namespace std;
 
+int Search::bestMove = MoveUtils::NO_MOVE;
 
 int Search::killerMoves[256][2];
 int Search::history[16][64];
@@ -96,8 +97,9 @@ void Search::sortMoves(int *moves, int num, short ply) {
     int pvMoveLegal = false;
     int pvMove = pvArray[pvIndex];
 
-    // find hash move
-    int hashMove = transpositionTable->retrieveBestMove();
+    // find hash moves
+    int hashMoveDepth = transpositionTable->retrieveDepthMove();
+    int hashMoveReplace = transpositionTable->retrieveReplaceMove();
 
     // check legality of killer moves
     bool killerLegal[2] = {false, false};
@@ -110,8 +112,11 @@ void Search::sortMoves(int *moves, int num, short ply) {
 
     // split the other moves into captures and non captures for easier sorting
     for(int idx = 0; idx < num; idx++) {
-        if((moves[idx] == pvMove) || (moves[idx] == killerMoves[ply][0]) || (moves[idx] == killerMoves[ply][1]) || (moves[idx] == hashMove))
-            continue;
+        if((moves[idx] == pvMove) 
+        || (moves[idx] == killerMoves[ply][0]) 
+        || (moves[idx] == killerMoves[ply][1]) 
+        || (moves[idx] == hashMoveDepth) 
+        || (moves[idx] == hashMoveReplace)) continue;
 
         if(MoveUtils::isCapture(moves[idx])) captures[nCaptures++] = moves[idx];
         else nonCaptures[nNonCaptures++] = moves[idx];
@@ -122,8 +127,13 @@ void Search::sortMoves(int *moves, int num, short ply) {
     // add pv move
     if(pvMove != MoveUtils::NO_MOVE) moves[newNum++] = pvMove;
 
-    // add hash move if it is not the pv move
-    if (hashMove != MoveUtils::NO_MOVE && hashMove != pvMove) moves[newNum++] = hashMove;
+    // add hash moves if they are different from pv move
+    if (hashMoveDepth != MoveUtils::NO_MOVE 
+    && hashMoveDepth != pvMove) moves[newNum++] = hashMoveDepth;
+
+    if (hashMoveReplace != MoveUtils::NO_MOVE 
+    && hashMoveReplace != pvMove 
+    && hashMoveReplace != hashMoveDepth) moves[newNum++] = hashMoveReplace;
     
     // add captures sorted by MVV-LVA (only winning / equal captures first)
     sort(captures, captures + nCaptures, cmpCapturesInv); // descending order because we add them from the end
@@ -132,10 +142,17 @@ void Search::sortMoves(int *moves, int num, short ply) {
     }
 
     // add killer moves
-    if(killerLegal[0] && (killerMoves[ply][0] != MoveUtils::NO_MOVE) && (killerMoves[ply][0] != pvMove) && (killerMoves[ply][0] != hashMove)) 
-        moves[newNum++] = killerMoves[ply][0];
-    if(killerLegal[1] && (killerMoves[ply][1] != MoveUtils::NO_MOVE) && (killerMoves[ply][1] != pvMove) && (killerMoves[ply][1] != hashMove)) 
-        moves[newNum++] = killerMoves[ply][1];
+    if(killerLegal[0] 
+    && (killerMoves[ply][0] != MoveUtils::NO_MOVE) 
+    && (killerMoves[ply][0] != pvMove) 
+    && (killerMoves[ply][0] != hashMoveDepth) 
+    && (killerMoves[ply][0] != hashMoveReplace)) moves[newNum++] = killerMoves[ply][0];
+
+    if(killerLegal[1] 
+    && (killerMoves[ply][1] != MoveUtils::NO_MOVE) 
+    && (killerMoves[ply][1] != pvMove) 
+    && (killerMoves[ply][1] != hashMoveDepth) 
+    && (killerMoves[ply][1] != hashMoveReplace)) moves[newNum++] = killerMoves[ply][1];
 
     // add other quiet moves sorted
     sort(nonCaptures, nonCaptures + nNonCaptures, cmpNonCaptures);
@@ -259,12 +276,8 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
         return 0; // stalemate
     }
 
+    if(depth <= 0) return quiescence(alpha, beta);
 
-    if(depth <= 0) {
-        int q = quiescence(alpha, beta);
-        if(timeOver) return 0;
-        return q;
-    }
     int currBestMove = MoveUtils::NO_MOVE;
 
     // --- STATIC NULL MOVE PRUNING ---
@@ -361,6 +374,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
         
         if(score > alpha) {
             currBestMove = moves[idx];
+            if(ply == 0) bestMove = currBestMove;
             assert(currBestMove != MoveUtils::NO_MOVE);
 
             pvArray[pvIndex] = moves[idx];
@@ -395,6 +409,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
 
 pair<int, int> Search::root() {
     board->repetitionIndex = 0;
+    bestMove = MoveUtils::NO_MOVE;
 
     timeOver = false;
 
@@ -440,10 +455,11 @@ pair<int, int> Search::root() {
         depth++; // increase depth only if we are inside the window
     }
 
-    int bestMove = transpositionTable->retrieveBestMove();
-    if(bestMove == MoveUtils::NO_MOVE) bestMove = pvArray[0]; // if we can't even finish a depth 1 search
+    int moveToPlay = bestMove;
+    if (moveToPlay == MoveUtils::NO_MOVE) moveToPlay = transpositionTable->retrieveBestMove();
+    assert(moveToPlay != MoveUtils::NO_MOVE);
 
-    return {bestMove, eval};
+    return {moveToPlay, eval};
 }
 
 // --- KILLERS AND HISTORY ---
