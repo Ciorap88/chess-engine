@@ -7,7 +7,7 @@ class TranspositionTable {
 private:
     const int SIZE;
     struct hashElement;
-    hashElement *hashTable;
+    hashElement **hashTable;
 public:
     TranspositionTable();
     ~TranspositionTable();
@@ -21,6 +21,9 @@ public:
     static const int HASH_F_ALPHA, HASH_F_BETA, HASH_F_EXACT, HASH_F_UNKNOWN;
 
     int retrieveBestMove();
+    int retrieveDepthMove();
+    int retrieveReplaceMove();
+    
     int probeHash(short depth, int alpha, int beta);
     void recordHash(short depth, int val, int hashF, int best);
     void clear();

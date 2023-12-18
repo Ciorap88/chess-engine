@@ -7,6 +7,8 @@ using namespace std;
 
 class Search {
 private:
+    static int bestMove;
+
     static int killerMoves[256][2];
     static int history[16][64];
     static const int HISTORY_MAX;
@@ -38,6 +40,7 @@ private:
     // --- PV HELPER FUNCTIONS ---
     static void copyPv(int* dest, int* src, int n);
 public:
+
     static const int MATE_EVAL;
     static const int MATE_THRESHOLD;
 

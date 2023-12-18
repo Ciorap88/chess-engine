@@ -34,11 +34,15 @@ struct TranspositionTable::hashElement {
     int best;
 };
 
-TranspositionTable::TranspositionTable(): SIZE(1 << 22), hashTable(new hashElement[SIZE]) {
+TranspositionTable::TranspositionTable(): SIZE(1 << 22), hashTable(new hashElement*[SIZE]) {
+    for(int i = 0; i < SIZE; i++) {
+        hashTable[i] = new hashElement[2];
+    }
     clear();
 }
 
 TranspositionTable::~TranspositionTable() {
+    for(int i = 0; i < SIZE; i++) delete[] hashTable[i];
     delete[] hashTable;
 }
 
@@ -64,11 +68,34 @@ int TranspositionTable::retrieveBestMove() {
     int index = (board->hashKey & (SIZE-1));
     assert(index >= 0 && index < SIZE);
 
-    hashElement *h = &hashTable[index];
+    hashElement *h = hashTable[index];
 
-    if(h->key != board->hashKey) return MoveUtils::NO_MOVE;
+    if(h[0].key == board->hashKey && h[0].best != MoveUtils::NO_MOVE) return h[0].best;
+    if(h[1].key == board->hashKey) return h[1].best;
 
-    return h->best;
+    return MoveUtils::NO_MOVE;
+}
+
+int TranspositionTable::retrieveDepthMove() {
+    int index = (board->hashKey & (SIZE-1));
+    assert(index >= 0 && index < SIZE);
+
+    hashElement *h = hashTable[index];
+
+    if(h[0].key == board->hashKey) return h[0].best;
+
+    return MoveUtils::NO_MOVE;
+}
+
+int TranspositionTable::retrieveReplaceMove() {
+    int index = (board->hashKey & (SIZE-1));
+    assert(index >= 0 && index < SIZE);
+
+    hashElement *h = hashTable[index];
+
+    if(h[1].key == board->hashKey) return h[1].best;
+
+    return MoveUtils::NO_MOVE;
 }
 
 // check if the stored hash element corresponds to the current position and if it was searched at a good enough depth
@@ -76,14 +103,16 @@ int TranspositionTable::probeHash(short depth, int alpha, int beta) {
     int index = (board->hashKey & (SIZE-1));
     assert(index >= 0 && index < SIZE);
 
-    hashElement *h = &hashTable[index];
+    hashElement *h = hashTable[index];
 
-    if(h->key == board->hashKey) {
-        if(h->depth >= depth) {
-            // return max(min(h->value, beta), alpha);
-            if((h->flags == HASH_F_EXACT || h->flags == HASH_F_ALPHA) && h->value <= alpha) return alpha;
-            if((h->flags == HASH_F_EXACT || h->flags == HASH_F_BETA) && h->value >= beta) return beta;
-            if(h->flags == HASH_F_EXACT && h->value > alpha && h->value < beta) return h->value;
+    for(int i = 0; i < 2; i++) {
+        if(h[i].key == board->hashKey) {
+            if(h[i].depth >= depth) {
+                // return max(min(h[i].value, beta), alpha);
+                if((h[i].flags == HASH_F_EXACT || h[i].flags == HASH_F_ALPHA) && h[i].value <= alpha) return alpha;
+                if((h[i].flags == HASH_F_EXACT || h[i].flags == HASH_F_BETA) && h[i].value >= beta) return beta;
+                if(h[i].flags == HASH_F_EXACT && h[i].value > alpha && h[i].value < beta) return h[i].value;
+            }
         }
     }
     return VAL_UNKNOWN;
@@ -96,27 +125,30 @@ void TranspositionTable::recordHash(short depth, int val, int hashF, int best) {
     int index = (board->hashKey & (SIZE-1));
     assert(index >= 0 && index < SIZE);
 
-    hashElement *h = &hashTable[index];
+    hashElement *h = hashTable[index];
 
-    bool skip = false;
-    // if(h->depth > depth) skip = true;
-    if((h->key == board->hashKey) && (h->depth > depth)) skip = true; 
-    if(hashF != HASH_F_EXACT && h->flags == HASH_F_EXACT) skip = true; 
-    if(hashF == HASH_F_EXACT && h->flags != HASH_F_EXACT) skip = false;
-    if(h->flags == HASH_F_UNKNOWN) skip = false;
-    if(skip) return;
-
-    h->key = board->hashKey;
-    h->best = best;
-    h->value = val;
-    h->flags = hashF;
-    h->depth = depth;
+    // first bucket is depth only
+    bool replace = (h[0].depth <= depth);
+    if(replace) {
+        h[0].key = board->hashKey;
+        h[0].best = best;
+        h[0].value = val;
+        h[0].flags = hashF;
+        h[0].depth = depth;
+    }
+    
+    // second bucket is always replace
+    h[1].key = board->hashKey;
+    h[1].best = best;
+    h[1].value = val;
+    h[1].flags = hashF;
+    h[1].depth = depth;
 }
 
 void TranspositionTable::clear() {
     hashElement newElement = {0, -2, HASH_F_UNKNOWN, 0, MoveUtils::NO_MOVE};
     for(int i = 0; i < SIZE; i++) {
-        hashTable[i] = newElement;
+        hashTable[i][0] = hashTable[i][1] = newElement;
     }
 }
 
