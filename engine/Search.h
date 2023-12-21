@@ -38,7 +38,7 @@ private:
     static void ageHistory();
 
     // --- PV HELPER FUNCTIONS ---
-    static void copyPv(int* dest, int* src, int n);
+    static void copyPv(int* dest, const int* src, int n);
 public:
 
     static const int MATE_EVAL;
