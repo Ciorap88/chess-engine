@@ -99,7 +99,7 @@ int TranspositionTable::retrieveReplaceMove() {
 }
 
 // check if the stored hash element corresponds to the current position and if it was searched at a good enough depth
-int TranspositionTable::probeHash(short depth, int alpha, int beta) {
+int TranspositionTable::probeHash(short depth, int alpha, int beta, int ply) {
     int index = (board->hashKey & (SIZE-1));
     assert(index >= 0 && index < SIZE);
 
@@ -108,10 +108,18 @@ int TranspositionTable::probeHash(short depth, int alpha, int beta) {
     for(int i = 0; i < 2; i++) {
         if(h[i].key == board->hashKey) {
             if(h[i].depth >= depth) {
-                // return max(min(h[i].value, beta), alpha);
-                if((h[i].flags == HASH_F_EXACT || h[i].flags == HASH_F_ALPHA) && h[i].value <= alpha) return alpha;
-                if((h[i].flags == HASH_F_EXACT || h[i].flags == HASH_F_BETA) && h[i].value >= beta) return beta;
-                if(h[i].flags == HASH_F_EXACT && h[i].value > alpha && h[i].value < beta) return h[i].value;
+                int score = h[i].value;
+
+                // mate adjustment
+                // in the tt we have stored the mate score relative to the current position
+                // so we need to adjust it to the root position
+                if(score > Search::MATE_THRESHOLD) score -= ply;
+                else if(score < -Search::MATE_THRESHOLD) score += ply;
+
+                // bound the score to [alpha, beta] and return if conditions are met
+                if ((h[i].flags == HASH_F_EXACT) 
+                || (h[i].flags == HASH_F_ALPHA && score <= alpha) 
+                || (h[i].flags == HASH_F_BETA && score >= beta)) return min(max(score, alpha), beta);
             }
         }
     }
@@ -119,13 +127,18 @@ int TranspositionTable::probeHash(short depth, int alpha, int beta) {
 }
 
 // replace hashed element if replacement conditions are met
-void TranspositionTable::recordHash(short depth, int val, int hashF, int best) {
+void TranspositionTable::recordHash(short depth, int val, int hashF, int best, int ply) {
     if(Search::timeOver) return;
 
     int index = (board->hashKey & (SIZE-1));
     assert(index >= 0 && index < SIZE);
 
     hashElement *h = hashTable[index];
+
+    // current score is relative to the root position
+    // we want to store it relative to the current position
+    if(val > Search::MATE_THRESHOLD) val += ply;
+    if(val < -Search::MATE_THRESHOLD) val -= ply;
 
     // first bucket is depth only
     bool replace = (h[0].depth <= depth);
