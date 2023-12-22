@@ -24,8 +24,8 @@ public:
     int retrieveDepthMove();
     int retrieveReplaceMove();
     
-    int probeHash(short depth, int alpha, int beta);
-    void recordHash(short depth, int val, int hashF, int best);
+    int probeHash(short depth, int alpha, int beta, int ply);
+    void recordHash(short depth, int val, int hashF, int best, int ply);
     void clear();
 
     static void generateZobristHashNumbers();

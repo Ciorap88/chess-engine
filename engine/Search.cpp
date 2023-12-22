@@ -261,7 +261,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
     bool isPV = (beta - alpha > 1);
 
     // retrieving the hashed move and evaluation if there is any
-    int hashScore = transpositionTable->probeHash(depth, alpha, beta);
+    int hashScore = transpositionTable->probeHash(depth, alpha, beta, ply);
     if(hashScore != TranspositionTable::VAL_UNKNOWN) {
         // we return hashed info only if it is an exact hit in pv nodes
         if(!isPV || (hashScore > alpha && hashScore < beta)) {
@@ -385,7 +385,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
             assert(pvNextIndex < (MAX_DEPTH * MAX_DEPTH + MAX_DEPTH) / 2);
 
             if(score >= beta) {
-                transpositionTable->recordHash(depth, beta, TranspositionTable::HASH_F_BETA, currBestMove);
+                transpositionTable->recordHash(depth, beta, TranspositionTable::HASH_F_BETA, currBestMove, ply);
 
                 if(!MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx])) {
                     // store killer moves
@@ -403,7 +403,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
     }
     if(timeOver) return 0;
 
-    transpositionTable->recordHash(depth, alpha, hashFlag, currBestMove);
+    transpositionTable->recordHash(depth, alpha, hashFlag, currBestMove, ply);
     return alpha;
 }
 
