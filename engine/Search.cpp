@@ -35,9 +35,9 @@ int Search::nodesSearched = 0;
 int Search::nodesQ = 0;
 bool Search::timeOver = false;
 
-const int Search::MAX_DEPTH = 256;
-int Search::currMaxDepth = 256;
-int Search::pvArray[(MAX_DEPTH * MAX_DEPTH + MAX_DEPTH) / 2];
+const int Search::MAX_DEPTH = 100;
+int Search::currMaxDepth = 100;
+int Search::pvArray[(MAX_DEPTH * MAX_DEPTH + MAX_DEPTH) / 2 + MAX_DEPTH];
 
 const int Search::ASP_INCREASE = 50;
 
@@ -92,11 +92,6 @@ void Search::sortMoves(int *moves, int num, short ply) {
     int captures[256], nonCaptures[256];
     unsigned int nCaptures = 0, nNonCaptures = 0;
 
-    // find pv move
-    int pvIndex = ply * (2 * MAX_DEPTH + 1 - ply) / 2;
-    int pvMoveLegal = false;
-    int pvMove = pvArray[pvIndex];
-
     // find hash moves
     int hashMoveDepth = transpositionTable->retrieveDepthMove();
     int hashMoveReplace = transpositionTable->retrieveReplaceMove();
@@ -106,14 +101,11 @@ void Search::sortMoves(int *moves, int num, short ply) {
     for(int idx = 0; idx < num; idx++) {
         if(killerMoves[ply][0] == moves[idx]) killerLegal[0] = true;
         if(killerMoves[ply][1] == moves[idx]) killerLegal[1] = true;
-        if(pvMove == moves[idx]) pvMoveLegal = true;
     }
-    assert(pvMoveLegal || pvMove == MoveUtils::NO_MOVE);
 
     // split the other moves into captures and non captures for easier sorting
     for(int idx = 0; idx < num; idx++) {
-        if((moves[idx] == pvMove) 
-        || (moves[idx] == killerMoves[ply][0]) 
+        if((moves[idx] == killerMoves[ply][0]) 
         || (moves[idx] == killerMoves[ply][1]) 
         || (moves[idx] == hashMoveDepth) 
         || (moves[idx] == hashMoveReplace)) continue;
@@ -124,15 +116,10 @@ void Search::sortMoves(int *moves, int num, short ply) {
 
     int newNum = 0; // size of sorted array
 
-    // add pv move
-    if(pvMove != MoveUtils::NO_MOVE) moves[newNum++] = pvMove;
-
     // add hash moves if they are different from pv move
-    if (hashMoveDepth != MoveUtils::NO_MOVE 
-    && hashMoveDepth != pvMove) moves[newNum++] = hashMoveDepth;
+    if (hashMoveDepth != MoveUtils::NO_MOVE) moves[newNum++] = hashMoveDepth;
 
     if (hashMoveReplace != MoveUtils::NO_MOVE 
-    && hashMoveReplace != pvMove 
     && hashMoveReplace != hashMoveDepth) moves[newNum++] = hashMoveReplace;
     
     // add captures sorted by MVV-LVA (only winning / equal captures first)
@@ -144,13 +131,12 @@ void Search::sortMoves(int *moves, int num, short ply) {
     // add killer moves
     if(killerLegal[0] 
     && (killerMoves[ply][0] != MoveUtils::NO_MOVE) 
-    && (killerMoves[ply][0] != pvMove) 
     && (killerMoves[ply][0] != hashMoveDepth) 
     && (killerMoves[ply][0] != hashMoveReplace)) moves[newNum++] = killerMoves[ply][0];
 
     if(killerLegal[1] 
     && (killerMoves[ply][1] != MoveUtils::NO_MOVE) 
-    && (killerMoves[ply][1] != pvMove) 
+    && (killerMoves[ply][1] != killerMoves[ply][0])
     && (killerMoves[ply][1] != hashMoveDepth) 
     && (killerMoves[ply][1] != hashMoveReplace)) moves[newNum++] = killerMoves[ply][1];
 
@@ -229,9 +215,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
 
     int pvIndex = ply * (2 * MAX_DEPTH + 1 - ply) / 2;
     int pvNextIndex = pvIndex + MAX_DEPTH - ply;
-
-    memset(pvArray + pvIndex, MoveUtils::NO_MOVE, sizeof(int) * (pvNextIndex - pvIndex));
-
+    pvArray[pvIndex] = MoveUtils::NO_MOVE;
 
     int hashFlag = TranspositionTable::HASH_F_ALPHA;
 
@@ -239,22 +223,10 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
 
     // --- MATE DISTANCE PRUNING --- 
     // if we find mate, we shouldn't look for a better move
-
-    // lower bound
     int matedScore = - MATE_EVAL + ply;
-    if(alpha < matedScore) {
-        alpha = matedScore;
-        if(beta <= matedScore) return matedScore;
-    }
-
-    // upper bound
     int mateScore = MATE_EVAL - ply;
-    if(beta > mateScore) {
-        beta = mateScore;
-        if(alpha >= mateScore) return mateScore;
-    }
-
-    if(alpha >= beta) return alpha;
+    if (alpha >= mateScore) return alpha;
+    if (beta <= matedScore) return beta;
 
     if(board->isDraw()) return 0;
 
@@ -262,12 +234,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
 
     // retrieving the hashed move and evaluation if there is any
     int hashScore = transpositionTable->probeHash(depth, alpha, beta, ply);
-    if(hashScore != TranspositionTable::VAL_UNKNOWN) {
-        // we return hashed info only if it is an exact hit in pv nodes
-        if(!isPV || (hashScore > alpha && hashScore < beta)) {
-            return hashScore;
-        }
-    }
+    if(hashScore != TranspositionTable::VAL_UNKNOWN && !isPV) return hashScore;
 
     int moves[256];
     int num = board->generateLegalMoves(moves);
@@ -284,7 +251,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
     // if our position is so good that we can afford to lose some material
     // we assume this node will fail high and we prune its branch
     int staticScore = evaluate();
-    if(!isInCheck && !isPV && abs(beta) < mateScore) {
+    if(!isInCheck && !isPV && abs(beta) < MATE_THRESHOLD) {
         int scoreMargin = 100 * depth;
         if (staticScore - scoreMargin >= beta) {
             return staticScore - scoreMargin;
@@ -304,7 +271,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
         board->unmakeMove(MoveUtils::NO_MOVE);
 
         if(timeOver) return 0;
-        if(score >= beta) return beta;
+        if(score >= beta && abs(score) < MATE_THRESHOLD) return beta;
     }
 
     // --- INTERNAL ITERATIVE DEEPENING ---
@@ -377,10 +344,12 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
             if(ply == 0) bestMove = currBestMove;
             assert(currBestMove != MoveUtils::NO_MOVE);
 
-            pvArray[pvIndex] = moves[idx];
-            copyPv(pvArray + pvIndex + 1, pvArray + pvNextIndex, MAX_DEPTH - ply - 1);
+            if(isPV) {
+                pvArray[pvIndex] = moves[idx];
+                copyPv(pvArray + pvIndex + 1, pvArray + pvNextIndex, MAX_DEPTH - ply - 1);
 
-            assert(pvArray[pvIndex] != MoveUtils::NO_MOVE);
+                assert(pvArray[pvIndex] != MoveUtils::NO_MOVE);
+            }
             assert(pvIndex < pvNextIndex);
             assert(pvNextIndex < (MAX_DEPTH * MAX_DEPTH + MAX_DEPTH) / 2);
 
@@ -397,6 +366,7 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
 
                 return beta;
             }
+
             hashFlag = TranspositionTable::HASH_F_EXACT;
             alpha = score;
         }
@@ -420,7 +390,6 @@ pair<int, int> Search::root() {
     for(short i = 0; i < 256; i++)
         killerMoves[i][0] = killerMoves[i][1] = MoveUtils::NO_MOVE;
 
-    memset(pvArray, MoveUtils::NO_MOVE, sizeof(pvArray));
 
     // --- ITERATIVE DEEPENING --- 
     // we start with a depth 1 search and then we increase the depth by 1 every time
@@ -428,8 +397,8 @@ pair<int, int> Search::root() {
     // also it helps improve move ordering by memorizing the best move that we can search first in the next iteration
     long long currStartTime = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
     for(short depth = 1; depth <= currMaxDepth; ) {
-
         nodesSearched = nodesQ = 0;
+        memset(pvArray, MoveUtils::NO_MOVE, sizeof(pvArray));
 
         int curEval = alphaBeta(alpha, beta, depth, 0, false);
 
@@ -511,8 +480,9 @@ void Search::ageHistory() {
 }
 
 // --- PV HELPER FUNCTIONS ---
-void Search::copyPv(int* dest, int* src, int n) {
+void Search::copyPv(int* dest, const int* src, int n) {
    while (n-- && (*dest++ = *src++));
+   *dest = MoveUtils::NO_MOVE;
 }
 
 void Search::showPV(int depth) {
