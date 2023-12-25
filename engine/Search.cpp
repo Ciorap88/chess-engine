@@ -274,6 +274,15 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
         if(score >= beta && abs(score) < MATE_THRESHOLD) return beta;
     }
 
+    // --- RAZORING --- 
+    // if we are close to the horizon and the static eval is bad
+    // do a quiescence search and confirm the position will fail low
+    // if qsearch score fails low we trust it and return
+    if(!isPV && !isInCheck && depth <= 3 && staticScore + 250 * depth <= alpha) {
+        int score = quiescence(alpha, beta);
+        if(score <= alpha) return score;
+    }
+
     // --- INTERNAL ITERATIVE DEEPENING ---
     // if we don't have a move from the tt, we do a quick search with a reduced depth
     if(depth >= 4 && isPV && transpositionTable->retrieveBestMove() == MoveUtils::NO_MOVE) {
