@@ -208,7 +208,7 @@ void UCI::printEval() {
 void UCI::inputGo() {
     while(true) {
         long long time = -1, inc = 0, movesToGo = -1, moveTime = -1;
-        short depth = 256;
+        short depth = 100;
         Search::infiniteTime = true;
 
         std::unique_lock<std::mutex> lk(UCI::mtx);
@@ -271,7 +271,7 @@ void UCI::inputGo() {
             }
         }
 // 
-        // if depth is specified, we change the max depth, otherwise we leave it at 255
+        // if depth is specified, we change the max depth, otherwise we leave it at 100
         Search::currMaxDepth = depth;
 
         if(movesToGo != -1) movesToGo += 2;

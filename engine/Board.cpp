@@ -14,7 +14,7 @@
 
 using namespace std;
 
-Board::Board() : repetitionIndex(0), repetitionMap(new U64[Search::MAX_DEPTH]) {
+Board::Board() : repetitionIndex(0), repetitionMap(new U64[1024]) {
     clear();
 }
 
@@ -921,10 +921,6 @@ int Board::generateLegalMovesQS(int *moves) {
 
 // make a move, updating the squares and bitboards
 void Board::makeMove(int move) {
-    assert((int)epStk.size() <= Search::MAX_DEPTH);
-    assert((int)castleStk.size() <= Search::MAX_DEPTH);
-    assert((int)moveStk.size() <= Search::MAX_DEPTH);
-
     this->updateHashKey(move);
 
     if(move == MoveUtils::NO_MOVE) { // null move
@@ -935,7 +931,6 @@ void Board::makeMove(int move) {
         return;
     }
 
-    assert(repetitionIndex < Search::MAX_DEPTH - 1);
     repetitionMap[repetitionIndex++] = hashKey;
 
     // push the current castle and ep info in order to retrieve it when we unmake the move
