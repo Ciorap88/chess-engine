@@ -292,11 +292,14 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
         if (score <= alpha) score = alphaBeta(-INF, beta, depth - 2, ply + 1, doNull);
     }
 
-    // decide if we can apply futility pruning
-    // bool fPrune = false;
-    // const int F_MARGIN[4] = { 0, 200, 300, 500 };
-    // if (depth <= 3 && !isPV && !isInCheck && abs(alpha) < 9000 && evaluate() + F_MARGIN[depth] <= alpha)
-    //     fPrune = true;
+    // --- FUTILITY PRUNING --- 
+    // if a move is bad enough that it wouldn't be able to raise alpha, we just skip it
+    // this only applies close to the horizon depth
+    bool fPrune = false;
+    const int F_MARGIN[5] = { 0, 100, 170, 240, 310 };
+    if (depth <= 4 && !isPV && !isInCheck && abs(alpha) < Search::MATE_THRESHOLD) {
+        fPrune = (staticScore + F_MARGIN[depth] <= alpha);
+    }
 
     int movesSearched = 0;
     
@@ -305,14 +308,6 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
         if(alpha >= beta) return alpha;
 
         board->makeMove(moves[idx]);
-
-        // --- FUTILITY PRUNING --- 
-        // if a move is bad enough that it wouldn't be able to raise alpha, we just skip it
-        // this only applies close to the horizon depth
-        // if(fPrune && !MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx]) && !board->isInCheck()) {
-        //     board->unmakeMove(moves[idx]);
-        //     continue;
-        // }
             
         // --- PRINCIPAL VARIATION SEARCH --- 
         // we do a full search only until we find a move that raises alpha and we consider it to be the best
@@ -322,6 +317,12 @@ int Search::alphaBeta(int alpha, int beta, short depth, short ply, bool doNull) 
         if(!movesSearched) {
             score = -alphaBeta(-beta, -alpha, depth-1, ply+1, true);
         } else {
+            // Futility prune if conditions are met
+            if(fPrune && !MoveUtils::isCapture(moves[idx]) && !MoveUtils::isPromotion(moves[idx]) && !board->isInCheck()) {
+                board->unmakeMove(moves[idx]);
+                continue;
+            }
+
             // --- LATE MOVE REDUCTION --- 
             // we do full searches only for the first moves, and then do a reduced search
             // if the move is potentially good, we do a full search instead
