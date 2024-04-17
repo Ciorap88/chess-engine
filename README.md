@@ -1,6 +1,6 @@
 # ciorap-bot
 
-This is a UCI-compatible chess engine with ~2000 Elo rating (only tested against [Snowy](https://github.com/JasonCreighton/snowy) so far).
+This is a UCI-compatible chess engine with ~2100 Elo rating.
 
 ### Features
 

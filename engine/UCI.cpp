@@ -14,7 +14,7 @@
 #include "Enums.h"
 #include "UCI.h"
 
-string UCI::engineName = "CiorapBot 0.2";
+string UCI::engineName = "CiorapBot 0.3";
 string UCI::goCommand;
 std::condition_variable UCI::cv;
 std::mutex UCI::mtx;
