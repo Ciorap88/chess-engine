@@ -28,15 +28,6 @@ This is a UCI-compatible chess engine with ~2000 Elo rating (only tested against
 
 ```
 cd engine
-g++ -std=c++20 -O3 -Wall -Wextra *.cpp -o ciorap-bot
+g++ -std=c++20 -O3 *.cpp -o ciorap-bot
 ./ciorap-bot
-```
-
-### Training evaluation parameters
-
-```
-cd training
-g++ -std=c++20 train.cpp ../engine/Board.cpp ../engine/UCI.cpp ../engine/TranspositionTable.cpp ../engine/Search.cpp ../engine/Moves.cpp ../engine/MagicBitboards.cpp ../engine/Evaluate.cpp
--o train
-./train input_file output_file number_of_positions
 ```
