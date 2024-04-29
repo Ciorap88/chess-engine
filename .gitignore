@@ -16,3 +16,6 @@ engine/.vscode
 engine/script.py
 engine/See.cpp
 engine/See.h
+
+!CMakeLists.txt
+build/

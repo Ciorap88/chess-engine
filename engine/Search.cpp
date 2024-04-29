@@ -5,6 +5,7 @@
 #include <iostream>
 #include <stack>
 #include <cassert>
+#include <cstring>
 
 #include "Evaluate.h"
 #include "Board.h"
