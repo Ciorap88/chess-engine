@@ -10,6 +10,7 @@ class SparseBatch(ctypes.Structure):
         ('num_active_black_features', ctypes.c_int),
         ('stm', ctypes.POINTER(ctypes.c_float)),
         ('score', ctypes.POINTER(ctypes.c_float)),
+        ('result', ctypes.POINTER(ctypes.c_float)),
         ('white_features_indices', ctypes.POINTER(ctypes.c_int)),
         ('black_features_indices', ctypes.POINTER(ctypes.c_int))
     ]
@@ -21,6 +22,8 @@ class SparseBatch(ctypes.Structure):
             np.ctypeslib.as_array(self.stm, shape=(self.size, 1))).to(device=device, non_blocking=True)
         score_t = torch.from_numpy(
             np.ctypeslib.as_array(self.score, shape=(self.size, 1))).to(device=device, non_blocking=True)
+        result_t = torch.from_numpy(
+            np.ctypeslib.as_array(self.result, shape=(self.size, 1))).to(device=device, non_blocking=True)
 
         white_features_indices_t = torch.transpose(
             torch.from_numpy(
@@ -43,7 +46,7 @@ class SparseBatch(ctypes.Structure):
         black_features_t._coalesced_(True)
 
         # Now this is what the forward() required!
-        return white_features_t, black_features_t, stm_t, score_t
+        return white_features_t, black_features_t, stm_t, score_t, result_t
 
 # Let's also tell ctypes how to understand this type.
 SparseBatchPtr = ctypes.POINTER(SparseBatch)

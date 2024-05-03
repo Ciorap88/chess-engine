@@ -14,6 +14,7 @@ struct TrainingDataEntry {
     std::string board_string;
     int stm;
     int eval_cp;
+    float result;
 };
 
 #ifdef __cplusplus
@@ -27,6 +28,7 @@ struct TRAIN_API SparseBatch {
 
     float* stm;
     float* score;
+    float* result;
     int* white_features_indices;
     int* black_features_indices;
 

@@ -1,5 +1,4 @@
 import torch
-from math import log
 
 class Loss:
     def __init__(self, scaling_factor, lambda_):
@@ -21,7 +20,8 @@ class Loss:
     def MSE(self, pred, eval_target, game_result):    
         wdl_pred = self.CpToWdlEval(pred)
         wdl_value_target = self.getWdlValueTarget(eval_target, game_result)
-        return (wdl_pred - wdl_value_target) ** 2
+        loss = (wdl_pred - wdl_value_target) ** 2
+        return torch.mean(loss)
         
     def CrossEntropy(self, pred, eval_target, game_result):
         wdl_pred = self.CpToWdlEval(pred)
@@ -30,7 +30,8 @@ class Loss:
         # differentiate with respect to `wdl_pred`, but it makes the loss nice
         # in the sense that 0 is the minimum.
         epsilon = 1e-12
-        return ( 
-            (wdl_value_target * log(wdl_value_target + epsilon) + (1 - wdl_value_target) * log(1 - wdl_value_target + epsilon)) 
-        - (wdl_value_target * log(wdl_pred   + epsilon) + (1 - wdl_value_target) * log(1 - wdl_pred   + epsilon))
+        loss = ( 
+            (wdl_value_target * torch.log(wdl_value_target + epsilon) + (1 - wdl_value_target) * torch.log(1 - wdl_value_target + epsilon)) 
+        - (wdl_value_target * torch.log(wdl_pred   + epsilon) + (1 - wdl_value_target) * torch.log(1 - wdl_pred   + epsilon))
         )
+        return torch.mean(loss)

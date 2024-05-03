@@ -43,7 +43,7 @@ std::vector<TrainingDataEntry> read_entries(std::string file_name) {
 
     std::string line;
     int idx = 0;
-    const int MAX_IDX = 10000000; 
+    const int MAX_IDX = 1000000; 
     const int PERCENT = MAX_IDX / 100;
     while(std::getline(fin, line) && idx < MAX_IDX) {
         if(idx % PERCENT == 0) std::cout << "Processing entries from " << file_name << ": " << idx << " / " << MAX_IDX << "\r";
@@ -53,8 +53,9 @@ std::vector<TrainingDataEntry> read_entries(std::string file_name) {
         std::string board_string = words[0];
         Color stm = (words[1] == "w" ? White : Black);
         int eval_cp = stoi(words[7]);
+        float result = (words[6] == "[0.0]" ? 0.0 : (words[6] == "[1.0]" ? 1.0 : 0.5));
 
-        entries.push_back({ board_string, (stm == White ? 1 : 0), eval_cp });
+        entries.push_back({ board_string, (stm == White ? 1 : 0), eval_cp, result });
 
         idx++;
     }
@@ -127,6 +128,7 @@ void fill(struct SparseBatch *batch, const std::vector<TrainingDataEntry>& entri
 
         batch->stm[pos_index] = (float)t.stm;
         batch->score[pos_index] = (float)t.eval_cp;
+        batch->result[pos_index] = (float)t.result;
 
         file = 0, rank = 7;
         for(const char &p: t.board_string) {
@@ -192,6 +194,8 @@ struct SparseBatch* CreateSparseBatch(const char* file_name) {
     // The score for each position. This is the value that we will be teaching the network.
     batch->score = new float[batch->size];
 
+    batch->result = new float[batch->size];
+
     // The indices of the active features.
     // Why is the size * 2?! The answer is that the indices are 2 dimensional
     // (position_index, feature_index). It's effectively a matrix of size
@@ -212,6 +216,7 @@ void DeleteSparseBatch(struct SparseBatch* batch) {
     if (batch != nullptr) {
         delete[] batch->stm;
         delete[] batch->score;
+        delete[] batch->result;
         delete[] batch->white_features_indices;
         delete[] batch->black_features_indices;
     }
