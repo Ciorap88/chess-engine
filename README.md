@@ -31,3 +31,15 @@ cd engine
 g++ -std=c++20 -O3 *.cpp -o ciorap-bot
 ./ciorap-bot
 ```
+
+### Training the NNUE
+```
+cd nnue
+
+// Create shared C library for parsing the training data
+g++ -c -fPIC -static train.cpp -o train.o
+g++ -shared -static -o train.dll train.o
+
+// Execute training code
+python nnue.py
+```

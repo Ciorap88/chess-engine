@@ -11,6 +11,8 @@ engine/.DS_Store
 
 *.o
 *.txt
+*.exe
+*.dll
 
 engine/.vscode
 engine/script.py

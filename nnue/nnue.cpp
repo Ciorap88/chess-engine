@@ -103,14 +103,6 @@ double* crelu(
     return output + size;
 }
 
-int get_half_kp_index(Color perspective, int kingSquare, int pieceSquare, int pieceType, Color pieceColor) {
-    const int pIdx = (pieceType) * 2 + (pieceColor != perspective);
-    const int orientedKingSquare = (perspective == White ? kingSquare : FLIPPED[kingSquare]);
-    const int orientedPieceSquare = (perspective == White ? pieceSquare : FLIPPED[pieceSquare]);
-
-    return orientedPieceSquare + (pIdx + orientedKingSquare * 10) * 64;
-}
-
 std::vector<int> getActiveFeatures(Color perspective) {
     std::vector<int> result;
 
