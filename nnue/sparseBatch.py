@@ -48,13 +48,14 @@ class SparseBatch(ctypes.Structure):
         # Now this is what the forward() required!
         return white_features_t, black_features_t, stm_t, score_t, result_t
 
-# Let's also tell ctypes how to understand this type.
 SparseBatchPtr = ctypes.POINTER(SparseBatch)
 
-dll = ctypes.cdll.LoadLibrary('./train.dll')
+SparseBatchArr = ctypes.POINTER(SparseBatchPtr)
 
-dll.CreateSparseBatch.restype = SparseBatchPtr
+dll = ctypes.cdll.LoadLibrary('./trainDataLoader.dll')
 
-dll.CreateSparseBatch.argtypes = [ctypes.c_char_p]
+dll.CreateSparseBatchArr.restype = SparseBatchArr
 
-dll.DeleteSparseBatch.argtypes = [ctypes.POINTER(SparseBatch)]
+dll.CreateSparseBatchArr.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.POINTER(ctypes.c_int)]
+
+dll.DeleteSparseBatchArr.argtypes = [SparseBatchArr, ctypes.c_int]

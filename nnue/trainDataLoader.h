@@ -1,9 +1,8 @@
-// ExampleDLL.h
 #pragma once
-#ifdef TRAIN_EXPORTS
-#define TRAIN_API __declspec(dllexport)
+#ifdef TRAINDATALOADER_EXPORTS
+#define TRAINDATALOADER_API __declspec(dllexport)
 #else
-#define TRAIN_API __declspec(dllimport)
+#define TRAINDATALOADER_API __declspec(dllimport)
 #endif
 
 #include "../engine/Enums.h"
@@ -21,7 +20,7 @@ struct TrainingDataEntry {
 extern "C" {
 #endif
 
-struct TRAIN_API SparseBatch {
+struct TRAINDATALOADER_API SparseBatch {
     int size;
     int num_active_white_features;
     int num_active_black_features;
@@ -35,8 +34,8 @@ struct TRAIN_API SparseBatch {
     void fill(const std::vector<TrainingDataEntry>& entries);
 };
 
-TRAIN_API struct SparseBatch* CreateSparseBatch(const char* file_name);
-TRAIN_API void DeleteSparseBatch(struct SparseBatch* batch);
+TRAINDATALOADER_API struct SparseBatch** CreateSparseBatchArr(const char* file_name, int batch_size, int* arraySize);
+TRAINDATALOADER_API void DeleteSparseBatchArr(struct SparseBatch** arr, int arrSize);
 
 #ifdef __cplusplus
 }

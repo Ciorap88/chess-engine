@@ -1,4 +1,4 @@
-#include "train.h"
+#include "trainDataLoader.h"
 #include "../engine/Enums.h"
 #include <string>
 #include <cassert>
@@ -43,10 +43,11 @@ std::vector<TrainingDataEntry> read_entries(std::string file_name) {
 
     std::string line;
     int idx = 0;
-    const int MAX_IDX = 1000000; 
-    const int PERCENT = MAX_IDX / 100;
+    const int MAX_IDX = 10000000; 
+    const int THOUSANDTH = MAX_IDX / 1000;
     while(std::getline(fin, line) && idx < MAX_IDX) {
-        if(idx % PERCENT == 0) std::cout << "Processing entries from " << file_name << ": " << idx << " / " << MAX_IDX << "\r";
+        float percentage = (float)(idx) / ((float) THOUSANDTH * 10.0);
+        if(idx % THOUSANDTH == 0) std::cout << "Processing entries from " << file_name << ": " << idx << " / " << MAX_IDX << " (" << percentage << "%)" << "\r";
 
         std::vector<std::string> words = splitStr(line);
 
@@ -82,17 +83,16 @@ void insert_sort(int* array, int pos) {
 
 const int MAX_ACTIVE_FEATURES = 32;
 
-void fill(struct SparseBatch *batch, const std::vector<TrainingDataEntry>& entries) {
+void fill(struct SparseBatch *batch, std::vector<TrainingDataEntry>& entries) {
     std::unordered_map<char, int> pieceSymbols = {{'p', Pawn}, {'n', Knight},
     {'b', Bishop}, {'r', Rook}, {'q', Queen}, {'k', King}};
 
     int pos_index = 0;
 
-    const int SIZE = entries.size(); 
-    const int PERCENT = SIZE / 100;
+    const int SIZE = batch->size; 
 
-    for(const TrainingDataEntry &t: entries) {
-        if(pos_index % PERCENT == 0) std::cout << "Filling entries: " << pos_index << " / " << SIZE << "\r";
+    while(pos_index < SIZE && !entries.empty()) {
+        TrainingDataEntry &t = entries.back();
 
         int whiteKingSquare = -1;
         int blackKingSquare = -1;
@@ -122,7 +122,7 @@ void fill(struct SparseBatch *batch, const std::vector<TrainingDataEntry>& entri
         }
 
         if(whiteKingSquare == -1 || blackKingSquare == -1) {
-            batch->size--;
+            entries.pop_back();
             continue;
         }
 
@@ -169,19 +169,17 @@ void fill(struct SparseBatch *batch, const std::vector<TrainingDataEntry>& entri
                 }
             }
         }
+        entries.pop_back();
         pos_index++;
     }
-
-    std::cout << "\nFilled entries. Batch size = " << batch->size << '\n';
+    if(entries.empty()) batch->size = pos_index;
 }
 
-struct SparseBatch* CreateSparseBatch(const char* file_name) {
+struct SparseBatch* CreateSparseBatch(std::vector<TrainingDataEntry> &entries, int size) {
     struct SparseBatch* batch = new SparseBatch();
 
-    std::vector<TrainingDataEntry> entries = read_entries(file_name);
-
     // The number of positions in the batch
-    batch->size = entries.size();
+    batch->size = size;
 
     // The total number of white/black active features in the whole batch.
     batch->num_active_white_features = 0;
@@ -219,5 +217,34 @@ void DeleteSparseBatch(struct SparseBatch* batch) {
         delete[] batch->result;
         delete[] batch->white_features_indices;
         delete[] batch->black_features_indices;
+    }
+}
+
+struct SparseBatch** CreateSparseBatchArr(const char* file_name, int batch_size, int* arraySize) {
+
+    std::vector<TrainingDataEntry> entries = read_entries(file_name);
+    int MAX_NUM_BATCHES = (entries.size() + batch_size - 1) / batch_size;
+
+    SparseBatch** arr = new SparseBatch*[MAX_NUM_BATCHES];
+
+    (*arraySize) = 0;
+    while(!entries.empty()) {
+        if((*arraySize) % 10 == 0) std::cout << "Creating batch " << (*arraySize) << "...\r";
+
+        arr[(*arraySize)] = CreateSparseBatch(entries, batch_size);
+        assert(arr[(*arraySize)]->size == batch_size || entries.empty());
+
+        (*arraySize)++;
+    }
+
+    std::cout << "Number of batches=" << (*arraySize) << '\n';
+
+    return arr;
+}
+
+void DeleteSparseBatchArr(struct SparseBatch** arr, int arrSize) {
+    if(arr != nullptr) {
+        for(int i = 0; i < arrSize; i++) DeleteSparseBatch(arr[i]);
+        delete[] arr;
     }
 }
