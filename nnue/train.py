@@ -12,9 +12,10 @@ from loss import Loss
 
 if __name__ == "__main__":
     loss = Loss(410, 0.75)
-    
+
+    batch_size = 512
     numberOfBatches = ctypes.c_int()
-    batchArr = dll.CreateSparseBatchArr("pos.txt".encode('utf-8'), 4096, ctypes.byref(numberOfBatches))
+    batchArr = dll.CreateSparseBatchArr("pos.txt".encode('utf-8'), batch_size, ctypes.byref(numberOfBatches))
     numberOfBatches = numberOfBatches.value
     
     
@@ -23,11 +24,12 @@ if __name__ == "__main__":
         print(f"Creating tensors for batch {i}/{numberOfBatches}.", end='\r')
         batches_t.append(batchArr[i].contents.get_tensors(0))
     print()
+    print(batches_t[0][4])
     
-    model = NNUE(batches_t[0][0].size(1), 64, 64, 1).to(0)
+    model = NNUE(batches_t[0][0].size(1), 4, 8, 1).to(0)
     
     optimizer = optim.Adam(model.parameters(), lr=0.05)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2, verbose=True)    
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2)    
     
     best_loss = float('inf')
     no_improvement_count = 0
@@ -55,8 +57,10 @@ if __name__ == "__main__":
             optimizer.zero_grad()
             loss_val.backward()
             optimizer.step()
-            
-        print(f"\nEpoch {epoch+1}/{num_epochs} done, loss={round(total_loss.item(), 5)}")
+           
+        scheduler.step(total_loss)
+         
+        print(f"\nEpoch {epoch+1}/{num_epochs} done, loss={round(total_loss.item(), 5)}, lr={scheduler.get_last_lr()}")
         
         if total_loss.item() < best_loss:
             best_loss = total_loss.item()

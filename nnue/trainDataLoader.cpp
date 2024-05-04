@@ -6,6 +6,7 @@
 #include <vector>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 
 const int FLIPPED[64] = {
     56, 57, 58, 59, 60, 61, 62, 63,
@@ -43,7 +44,7 @@ std::vector<TrainingDataEntry> read_entries(std::string file_name) {
 
     std::string line;
     int idx = 0;
-    const int MAX_IDX = 10000000; 
+    const int MAX_IDX = 1000000; 
     const int THOUSANDTH = MAX_IDX / 1000;
     while(std::getline(fin, line) && idx < MAX_IDX) {
         float percentage = (float)(idx) / ((float) THOUSANDTH * 10.0);
@@ -60,9 +61,12 @@ std::vector<TrainingDataEntry> read_entries(std::string file_name) {
 
         idx++;
     }
+    std::random_shuffle(entries.begin(), entries.end());
+
     std::cout << "\nProcessed " << entries.size() << " entries.\n";
 
     fin.close();
+
 
     return entries;
 }

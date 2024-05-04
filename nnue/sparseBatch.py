@@ -37,10 +37,10 @@ class SparseBatch(ctypes.Structure):
         white_features_values_t = torch.ones(self.num_active_white_features)
         black_features_values_t = torch.ones(self.num_active_black_features)
 
-        white_features_t = torch._sparse_coo_tensor_unsafe(
-            white_features_indices_t, white_features_values_t, (self.size, NUM_FEATURES)).to(device=device, non_blocking=True)
-        black_features_t = torch._sparse_coo_tensor_unsafe(
-            black_features_indices_t, black_features_values_t, (self.size, NUM_FEATURES)).to(device=device, non_blocking=True)
+        white_features_t = torch.sparse_coo_tensor(
+            white_features_indices_t, white_features_values_t, (self.size, NUM_FEATURES), check_invariants=False).to(device=device, non_blocking=True)
+        black_features_t = torch.sparse_coo_tensor(
+            black_features_indices_t, black_features_values_t, (self.size, NUM_FEATURES), check_invariants=False).to(device=device, non_blocking=True)
 
         white_features_t._coalesced_(True)
         black_features_t._coalesced_(True)
