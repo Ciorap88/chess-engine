@@ -34,7 +34,7 @@ struct TRAINDATALOADER_API SparseBatch {
     void fill(const std::vector<TrainingDataEntry>& entries);
 };
 
-TRAINDATALOADER_API struct SparseBatch** CreateSparseBatchArr(const char* file_name, int batch_size, int* arraySize);
+TRAINDATALOADER_API struct SparseBatch** CreateSparseBatchArr(const char* file_name, int batch_size, const int MAX_IDX, int* arraySize);
 TRAINDATALOADER_API void DeleteSparseBatchArr(struct SparseBatch** arr, int arrSize);
 
 #ifdef __cplusplus

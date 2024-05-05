@@ -56,6 +56,6 @@ dll = ctypes.cdll.LoadLibrary('./trainDataLoader.dll')
 
 dll.CreateSparseBatchArr.restype = SparseBatchArr
 
-dll.CreateSparseBatchArr.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.POINTER(ctypes.c_int)]
+dll.CreateSparseBatchArr.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_int)]
 
 dll.DeleteSparseBatchArr.argtypes = [SparseBatchArr, ctypes.c_int]

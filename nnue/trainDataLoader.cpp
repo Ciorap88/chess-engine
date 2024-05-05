@@ -37,14 +37,13 @@ int get_half_kp_index(Color perspective, int kingSquare, int pieceSquare, int pi
     return orientedPieceSquare + (pIdx + orientedKingSquare * 10) * 64;
 }
 
-std::vector<TrainingDataEntry> read_entries(std::string file_name) {
+std::vector<TrainingDataEntry> read_entries(std::string file_name, const int MAX_IDX) {
     std::vector<TrainingDataEntry> entries;
 
     std::ifstream fin(file_name);
 
     std::string line;
     int idx = 0;
-    const int MAX_IDX = 1000000; 
     const int THOUSANDTH = MAX_IDX / 1000;
     while(std::getline(fin, line) && idx < MAX_IDX) {
         float percentage = (float)(idx) / ((float) THOUSANDTH * 10.0);
@@ -224,9 +223,9 @@ void DeleteSparseBatch(struct SparseBatch* batch) {
     }
 }
 
-struct SparseBatch** CreateSparseBatchArr(const char* file_name, int batch_size, int* arraySize) {
+struct SparseBatch** CreateSparseBatchArr(const char* file_name, int batch_size, const int MAX_IDX, int* arraySize) {
 
-    std::vector<TrainingDataEntry> entries = read_entries(file_name);
+    std::vector<TrainingDataEntry> entries = read_entries(file_name, MAX_IDX);
     int MAX_NUM_BATCHES = (entries.size() + batch_size - 1) / batch_size;
 
     SparseBatch** arr = new SparseBatch*[MAX_NUM_BATCHES];
